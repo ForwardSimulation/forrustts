@@ -44,7 +44,7 @@ mod test {
 
     #[test]
     fn test_swap_edges() {
-        let mut tables = create_table_collection(1000);
+        let mut tables = TableCollection::new(1000).unwrap();
         let mut edges = EdgeTable::new();
 
         let num_edges = edge_table_add_row(&mut edges, 0, 1, 3, 4).unwrap();
