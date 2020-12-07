@@ -146,8 +146,8 @@ impl<Value> NestedForwardList<Value> {
 
     pub fn nullify_list(&mut self, at: i32) -> Result<()> {
         self.check_key(at)?;
-        self.check_key_range(at as usize, self.head_.len());
-        self.check_key_range(at as usize, self.tail_.len());
+        self.check_key_range(at as usize, self.head_.len())?;
+        self.check_key_range(at as usize, self.tail_.len())?;
         self.head_[at as usize] = NestedForwardList::<Value>::null();
         self.tail_[at as usize] = NestedForwardList::<Value>::null();
         return Ok(());
@@ -185,10 +185,10 @@ mod tests {
         let mut list = ListType::new();
         list.reset(2);
         for i in 0..3 {
-            list.extend(0, 2 * i);
+            list.extend(0, 2 * i).unwrap();
         }
         for i in 0..5 {
-            list.extend(1, 3 * i);
+            list.extend(1, 3 * i).unwrap();
         }
         return list;
     }
@@ -242,7 +242,7 @@ mod tests {
         list.consume(0, |x: &i32| {
             output.push(*x);
             return true;
-        });
+        }).unwrap();
 
         for i in 0..3 {
             assert_eq!(2 * i, output[i] as usize);
@@ -253,16 +253,16 @@ mod tests {
         list.consume(1, |x: &i32| {
             output.push(*x);
             return true;
-        });
+        }).unwrap();
 
         for i in 0..5 {
             assert_eq!(3 * i, output[i] as usize);
         }
 
         output.clear();
-        list.consume(1, |x: &i32| {
+        list.consume(1, |_: &i32| {
             return false;
-        });
+        }).unwrap();
 
         assert_eq!(output.len(), 0);
     }
