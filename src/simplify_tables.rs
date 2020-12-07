@@ -1,58 +1,57 @@
-use crate::nested_forward_list::NestedForwardList;
+use crate::simplification_logic;
 use crate::tables::*;
-use crate::tsdef::{SamplesVec, TsInt, NULL};
-
-fn swap_edges(tables: &mut TableCollection, edges: &mut EdgeTable) {
-    std::mem::swap(&mut tables.edges_, edges);
-}
-
-fn swap_nodes(tables: &mut TableCollection, nodes: &mut NodeTable) {
-    std::mem::swap(&mut tables.nodes_, nodes);
-}
-
-fn setup_idmap(nodes: &NodeTable) -> SamplesVec {
-    return vec![NULL; nodes.len()];
-}
-
-struct Segment {
-    pub left: i64,
-    pub right: i64,
-    pub node: TsInt,
-}
-
-type AncestryList = NestedForwardList<Segment>;
+use crate::tsdef::SamplesVec;
 
 pub fn simplify_tables(samples: &SamplesVec, tables: &mut TableCollection) -> SamplesVec {
     if tables.sites_.len() > 0 || tables.mutations_.len() > 0 {
         panic!("mutation simplification not yet implemented");
     }
 
-    let idmap = setup_idmap(&tables.nodes_);
+    let mut idmap = simplification_logic::setup_idmap(&tables.nodes_);
     let mut new_nodes = NodeTable::new();
+    let mut temp_edge_buffer = EdgeTable::new();
     let mut new_edges = EdgeTable::new();
-    let mut ancestry = AncestryList::new();
+    let mut ancestry = simplification_logic::AncestryList::new();
+    let mut overlapper = simplification_logic::SegmentOverlapper::new();
 
-    swap_edges(tables, &mut new_edges);
-    swap_nodes(tables, &mut new_nodes);
-    return idmap;
-}
+    ancestry.reset(tables.num_nodes());
 
-#[cfg(test)]
-mod test {
+    simplification_logic::record_sample_nodes(
+        &samples,
+        &tables,
+        &mut new_nodes,
+        &mut ancestry,
+        &mut idmap,
+    );
 
-    use super::*;
+    let mut edge_i = 0;
+    let num_edges = tables.num_edges();
+    while edge_i < num_edges {
+        let u = tables.edges_[edge_i].parent;
+        edge_i = simplification_logic::find_parent_child_segment_overlap(
+            &tables.edges_,
+            edge_i,
+            num_edges,
+            tables.get_length(),
+            u,
+            &mut ancestry,
+            &mut overlapper,
+        );
 
-    #[test]
-    fn test_swap_edges() {
-        let mut tables = TableCollection::new(1000).unwrap();
-        let mut edges = EdgeTable::new();
-
-        let num_edges = edge_table_add_row(&mut edges, 0, 1, 3, 4).unwrap();
-        assert_eq!(1, num_edges);
-
-        swap_edges(&mut tables, &mut edges);
-
-        assert_eq!(0, edges.len());
-        assert_eq!(num_edges, tables.edges_.len());
+        simplification_logic::merge_ancestors(
+            &tables.nodes_,
+            tables.get_length(),
+            u,
+            &mut temp_edge_buffer,
+            &mut new_nodes,
+            &mut new_edges,
+            &mut ancestry,
+            &mut overlapper,
+            &mut idmap,
+        );
     }
+    simplification_logic::swap_edges(tables, &mut new_edges);
+    simplification_logic::swap_nodes(tables, &mut new_nodes);
+
+    return idmap;
 }

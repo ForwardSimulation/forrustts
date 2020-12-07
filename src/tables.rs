@@ -1,4 +1,4 @@
-use crate::tsdef::TsInt;
+use crate::tsdef::{TsInt, NULLTSINT};
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
@@ -15,6 +15,24 @@ pub enum TablesError {
     InvalidTime { found: i64 },
     #[error("Invalid value for deme: {found:?}")]
     InvalidDeme { found: i32 },
+    #[error("Parent is NULLTSINT")]
+    NullParent,
+    #[error("Child is NULLTSINT")]
+    NullChild,
+    #[error("Node is out of bounds")]
+    NodeOutOfBounds,
+    #[error("Node time order violation")]
+    NodeTimesUnordered,
+    #[error("Parents not sorted by time")]
+    ParentTimesUnsorted,
+    #[error("Parents not contiguous")]
+    ParentsNotContiguous,
+    #[error("Edges not sorted by child")]
+    EdgesNotSortedByChild,
+    #[error("Edges not sorted by left")]
+    EdgesNotSortedByLeft,
+    #[error("Duplicate edges")]
+    DuplicateEdges,
 }
 
 /// Result type for operations on tables
@@ -133,7 +151,7 @@ pub fn node_table_add_row(nodes: &mut NodeTable, time: i64, deme: i32) -> Tables
 
     // TODO: learn if there is a way to raise error
     // automagically if overlow.
-    return Ok(nodes.len() as TsInt);
+    return Ok((nodes.len() - 1) as TsInt);
 }
 
 pub fn site_table_add_row(
@@ -168,30 +186,26 @@ pub fn mutation_table_add_row(
     return Ok(mutations.len());
 }
 
-// Wow, this Ord stuff takes
-// some getting used to!
-// NOTE: presumably panics if NaN/Inf show up?
 fn sort_edge_table(nodes: &NodeTable, edges: &mut EdgeTable) -> () {
     // NOTE: it may by more idiomatic to
     // not use a slice here, and instead allow
     // the range-checking?
     let nslice = &nodes.as_slice();
     edges.sort_by(|a, b| {
-        // NOTE: rust will simply NOT ALLOW
-        // i32 to be an index!
-        let pindex = a.parent as usize;
-        let cindex = a.parent as usize;
-        let ta = nslice[pindex].time;
-        let tb = nslice[cindex].time;
+        let aindex = a.parent as usize;
+        let bindex = b.parent as usize;
+        let ta = nslice[aindex].time;
+        let tb = nslice[bindex].time;
         if ta == tb {
             if a.parent == b.parent {
                 if a.child == b.child {
-                    return a.left.partial_cmp(&b.left).unwrap();
+                    return a.left.cmp(&b.left);
                 }
-                return a.parent.cmp(&b.parent);
+                return a.child.cmp(&b.child);
             }
+            return a.parent.cmp(&b.parent);
         }
-        return ta.partial_cmp(&tb).unwrap().reverse();
+        return ta.cmp(&tb).reverse();
     });
 }
 
@@ -202,6 +216,78 @@ fn sort_mutation_table(sites: &SiteTable, mutations: &mut MutationTable) -> () {
         let pb = sslice[b.site].position;
         return pa.partial_cmp(&pb).unwrap().reverse();
     });
+}
+
+pub fn validate_edge_table(len: i64, edges: &EdgeTable, nodes: &NodeTable) -> TablesResult<bool> {
+    if edges.len() == 0 {
+        return Ok(true);
+    }
+    let mut parent_seen = vec![0; nodes.len()];
+    let mut last_parent: usize = edges[0].parent as usize;
+    let mut last_child: usize = edges[0].child as usize;
+    let mut last_left: i64 = edges[0].left;
+
+    for (i, edge) in edges.iter().enumerate() {
+        if edge.parent == NULLTSINT {
+            return Err(TablesError::NullParent);
+        }
+        if edge.child == NULLTSINT {
+            return Err(TablesError::NullChild);
+        }
+        if edge.parent < 0 || edge.parent as usize >= nodes.len() {
+            return Err(TablesError::NodeOutOfBounds);
+        }
+        if edge.child < 0 || edge.child as usize >= nodes.len() {
+            return Err(TablesError::NodeOutOfBounds);
+        }
+        if edge.left < 0 || edge.left > len {
+            return Err(TablesError::InvalidPosition { found: edge.left });
+        }
+        if edge.right < 0 || edge.right > len {
+            return Err(TablesError::InvalidPosition { found: edge.right });
+        }
+        if edge.left >= edge.right {
+            return Err(TablesError::InvalidLeftRight {
+                found: (edge.left, edge.right),
+            });
+        }
+
+        // child time must be > parent time b/c time goes forwards
+        if nodes[edge.child as usize].time <= nodes[edge.parent as usize].time {
+            return Err(TablesError::NodeTimesUnordered);
+        }
+
+        if parent_seen[edge.parent as usize] == 1 {
+            return Err(TablesError::ParentsNotContiguous);
+        }
+
+        if i > 0 {
+            if nodes[edge.parent as usize].time > nodes[last_parent].time {
+                return Err(TablesError::ParentTimesUnsorted);
+            }
+            if nodes[edge.parent as usize].time == nodes[last_parent].time {
+                if edge.parent as usize == last_parent {
+                    if (edge.child as usize) < last_child {
+                        return Err(TablesError::EdgesNotSortedByChild);
+                    }
+                    if edge.child as usize == last_child {
+                        if edge.left == last_left {
+                            return Err(TablesError::DuplicateEdges);
+                        } else if edge.left < last_left {
+                            return Err(TablesError::EdgesNotSortedByLeft);
+                        }
+                    }
+                } else {
+                    parent_seen[last_parent] = 1;
+                }
+            }
+        }
+        last_parent = edge.parent as usize;
+        last_child = edge.child as usize;
+        last_left = edge.left;
+    }
+
+    return Ok(true);
 }
 
 /// A collection of node, edge, site, and mutation tables.
@@ -288,9 +374,31 @@ impl TableCollection {
         return self.edges_.len();
     }
 
+    /// Return number of nodes
+    pub fn num_nodes(&self) -> usize {
+        return self.nodes_.len();
+    }
+
     /// Return immutable reference to [node table](type.NodeTable.html)
     pub fn nodes(&self) -> &NodeTable {
         return &self.nodes_;
+    }
+
+    // FIXME: validate input
+    pub fn node(&self, i: TsInt) -> &Node {
+        return &self.nodes_[i as usize];
+    }
+
+    pub fn edge(&self, i: usize) -> &Edge {
+        return &self.edges_[i];
+    }
+
+    pub fn site(&self, i: usize) -> &Site {
+        return &self.sites_[i];
+    }
+
+    pub fn mutation(&self, i: usize) -> &Mutation {
+        return &self.mutations_[i];
     }
 
     /// Return immutable reference to [site table](type.SiteTable.html)
