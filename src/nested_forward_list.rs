@@ -1,3 +1,15 @@
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum NestedForwardListError {
+    #[error("Invalid key")]
+    InvalidKey,
+    #[error("Invalid key")]
+    KeyOutOfRange,
+}
+
+pub type Result<T> = std::result::Result<T, NestedForwardListError>;
+
 // NOTE: I am unclear how to add a Key
 // to this generic.  Unlike C++, there's
 // no notion of a static_assert.  Gotta Google
@@ -11,6 +23,30 @@ pub struct NestedForwardList<Value> {
 }
 
 impl<Value> NestedForwardList<Value> {
+    fn insert_new_record(&mut self, k: i32, v: Value) -> () {
+        self.data_.push(v);
+        let x = (self.data_.len() - 1) as i32;
+        self.head_[k as usize] = x;
+        self.tail_[k as usize] = self.head_[k as usize];
+        self.next_.push(NestedForwardList::<Value>::null());
+    }
+
+    fn check_key(&self, k: i32) -> Result<()> {
+        if k < 0 {
+            return Err(NestedForwardListError::InvalidKey);
+        }
+        return Ok(());
+    }
+
+    fn check_key_range(&self, k: usize, n: usize) -> Result<()> {
+        if k >= n {
+            return Err(NestedForwardListError::KeyOutOfRange);
+        }
+        return Ok(());
+    }
+
+    // Public functions:
+
     pub const fn new() -> NestedForwardList<Value> {
         return NestedForwardList {
             head_: Vec::<i32>::new(),
@@ -20,11 +56,9 @@ impl<Value> NestedForwardList<Value> {
         };
     }
 
-    pub fn null() -> i32 {
-        return -1;
-    }
+    pub fn extend(&mut self, k: i32, v: Value) -> Result<()> {
+        self.check_key(k)?;
 
-    pub fn extend(&mut self, k: i32, v: Value) -> () {
         let idx = k as usize;
         if idx >= self.head_.len() {
             self.head_
@@ -35,11 +69,11 @@ impl<Value> NestedForwardList<Value> {
 
         if self.head_[idx] == NestedForwardList::<Value>::null() {
             self.insert_new_record(idx as i32, v);
-            return;
+            return Ok(());
         }
         let t = self.tail_[idx];
         if t == NestedForwardList::<Value>::null() {
-            // FIXME: need to error out here
+            panic!("unexpected null");
         }
         self.data_.push(v);
         self.tail_[idx] = (self.data_.len() - 1) as i32;
@@ -47,22 +81,47 @@ impl<Value> NestedForwardList<Value> {
         // and thus could be failure point?
         self.next_[t as usize] = self.tail_[idx];
         self.next_.push(NestedForwardList::<Value>::null());
+        return Ok(());
     }
 
-    pub fn insert_new_record(&mut self, k: i32, v: Value) -> () {
-        self.data_.push(v);
-        let x = self.data_.len() as i32;
-        self.head_[k as usize] = x;
-        self.tail_[k as usize] = self.head_[k as usize];
-        self.next_.push(NestedForwardList::<Value>::null());
+    #[inline]
+    pub fn null() -> i32 {
+        return -1;
     }
 
-    pub fn fetch_mut(&mut self, at: i32) -> &mut Value {
-        return &mut self.data_[at as usize];
+    #[inline]
+    pub fn fetch_mut(&mut self, at: i32) -> Result<&mut Value> {
+        self.check_key(at)?;
+        self.check_key_range(at as usize, self.data_.len())?;
+        return Ok(&mut self.data_[at as usize]);
     }
 
-    pub fn fetch(&self, at: i32) -> &Value {
-        return &self.data_[at as usize];
+    #[inline]
+    pub fn fetch(&self, at: i32) -> Result<&Value> {
+        self.check_key(at)?;
+        self.check_key_range(at as usize, self.data_.len())?;
+        return Ok(&self.data_[at as usize]);
+    }
+
+    #[inline]
+    pub fn head(&self, at: i32) -> Result<i32> {
+        self.check_key(at)?;
+        self.check_key_range(at as usize, self.head_.len())?;
+        return Ok(self.head_[at as usize]);
+    }
+
+    #[inline]
+    pub fn tail(&self, at: i32) -> Result<i32> {
+        self.check_key(at)?;
+        self.check_key_range(at as usize, self.tail_.len())?;
+        return Ok(self.tail_[at as usize]);
+    }
+
+    #[inline]
+    pub fn next(&self, at: i32) -> Result<i32> {
+        self.check_key(at)?;
+        self.check_key_range(at as usize, self.next_.len())?;
+        return Ok(self.next_[at as usize]);
     }
 
     pub fn clear(&mut self) {
@@ -72,9 +131,26 @@ impl<Value> NestedForwardList<Value> {
         self.next_.clear();
     }
 
-    pub fn nullify_list(&mut self, at: i32) -> () {
+    pub fn consume(&self, at: i32, mut f: impl FnMut(&Value) -> bool) -> Result<()> {
+        let mut itr = self.head(at)?;
+        while itr != NestedForwardList::<Value>::null() {
+            let val = self.fetch(itr)?;
+            let check = f(val);
+            if check == false {
+                break;
+            }
+            itr = self.next(itr)?;
+        }
+        return Ok(());
+    }
+
+    pub fn nullify_list(&mut self, at: i32) -> Result<()> {
+        self.check_key(at)?;
+        self.check_key_range(at as usize, self.head_.len());
+        self.check_key_range(at as usize, self.tail_.len());
         self.head_[at as usize] = NestedForwardList::<Value>::null();
         self.tail_[at as usize] = NestedForwardList::<Value>::null();
+        return Ok(());
     }
 
     pub fn reset(&mut self, newsize: usize) -> () {
@@ -95,5 +171,111 @@ impl<Value> NestedForwardList<Value> {
             .iter_mut()
             .map(|x| *x = NestedForwardList::<Value>::null())
             .count();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    type ListType = NestedForwardList<i32>;
+
+    fn make_data_for_testing() -> ListType {
+        let mut list = ListType::new();
+        list.reset(2);
+        for i in 0..3 {
+            list.extend(0, 2 * i);
+        }
+        for i in 0..5 {
+            list.extend(1, 3 * i);
+        }
+        return list;
+    }
+
+    #[test]
+    fn test_head_tail() {
+        let list = make_data_for_testing();
+        assert_eq!(*list.fetch(list.head(0).unwrap()).unwrap(), 0);
+        assert_eq!(*list.fetch(list.tail(0).unwrap()).unwrap(), 4);
+        assert_eq!(*list.fetch(list.head(1).unwrap()).unwrap(), 0);
+        assert_eq!(*list.fetch(list.tail(1).unwrap()).unwrap(), 12);
+    }
+
+    #[test]
+    fn test_explicit_data_round_trip() {
+        let mut list = make_data_for_testing();
+
+        let mut output = Vec::<i32>::new();
+        let mut itr = list.head(0).unwrap();
+        while itr != ListType::null() {
+            let val = list.fetch(itr).unwrap();
+            output.push(*val);
+            itr = list.next(itr).unwrap();
+        }
+        assert_eq!(3, output.len());
+
+        for i in 0..3 {
+            assert_eq!(2 * i, output[i] as usize);
+        }
+
+        output.clear();
+
+        itr = list.head(1).unwrap();
+        while itr != ListType::null() {
+            let val = list.fetch(itr).unwrap();
+            output.push(*val);
+            itr = list.next(itr).unwrap();
+        }
+        assert_eq!(5, output.len());
+
+        for i in 0..5 {
+            assert_eq!(3 * i, output[i] as usize);
+        }
+    }
+
+    #[test]
+    fn test_consume_data_round_trip() {
+        let mut list = make_data_for_testing();
+        let mut output = Vec::<i32>::new();
+
+        list.consume(0, |x: &i32| {
+            output.push(*x);
+            return true;
+        });
+
+        for i in 0..3 {
+            assert_eq!(2 * i, output[i] as usize);
+        }
+
+        output.clear();
+
+        list.consume(1, |x: &i32| {
+            output.push(*x);
+            return true;
+        });
+
+        for i in 0..5 {
+            assert_eq!(3 * i, output[i] as usize);
+        }
+
+        output.clear();
+        list.consume(1, |x: &i32| {
+            return false;
+        });
+
+        assert_eq!(output.len(), 0);
+    }
+
+    #[test]
+    fn test_check_key() {
+        let mut list = make_data_for_testing();
+        list.reset(1);
+        let result = list.extend(-1, 2);
+        match result {
+            Ok(_) => assert!(false),
+            Err(NestedForwardListError::InvalidKey) => assert!(true),
+            Err(NestedForwardListError::KeyOutOfRange) => assert!(false),
+        }
     }
 }
