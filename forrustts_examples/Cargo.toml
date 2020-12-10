@@ -1,0 +1,17 @@
+[package]
+name = "forrustts_examples"
+version = "0.1.0"
+authors = ["molpopgen <krthornt@uci.edu>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies.forrustts]
+path = "../"
+
+[dependencies]
+clap = "~2.27.0"
+
+[[bin]]
+name = "neutral_wf"
+path = "./neutral_wf.rs"
