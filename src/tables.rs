@@ -406,6 +406,26 @@ impl TableCollection {
         return &self.sites_;
     }
 
+    /// Provide an enumeration over the [node table](type.NodeTable.html)
+    pub fn enumerate_nodes(&self) -> std::iter::Enumerate<std::slice::Iter<Node>> {
+        return self.nodes_.iter().enumerate();
+    }
+
+    /// Provide an enumeration over the [edge table](type.EdgeTable.html)
+    pub fn enumerate_edges(&self) -> std::iter::Enumerate<std::slice::Iter<Edge>> {
+        return self.edges_.iter().enumerate();
+    }
+
+    /// Provide an enumeration over the [mutation table](type.MutationTable.html)
+    pub fn enumerate_mutations(&self) -> std::iter::Enumerate<std::slice::Iter<Mutation>> {
+        return self.mutations_.iter().enumerate();
+    }
+
+    /// Provide an enumeration over the [site table](type.SiteTable.html)
+    pub fn enumerate_sites(&self) -> std::iter::Enumerate<std::slice::Iter<Site>> {
+        return self.sites_.iter().enumerate();
+    }
+
     pub fn sort_tables_for_simplification(&mut self) -> () {
         sort_edge_table(&self.nodes_, &mut self.edges_);
         sort_mutation_table(&self.sites_, &mut self.mutations_);
@@ -433,6 +453,12 @@ mod test_tables {
 
         assert_eq!(1, tables.edges().len());
         assert_eq!(1, tables.num_edges());
+
+        let mut n = 0;
+        for (i, e) in tables.enumerate_edges(){
+            n+=1;
+        }
+        assert_eq!(n, 1);
     }
 
     #[test]
