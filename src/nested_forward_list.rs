@@ -204,7 +204,7 @@ mod tests {
 
     #[test]
     fn test_explicit_data_round_trip() {
-        let mut list = make_data_for_testing();
+        let list = make_data_for_testing();
 
         let mut output = Vec::<i32>::new();
         let mut itr = list.head(0).unwrap();
@@ -236,7 +236,7 @@ mod tests {
 
     #[test]
     fn test_consume_data_round_trip() {
-        let mut list = make_data_for_testing();
+        let list = make_data_for_testing();
         let mut output = Vec::<i32>::new();
 
         list.consume(0, |x: &i32| {

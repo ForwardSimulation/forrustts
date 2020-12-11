@@ -451,11 +451,12 @@ mod test_tables {
 
         let result = tables.add_edge(0, 1, 2, 3).unwrap();
 
+        assert_eq!(1, result);
         assert_eq!(1, tables.edges().len());
         assert_eq!(1, tables.num_edges());
 
         let mut n = 0;
-        for (i, e) in tables.enumerate_edges(){
+        for _ in tables.edges(){
             n+=1;
         }
         assert_eq!(n, 1);

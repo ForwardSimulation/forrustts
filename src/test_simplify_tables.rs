@@ -151,7 +151,7 @@ mod test {
             // We expect the rv to be 0, 
             // so let's init it to something else
             let mut kc: f64 = -1.;
-            let mut kcp: *mut f64 = &mut kc;
+            let kcp: *mut f64 = &mut kc;
             let rv =
                 tskr::tsk_treeseq_kc_distance(tsk_ts.as_mut_ptr(), rust_ts.as_mut_ptr(), 0., kcp);
             assert_eq!(rv, 0);
