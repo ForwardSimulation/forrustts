@@ -174,14 +174,6 @@ pub fn find_parent_child_segment_overlap(
     return i;
 }
 
-pub fn swap_edges(tables: &mut TableCollection, edges: &mut EdgeTable) {
-    std::mem::swap(&mut tables.edges_, edges);
-}
-
-pub fn swap_nodes(tables: &mut TableCollection, nodes: &mut NodeTable) {
-    std::mem::swap(&mut tables.nodes_, nodes);
-}
-
 pub fn setup_idmap(nodes: &NodeTable) -> SamplesVec {
     return vec![NULLTSINT; nodes.len()];
 }
@@ -391,25 +383,5 @@ pub fn record_sample_nodes(
         );
 
         idmap[*sample as usize] = (new_nodes.len() - 1) as TsInt;
-    }
-}
-
-#[cfg(test)]
-mod test {
-
-    use super::*;
-
-    #[test]
-    fn test_swap_edges() {
-        let mut tables = TableCollection::new(1000).unwrap();
-        let mut edges = EdgeTable::new();
-
-        let num_edges = edge_table_add_row(&mut edges, 0, 1, 3, 4).unwrap();
-        assert_eq!(1, num_edges);
-
-        swap_edges(&mut tables, &mut edges);
-
-        assert_eq!(0, edges.len());
-        assert_eq!(num_edges, tables.edges_.len());
     }
 }
