@@ -72,7 +72,6 @@ fn mendel(rng: &mut rgsl::Rng, n0: TsInt, n1: TsInt) -> (TsInt, TsInt) {
     return (n0, n1);
 }
 
-// FIXME: need to deal w/recombination!
 fn generate_births(
     births: &VecBirth,
     littler: f64,
@@ -139,6 +138,64 @@ fn record_edges(
     }
 }
 
+fn next_breakpoint_distance(v: i64, breakpoints: &[i64], f: impl Fn(i64, i64) -> bool) -> usize {
+    let i = match breakpoints.iter().position(|x| f(*x, v)) {
+        Some(x) => x,
+        None => breakpoints.len(),
+    };
+    return i;
+}
+
+/// If some breakpoints are not unique,
+/// prune the input to only include those
+/// occurring an odd number of times.
+/// This is needed because:
+/// Only breakpoints occurring odd numbers of times
+/// affect the offspring gamete.
+/// We need to ensure we don't do things like
+/// add edges with left == right, etc..
+fn prune_breakpoints(breakpoints: &mut Vec<i64>) {
+    let mut i: usize = 1;
+    while i < breakpoints.len() {
+        if breakpoints[i - 1] == breakpoints[i] {
+            i = i - 1;
+            break;
+        }
+        i += 1;
+    }
+
+    if i < breakpoints.len() {
+        let mut odd_breakpoints = Vec::<i64>::new();
+        let mut start: usize = 0;
+        while i < breakpoints.len() {
+            let not_equal = next_breakpoint_distance(
+                breakpoints[i],
+                &breakpoints[i..breakpoints.len()],
+                |a, b| {
+                    return a != b;
+                },
+            );
+            let even = if not_equal % 2 == 0 { true } else { false };
+            for j in start..i + 1 - even as usize {
+                odd_breakpoints.push(breakpoints[j]);
+            }
+            start = i + not_equal;
+            if start >= breakpoints.len() {
+                break;
+            }
+            i = start
+                + next_breakpoint_distance(
+                    breakpoints[i],
+                    &breakpoints[i..breakpoints.len()],
+                    |a, b| {
+                        return a == b;
+                    },
+                );
+        }
+        std::mem::swap(breakpoints, &mut odd_breakpoints);
+    }
+}
+
 fn recombination_breakpoints(
     littler: f64,
     maxlen: i64,
@@ -151,6 +208,7 @@ fn recombination_breakpoints(
         breakpoints.push(rng.flat(0., maxlen as f64) as i64);
     }
     breakpoints.sort();
+    prune_breakpoints(breakpoints);
     if breakpoints.len() > 0 {
         breakpoints.push(std::i64::MAX);
     }
@@ -268,4 +326,28 @@ pub fn neutral_wf(
     }
 
     return tables;
+}
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+
+    #[test]
+    fn test_prune_breakpoints() {
+        let mut b = vec![1, 2, 3, 3, 4];
+        prune_breakpoints(&mut b);
+        assert_eq!(b.len(), 3);
+        assert!(b == vec![1, 2, 4]);
+
+        b = vec![1, 1, 2, 3, 3, 4, 4, 5];
+        prune_breakpoints(&mut b);
+        assert_eq!(b.len(), 2);
+        assert!(b == vec![2, 5]);
+
+        b = vec![1, 1, 2, 3, 3, 3, 4, 4, 5];
+        prune_breakpoints(&mut b);
+        assert_eq!(b.len(), 3);
+        assert!(b == vec![2, 3, 5]);
+    }
 }
