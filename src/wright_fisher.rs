@@ -1,5 +1,5 @@
 use crate::simplify_tables::simplify_tables;
-use crate::tables::{validate_edge_table, TableCollection, TablesError};
+use crate::tables::{validate_edge_table, TableCollection};
 use crate::tsdef::*;
 use rgsl;
 use rgsl::rng::algorithms::mt19937;
