@@ -47,6 +47,7 @@ pub struct Node {
 }
 
 /// An Edge is a transmission event
+#[derive(Copy, Clone)]
 pub struct Edge {
     pub left: i64,
     pub right: i64,
