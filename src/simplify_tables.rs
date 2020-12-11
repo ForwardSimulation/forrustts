@@ -69,7 +69,7 @@ pub fn simplify_tables(samples: &SamplesVec, tables: &mut TableCollection) -> Sa
     }
 
     tables.edges_.drain(new_edges_inserted..tables.edges_.len());
-    simplification_logic::swap_nodes(tables, &mut new_nodes);
+    std::mem::swap(&mut tables.nodes_, &mut new_nodes);
 
     return idmap;
 }
