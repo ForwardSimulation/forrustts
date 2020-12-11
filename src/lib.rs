@@ -6,7 +6,7 @@ mod tables;
 mod tsdef;
 
 pub use simplification_buffers::SimplificationBuffers;
-pub use simplify_tables::{simplify_tables, simplify_tables_with_state};
+pub use simplify_tables::{simplify_tables, simplify_tables_with_buffers};
 pub use tables::*;
 pub use tsdef::*;
 

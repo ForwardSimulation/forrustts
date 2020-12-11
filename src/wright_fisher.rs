@@ -1,4 +1,4 @@
-use crate::simplify_tables::{simplify_tables, simplify_tables_with_state};
+use crate::simplify_tables::{simplify_tables, simplify_tables_with_buffers};
 use crate::tables::{validate_edge_table, TableCollection};
 use crate::tsdef::*;
 use crate::SimplificationBuffers;
@@ -235,7 +235,7 @@ fn sort_and_simplify(
         validate_edge_table(tables.get_length(), tables.edges(), tables.nodes()).unwrap()
     );
     let idmap = if use_state == true {
-        simplify_tables_with_state(samples, state, tables)
+        simplify_tables_with_buffers(samples, state, tables)
     } else {
         simplify_tables(samples, tables)
     };

@@ -5,10 +5,10 @@ use crate::tsdef::SamplesVec;
 
 pub fn simplify_tables(samples: &SamplesVec, tables: &mut TableCollection) -> SamplesVec {
     let mut state = SimplificationBuffers::new();
-    return simplify_tables_with_state(samples, &mut state, tables);
+    return simplify_tables_with_buffers(samples, &mut state, tables);
 }
 
-pub fn simplify_tables_with_state(
+pub fn simplify_tables_with_buffers(
     samples: &SamplesVec,
     state: &mut SimplificationBuffers,
     tables: &mut TableCollection,
