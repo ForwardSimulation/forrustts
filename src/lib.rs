@@ -1,15 +1,17 @@
-mod tables;
-mod tsdef;
 mod nested_forward_list;
+mod simplification_buffers;
 mod simplification_logic;
 mod simplify_tables;
+mod tables;
+mod tsdef;
 
-pub use tsdef::*;
+pub use simplification_buffers::SimplificationBuffers;
+pub use simplify_tables::{simplify_tables, simplify_tables_with_state};
 pub use tables::*;
-pub use simplify_tables::{simplify_tables};
+pub use tsdef::*;
 
-pub mod wright_fisher;
 pub mod tskit;
+pub mod wright_fisher;
 
 // These are testing modules
 mod test_simplify_tables;

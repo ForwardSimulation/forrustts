@@ -1,6 +1,7 @@
-use crate::simplify_tables::simplify_tables;
+use crate::simplify_tables::{simplify_tables, simplify_tables_with_state};
 use crate::tables::{validate_edge_table, TableCollection};
 use crate::tsdef::*;
+use crate::SimplificationBuffers;
 use rgsl;
 use rgsl::rng::algorithms::mt19937;
 
@@ -223,12 +224,21 @@ fn fill_samples(parents: &VecParent, samples: &mut SamplesVec) -> () {
     }
 }
 
-fn sort_and_simplify(samples: &SamplesVec, tables: &mut TableCollection) -> SamplesVec {
+fn sort_and_simplify(
+    use_state: bool,
+    samples: &SamplesVec,
+    state: &mut SimplificationBuffers,
+    tables: &mut TableCollection,
+) -> SamplesVec {
     tables.sort_tables_for_simplification();
     debug_assert!(
         validate_edge_table(tables.get_length(), tables.edges(), tables.nodes()).unwrap()
     );
-    let idmap = simplify_tables(samples, tables);
+    let idmap = if use_state == true {
+        simplify_tables_with_state(samples, state, tables)
+    } else {
+        simplify_tables(samples, tables)
+    };
     debug_assert!(
         validate_edge_table(tables.get_length(), tables.edges(), tables.nodes()).unwrap()
     );
@@ -236,12 +246,14 @@ fn sort_and_simplify(samples: &SamplesVec, tables: &mut TableCollection) -> Samp
 }
 
 fn simplify_and_remap_nodes(
+    use_state: bool,
     samples: &mut SamplesVec,
     parents: &mut VecParent,
+    state: &mut SimplificationBuffers,
     tables: &mut TableCollection,
 ) -> () {
     fill_samples(parents, samples);
-    let idmap = sort_and_simplify(samples, tables);
+    let idmap = sort_and_simplify(use_state, samples, state, tables);
     for p in parents {
         p.node0 = idmap[p.node0 as usize];
         p.node1 = idmap[p.node1 as usize];
@@ -258,7 +270,7 @@ fn validate_simplification_interval(x: i64) -> i64 {
 // NOTE: this function is a copy of the simulation
 // found in fwdpp/examples/edge_buffering.cc
 
-pub fn neutral_wf(
+fn neutral_wf_impl(
     seed: usize,
     popsize: u32,
     nsteps: i64,
@@ -266,6 +278,7 @@ pub fn neutral_wf(
     littler: f64,
     psurvival: f64,
     simplification_interval: Option<i64>,
+    use_state: bool,
 ) -> TableCollection {
     // FIXME: gotta validate input params!
 
@@ -300,6 +313,7 @@ pub fn neutral_wf(
     }
 
     let mut simplified = false;
+    let mut state = SimplificationBuffers::new();
 
     for birth_time in 1..(nsteps + 1) {
         deaths_and_parents(&parents, psurvival, &mut rng, &mut births);
@@ -314,7 +328,13 @@ pub fn neutral_wf(
         );
         if actual_simplification_interval != -1 && birth_time % actual_simplification_interval == 0
         {
-            simplify_and_remap_nodes(&mut samples, &mut parents, &mut tables);
+            simplify_and_remap_nodes(
+                use_state,
+                &mut samples,
+                &mut parents,
+                &mut state,
+                &mut tables,
+            );
             simplified = true;
         } else {
             simplified = false;
@@ -322,10 +342,37 @@ pub fn neutral_wf(
     }
 
     if simplified == false && actual_simplification_interval != -1 {
-        simplify_and_remap_nodes(&mut samples, &mut parents, &mut tables);
+        simplify_and_remap_nodes(
+            use_state,
+            &mut samples,
+            &mut parents,
+            &mut state,
+            &mut tables,
+        );
     }
 
     return tables;
+}
+
+pub fn neutral_wf(
+    seed: usize,
+    popsize: u32,
+    nsteps: i64,
+    genome_length: i64,
+    littler: f64,
+    psurvival: f64,
+    simplification_interval: Option<i64>,
+) -> TableCollection {
+    return neutral_wf_impl(
+        seed,
+        popsize,
+        nsteps,
+        genome_length,
+        littler,
+        psurvival,
+        simplification_interval,
+        true,
+    );
 }
 
 #[cfg(test)]
@@ -349,5 +396,29 @@ mod test {
         prune_breakpoints(&mut b);
         assert_eq!(b.len(), 3);
         assert!(b == vec![2, 3, 5]);
+    }
+
+    fn run_sim(use_state: bool) -> TableCollection {
+        return neutral_wf_impl(666, 1000, 2000, 100000, 5e-3, 0.0, Some(100), use_state);
+    }
+
+    #[test]
+    fn compare_state_to_no_state() {
+        let tables = run_sim(false);
+        let tables_state = run_sim(true);
+
+        assert_eq!(tables.num_nodes(), tables_state.num_nodes());
+        assert_eq!(tables.num_edges(), tables_state.num_edges());
+
+        for (i, j) in tables.nodes_.iter().zip(tables_state.nodes_) {
+            assert_eq!(i.time, j.time);
+            assert_eq!(i.deme, j.deme);
+        }
+        for (i, j) in tables.edges_.iter().zip(tables_state.edges_) {
+            assert_eq!(i.left, j.left);
+            assert_eq!(i.right, j.right);
+            assert_eq!(i.parent, j.parent);
+            assert_eq!(i.child, j.child);
+        }
     }
 }
