@@ -1,4 +1,5 @@
 mod nested_forward_list;
+mod segment;
 mod simplification_buffers;
 mod simplification_logic;
 mod simplify_tables;

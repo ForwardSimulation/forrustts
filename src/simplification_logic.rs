@@ -1,13 +1,7 @@
 use crate::nested_forward_list::NestedForwardList;
+use crate::segment::Segment;
 use crate::tables::*;
 use crate::tsdef::{SamplesVec, TsInt, NULLTSINT};
-
-#[derive(Clone, Copy)]
-pub struct Segment {
-    pub left: i64,
-    pub right: i64,
-    pub node: TsInt,
-}
 
 pub struct SegmentOverlapper {
     segment_queue: Vec<Segment>,
@@ -42,7 +36,12 @@ impl SegmentOverlapper {
     fn num_overlaps(&self) -> usize {
         debug_assert!(
             self.oend - self.obeg <= self.overlapping.len(),
-            format!("overlap details = {} {} {}", self.oend, self.obeg, self.overlapping.len())
+            format!(
+                "overlap details = {} {} {}",
+                self.oend,
+                self.obeg,
+                self.overlapping.len()
+            )
         );
         return self.oend - self.obeg;
     }
@@ -102,7 +101,8 @@ impl SegmentOverlapper {
             while self.qbeg < self.qend && self.segment_queue[self.qbeg].left == self.left {
                 tright = std::cmp::min(tright, self.segment_queue[self.qbeg].right);
                 // NOTE: I wonder how efficient this is vs C++?
-                self.overlapping.insert(self.oend, self.segment_queue[self.qbeg]);
+                self.overlapping
+                    .insert(self.oend, self.segment_queue[self.qbeg]);
                 self.oend += 1;
                 self.qbeg += 1;
             }
