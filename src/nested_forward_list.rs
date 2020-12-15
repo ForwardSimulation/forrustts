@@ -242,7 +242,8 @@ mod tests {
         list.consume(0, |x: &i32| {
             output.push(*x);
             return true;
-        }).unwrap();
+        })
+        .unwrap();
 
         for i in 0..3 {
             assert_eq!(2 * i, output[i] as usize);
@@ -253,7 +254,8 @@ mod tests {
         list.consume(1, |x: &i32| {
             output.push(*x);
             return true;
-        }).unwrap();
+        })
+        .unwrap();
 
         for i in 0..5 {
             assert_eq!(3 * i, output[i] as usize);
@@ -262,7 +264,8 @@ mod tests {
         output.clear();
         list.consume(1, |_: &i32| {
             return false;
-        }).unwrap();
+        })
+        .unwrap();
 
         assert_eq!(output.len(), 0);
     }

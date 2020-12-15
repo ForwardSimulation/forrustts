@@ -457,8 +457,8 @@ mod test_tables {
         assert_eq!(1, tables.num_edges());
 
         let mut n = 0;
-        for _ in tables.edges(){
-            n+=1;
+        for _ in tables.edges() {
+            n += 1;
         }
         assert_eq!(n, 1);
     }

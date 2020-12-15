@@ -1,7 +1,7 @@
 use crate::simplification_logic::{AncestryList, SegmentOverlapper};
 use crate::tables::{EdgeTable, NodeTable};
 
-/// Holds internal memory used by 
+/// Holds internal memory used by
 /// simplification machinery.
 ///
 /// During simplification, several large
@@ -30,10 +30,9 @@ impl SimplificationBuffers {
             ancestry: AncestryList::new(),
         };
     }
-    
+
     // NOTE: should this be fully pub?
-    pub(crate) fn clear(&mut self)
-    {
+    pub(crate) fn clear(&mut self) {
         self.new_edges.clear();
         self.temp_edge_buffer.clear();
         self.new_nodes.clear();

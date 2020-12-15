@@ -148,7 +148,7 @@ mod test {
             let nn2 = tskr::tsk_treeseq_get_num_nodes(rust_ts.as_ptr());
             assert_eq!(nn, nn2);
 
-            // We expect the rv to be 0, 
+            // We expect the rv to be 0,
             // so let's init it to something else
             let mut kc: f64 = -1.;
             let kcp: *mut f64 = &mut kc;
