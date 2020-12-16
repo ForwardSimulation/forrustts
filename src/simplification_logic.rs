@@ -18,16 +18,15 @@ impl SegmentOverlapper {
     fn set_partition(&mut self) -> i64 {
         let mut tright = std::i64::MAX;
         let mut b: usize = 0;
-        let mut i: usize = 0;
 
-        while i < self.oend {
+        for i in 0..self.oend {
             if self.overlapping[i].right > self.left {
                 self.overlapping[b] = self.overlapping[i];
                 tright = std::cmp::min(tright, self.overlapping[b].right);
                 b += 1;
             }
-            i += 1;
         }
+
         self.oend = b;
 
         return tright;
