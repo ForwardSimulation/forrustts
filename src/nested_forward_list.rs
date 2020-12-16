@@ -235,6 +235,19 @@ mod tests {
     }
 
     #[test]
+    fn test_nullify() {
+        let mut list = make_data_for_testing();
+        list.nullify_list(0).unwrap();
+        let mut output = Vec::<i32>::new();
+        list.consume(0, |x: &i32| {
+            output.push(*x);
+            return true;
+        })
+        .unwrap();
+        assert_eq!(output.len(), 0);
+    }
+
+    #[test]
     fn test_consume_data_round_trip() {
         let list = make_data_for_testing();
         let mut output = Vec::<i32>::new();
