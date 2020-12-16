@@ -203,6 +203,15 @@ mod tests {
     }
 
     #[test]
+    fn test_fetch_mut() {
+        let mut list = make_data_for_testing();
+        let x = list.tail(1).unwrap();
+        let y = list.fetch_mut(x).unwrap();
+        *y += 1;
+        assert_eq!(*list.fetch(list.tail(1).unwrap()).unwrap(), 13);
+    }
+
+    #[test]
     fn test_explicit_data_round_trip() {
         let list = make_data_for_testing();
 
