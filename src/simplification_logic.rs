@@ -344,7 +344,8 @@ pub fn merge_ancestors(
         let n = output_buffered_edges(temp_edge_buffer, new_edges);
 
         if n == 0 && is_sample == false {
-            new_nodes.drain(output_id as usize..new_nodes.len());
+            assert!(output_id < new_nodes.len() as TsInt);
+            new_nodes.truncate(output_id as usize);
             idmap[parent_input_id as usize] = NULLTSINT;
         }
     }
