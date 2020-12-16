@@ -1,71 +1,19 @@
 #[cfg(test)]
 mod test {
+    use tskit_rust;
+
     // NOTE: Currently, these tests are both testing
     // stuff from tskit_rust and forrusts, which isn't great.
     // We'll clean this up later when we get better abstractions
     // into tskit_rust.
     use crate::simplify_tables::simplify_tables;
-    use crate::tables::TableCollection;
     use crate::tsdef::{SamplesVec, TsInt};
     use crate::wright_fisher::neutral_wf;
     use std::mem::MaybeUninit;
     use tskit_rust::bindings as tskr;
 
-    fn convert_to_tskit(
-        time_offset: f64,
-        is_sample: &Vec<i32>,
-        tables: &TableCollection,
-    ) -> std::mem::MaybeUninit<tskr::tsk_table_collection_t> {
-        let mut tsk_tables: MaybeUninit<tskr::tsk_table_collection_t> = MaybeUninit::uninit();
-        unsafe {
-            let rv = tskr::tsk_table_collection_init(tsk_tables.as_mut_ptr(), 0);
-            assert_eq!(rv, 0);
-
-            (*tsk_tables.as_mut_ptr()).sequence_length = tables.get_length() as f64;
-
-            for (i, n) in tables.nodes().iter().enumerate() {
-                let mut flag: u32 = 0;
-                if is_sample[i] == 1 {
-                    flag |= tskr::TSK_NODE_IS_SAMPLE;
-                }
-                let rv = tskr::tsk_node_table_add_row(
-                    &mut (*tsk_tables.as_mut_ptr()).nodes,
-                    flag,
-                    -1.0 * (n.time as f64 - time_offset),
-                    0,
-                    tskr::TSK_NULL,
-                    std::ptr::null(),
-                    0,
-                );
-                assert_eq!(rv, i as i32);
-            }
-
-            for (i, e) in tables.edges().iter().enumerate() {
-                let rv = tskr::tsk_edge_table_add_row(
-                    &mut (*tsk_tables.as_mut_ptr()).edges,
-                    e.left as f64,
-                    e.right as f64,
-                    e.parent,
-                    e.child,
-                    std::ptr::null(),
-                    0,
-                );
-                assert_eq!(rv, i as i32);
-            }
-
-            // I always forget this one...
-            let rv = tskr::tsk_population_table_add_row(
-                &mut (*tsk_tables.as_mut_ptr()).populations,
-                std::ptr::null(),
-                0,
-            );
-            assert_eq!(rv, 0);
-        }
-        return tsk_tables;
-    }
-
     fn tables_to_treeseq(
-        tables: &mut MaybeUninit<tskr::tsk_table_collection_t>,
+        tables: &mut tskit_rust::TableCollection,
     ) -> MaybeUninit<tskr::tsk_treeseq_t> {
         let mut tsk_ts: MaybeUninit<tskr::tsk_treeseq_t> = MaybeUninit::uninit();
         unsafe {
@@ -103,7 +51,14 @@ mod test {
             }
         }
 
-        let mut tsk_tables = convert_to_tskit(num_generations as f64, &is_sample, &tables);
+        let mut tsk_tables = crate::tskit::convert_to_tskit(
+            &tables,
+            &is_sample,
+            crate::tskit::simple_time_reverser(num_generations),
+            // Do not index tables here!
+            // Things are unsorted!
+            false,
+        );
 
         // Now, sort and simplify the tables we got from the sim:
         tables.sort_tables_for_simplification();
@@ -120,8 +75,13 @@ mod test {
         for i in 0..500 {
             is_sample[i] = 1;
         }
-        let mut simplified_rust_tables =
-            convert_to_tskit(num_generations as f64, &is_sample, &tables);
+
+        let mut simplified_rust_tables = crate::tskit::convert_to_tskit(
+            &tables,
+            &is_sample,
+            crate::tskit::simple_time_reverser(num_generations),
+            true,
+        );
 
         unsafe {
             let rv = tskr::tsk_table_collection_sort(tsk_tables.as_mut_ptr(), std::ptr::null(), 0);
