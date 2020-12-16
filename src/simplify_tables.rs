@@ -58,11 +58,11 @@ pub fn simplify_tables_with_buffers(
         );
 
         if state.new_edges.len() >= 1024 && new_edges_inserted + state.new_edges.len() < edge_i {
-            for i in 0..state.new_edges.len() {
-                tables.edges_[new_edges_inserted + i] = state.new_edges[i];
+            for i in state.new_edges.drain(..) {
+                tables.edges_[new_edges_inserted] = i;
+                new_edges_inserted += 1;
             }
-            new_edges_inserted += state.new_edges.len();
-            state.new_edges.clear();
+            assert_eq!(state.new_edges.len(), 0);
         }
     }
 
