@@ -1,6 +1,5 @@
 use crate::simplify_tables::{simplify_tables, simplify_tables_with_buffers};
 use crate::tables::{validate_edge_table, TableCollection};
-use crate::tsdef::*;
 use crate::SimplificationBuffers;
 use rgsl;
 use rgsl::rng::algorithms::mt19937;
@@ -9,6 +8,10 @@ use rgsl::rng::algorithms::mt19937;
 // but we need to decide here if this package should provide that.
 // If so, then many of these types should not be here, as they have nothing
 // to do with Wright-Fisher itself, and are instead more general.
+
+//FIXME:
+type TsInt = i32;
+type SamplesVec = Vec<TsInt>;
 
 struct Parent {
     index: usize,
