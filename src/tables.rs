@@ -209,46 +209,61 @@ macro_rules! add_mutation {
     };
 }
 
-fn sort_edge_table<T>(nodes: &NodeTable<T>, edges: &mut EdgeTable<T>) -> () {
-    // NOTE: it may by more idiomatic to
-    // not use a slice here, and instead allow
-    // the range-checking?
-    let nslice = &nodes.as_slice();
-    edges.sort_by(|a, b| {
-        let aindex = a.parent as usize;
-        let bindex = b.parent as usize;
-        let ta = nslice[aindex].time;
-        let tb = nslice[bindex].time;
-        if ta == tb {
-            if a.parent == b.parent {
-                if a.child == b.child {
-                    return a.left.cmp(&b.left);
+macro_rules! sort_edge_table {
+    ($itype: ty) => {
+        fn sort_edge_table(nodes: &NodeTable<$itype>, edges: &mut EdgeTable<$itype>) -> () {
+            // NOTE: it may by more idiomatic to
+            // not use a slice here, and instead allow
+            // the range-checking?
+            let nslice = &nodes.as_slice();
+            edges.sort_by(|a, b| {
+                let aindex = a.parent as usize;
+                let bindex = b.parent as usize;
+                let ta = nslice[aindex].time;
+                let tb = nslice[bindex].time;
+                if ta == tb {
+                    if a.parent == b.parent {
+                        if a.child == b.child {
+                            return a.left.cmp(&b.left);
+                        }
+                        return a.child.cmp(&b.child);
+                    }
+                    return a.parent.cmp(&b.parent);
                 }
-                return a.child.cmp(&b.child);
-            }
-            return a.parent.cmp(&b.parent);
+                return ta.cmp(&tb).reverse();
+            });
         }
-        return ta.cmp(&tb).reverse();
-    });
+    };
 }
 
-fn sort_mutation_table<T>(sites: &SiteTable, mutations: &mut MutationTable<T>) -> () {
-    let sslice = &sites.as_slice();
-    mutations.sort_by(|a, b| {
-        let pa = sslice[a.site].position;
-        let pb = sslice[b.site].position;
-        return pa.partial_cmp(&pb).unwrap().reverse();
-    });
+macro_rules! sort_mutation_table {
+    ($itype: ty) => {
+        fn sort_mutation_table(sites: &SiteTable, mutations: &mut MutationTable<$itype>) -> () {
+            let sslice = &sites.as_slice();
+            mutations.sort_by(|a, b| {
+                let pa = sslice[a.site].position;
+                let pb = sslice[b.site].position;
+                return pa.partial_cmp(&pb).unwrap().reverse();
+            });
+        }
+    };
 }
 
-//macro_rules! sort_tables_for_simplification {
-//    ($itype: ty) => {
-//        fn sort_tables_for_simplification(&mut self) -> () {
-//            sort_edge_table(&self.nodes_, &mut self.edges_);
-//            sort_mutation_table(&self.nodes_, &mut self.edges_);
-//        }
-//    };
-//}
+macro_rules! sort_tables_for_simplification {
+    ($itype: ty) => {
+        fn sort_tables_for_simplification(&mut self) -> () {
+            sort_edge_table(&self.nodes_, &mut self.edges_);
+            sort_mutation_table(&self.sites_, &mut self.mutations_);
+        }
+    };
+}
+
+macro_rules! auxilliary_sorting_functions {
+    ($itype:ty) => {
+        sort_mutation_table!($itype);
+        sort_edge_table!($itype);
+    };
+}
 
 macro_rules! tree_sequence_recording_interface {
     ($itype: ty) => {
@@ -524,6 +539,8 @@ pub trait TreeSequenceRecordingInterface<T> {
     //    sort_mutation_table(&self.nodes_, &mut self.edges_);
     //}
 }
+
+auxilliary_sorting_functions!(i32);
 
 impl TreeSequenceRecordingInterface<i32> for TableCollectionType<i32> {
     tree_sequence_recording_interface!(i32);
