@@ -221,26 +221,26 @@ fn buffer_edge(
 ) {
     let i = temp_edge_buffer
         .iter()
-        .position(|e: &Edge| e.child == child);
-    if i.is_none() {
-        temp_edge_buffer.push(Edge {
+        .rposition(|e: &Edge| e.child == child);
+
+    match i {
+        None => temp_edge_buffer.push(Edge {
             left: left,
             right: right,
             parent: parent,
             child: child,
-        });
-    } else {
-        let i = i.unwrap();
-        assert_eq!(child, temp_edge_buffer[i].child);
-        if temp_edge_buffer[i].right == left {
-            temp_edge_buffer[i].right = right;
-        } else {
-            temp_edge_buffer.push(Edge {
-                left: left,
-                right: right,
-                parent: parent,
-                child: child,
-            });
+        }),
+        Some(x) => {
+            if temp_edge_buffer[x].right == left {
+                temp_edge_buffer[x].right = right;
+            } else {
+                temp_edge_buffer.push(Edge {
+                    left: left,
+                    right: right,
+                    parent: parent,
+                    child: child,
+                });
+            }
         }
     }
 }
