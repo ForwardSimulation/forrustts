@@ -33,7 +33,7 @@ impl SegmentOverlapper {
     }
 
     fn num_overlaps(&self) -> usize {
-        debug_assert!(
+        assert!(
             self.oend - self.obeg <= self.overlapping.len(),
             format!(
                 "overlap details = {} {} {}",
@@ -231,7 +231,7 @@ fn buffer_edge(
         });
     } else {
         let i = i.unwrap();
-        debug_assert_eq!(child, temp_edge_buffer[i].child);
+        assert_eq!(child, temp_edge_buffer[i].child);
         if temp_edge_buffer[i].right == left {
             temp_edge_buffer[i].right = right;
         } else {
@@ -357,7 +357,7 @@ pub fn record_sample_nodes(
     idmap: &mut SamplesVec,
 ) -> () {
     for sample in samples.iter() {
-        debug_assert!(*sample >= 0);
+        assert!(*sample >= 0);
         // NOTE: the following can be debug_assert?
         if *sample == NULLTSINT {
             panic!("sample node is NULLTSINT");
