@@ -518,9 +518,6 @@ pub trait TreeSequenceRecordingInterface<T> {
         derived_state: i8,
         neutral: bool,
     ) -> TablesResult<T>;
-    fn foo(y: Vec<i32>, x: T) -> i32 {
-        return y[x];
-    }
     fn sort_tables_for_simplification(&mut self) -> ();
     //fn sort_tables_for_simplification(&mut self) -> () {
     //    sort_edge_table(&self.nodes_, &mut self.edges_);
