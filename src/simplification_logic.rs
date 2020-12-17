@@ -1,7 +1,11 @@
 use crate::nested_forward_list::NestedForwardList;
 use crate::segment::Segment;
 use crate::tables::*;
-use crate::tsdef::{SamplesVec, TsInt, NULLTSINT};
+
+//FIXME:
+type TsInt = i32;
+type SamplesVec = Vec<TsInt>;
+const NULLTSINT: TsInt = -1;
 
 pub struct SegmentOverlapper {
     segment_queue: Vec<Segment>,
@@ -141,7 +145,7 @@ pub type AncestryList = NestedForwardList<Segment>;
 
 // FIXME: another panic! room
 pub fn find_parent_child_segment_overlap(
-    edges: &EdgeTable,
+    edges: &EdgeTable<TsInt>,
     edge_index: usize,
     num_edges: usize,
     maxlen: i64,
@@ -173,7 +177,7 @@ pub fn find_parent_child_segment_overlap(
     return i;
 }
 
-pub fn setup_idmap(nodes: &NodeTable) -> SamplesVec {
+pub fn setup_idmap(nodes: &NodeTable<TsInt>) -> SamplesVec {
     return vec![NULLTSINT; nodes.len()];
 }
 
@@ -217,14 +221,14 @@ fn buffer_edge(
     right: i64,
     parent: TsInt,
     child: TsInt,
-    temp_edge_buffer: &mut EdgeTable,
+    temp_edge_buffer: &mut EdgeTable<TsInt>,
 ) {
     let i = temp_edge_buffer
         .iter()
-        .rposition(|e: &Edge| e.child == child);
+        .rposition(|e: &Edge<i32>| e.child == child);
 
     match i {
-        None => temp_edge_buffer.push(Edge {
+        None => temp_edge_buffer.push(Edge::<i32> {
             left: left,
             right: right,
             parent: parent,
@@ -234,7 +238,7 @@ fn buffer_edge(
             if temp_edge_buffer[x].right == left {
                 temp_edge_buffer[x].right = right;
             } else {
-                temp_edge_buffer.push(Edge {
+                temp_edge_buffer.push(Edge::<i32> {
                     left: left,
                     right: right,
                     parent: parent,
@@ -245,7 +249,7 @@ fn buffer_edge(
     }
 }
 
-fn output_buffered_edges(temp_edge_buffer: &mut EdgeTable, new_edges: &mut EdgeTable) -> usize {
+fn output_buffered_edges(temp_edge_buffer: &mut EdgeTable<TsInt>, new_edges: &mut EdgeTable<TsInt>) -> usize {
     temp_edge_buffer.sort_by(|a, b| {
         return a.child.cmp(&b.child);
     });
@@ -259,12 +263,12 @@ fn output_buffered_edges(temp_edge_buffer: &mut EdgeTable, new_edges: &mut EdgeT
 }
 
 pub fn merge_ancestors(
-    input_nodes: &NodeTable,
+    input_nodes: &NodeTable<TsInt>,
     maxlen: i64,
     parent_input_id: TsInt,
-    temp_edge_buffer: &mut EdgeTable,
-    new_nodes: &mut NodeTable,
-    new_edges: &mut EdgeTable,
+    temp_edge_buffer: &mut EdgeTable<TsInt>,
+    new_nodes: &mut NodeTable<TsInt>,
+    new_edges: &mut EdgeTable<TsInt>,
     ancestry: &mut AncestryList,
     overlapper: &mut SegmentOverlapper,
     idmap: &mut SamplesVec,
@@ -296,7 +300,7 @@ pub fn merge_ancestors(
             }
         } else {
             if output_id == NULLTSINT {
-                new_nodes.push(Node {
+                new_nodes.push(Node::<i32> {
                     time: input_nodes[parent_input_id as usize].time,
                     deme: input_nodes[parent_input_id as usize].deme,
                 });
@@ -352,7 +356,7 @@ pub fn merge_ancestors(
 pub fn record_sample_nodes(
     samples: &SamplesVec,
     tables: &TableCollection,
-    new_nodes: &mut NodeTable,
+    new_nodes: &mut NodeTable<TsInt>,
     ancestry: &mut AncestryList,
     idmap: &mut SamplesVec,
 ) -> () {
@@ -366,7 +370,7 @@ pub fn record_sample_nodes(
             panic!("invalid sample list!");
         }
         let n = tables.node(*sample);
-        new_nodes.push(Node {
+        new_nodes.push(Node::<i32> {
             time: n.time,
             deme: n.deme,
         });

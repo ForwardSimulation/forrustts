@@ -116,7 +116,8 @@ fn deme_non_negative<T>(x: T) -> TablesResult<()> {
 macro_rules! add_edge {
     ($itype: ty) => {
         fn add_edge(
-            edges: &mut EdgeTable<$itype>,
+            //edges: &mut EdgeTable<$itype>,
+            &mut self,
             left: POSITION,
             right: POSITION,
             parent: $itype,
@@ -132,14 +133,14 @@ macro_rules! add_edge {
             node_non_negative(parent)?;
             node_non_negative(child)?;
 
-            edges.push(Edge::<$itype> {
+            self.edges_.push(Edge::<$itype> {
                 left: left,
                 right: right,
                 parent: parent,
                 child: child,
             });
 
-            Ok(edges.len() as $itype)
+            Ok(self.edges_.len() as $itype)
         }
     };
 }
@@ -147,20 +148,21 @@ macro_rules! add_edge {
 macro_rules! add_node {
     ($itype: ty) => {
         fn add_node(
-            nodes: &mut NodeTable<$itype>,
+            //nodes: &mut NodeTable<$itype>,
+            &mut self,
             time: TIME,
             deme: $itype,
         ) -> TablesResult<$itype> {
             time_non_negative(time)?;
             deme_non_negative(deme)?;
-            nodes.push(Node::<$itype> {
+            self.nodes_.push(Node::<$itype> {
                 time: time,
                 deme: deme,
             });
 
             // TODO: learn if there is a way to raise error
             // automagically if overlow.
-            Ok((nodes.len() - 1) as $itype)
+            Ok((self.nodes_.len() - 1) as $itype)
         }
     };
 }
@@ -168,16 +170,17 @@ macro_rules! add_node {
 macro_rules! add_site {
     ($itype: ty) => {
         fn add_site(
-            sites: &mut SiteTable,
+            //sites: &mut SiteTable,
+            &mut self,
             position: POSITION,
             ancestral_state: i8,
         ) -> TablesResult<$itype> {
             position_non_negative(position)?;
-            sites.push(Site {
+            self.sites_.push(Site {
                 position: position,
                 ancestral_state: ancestral_state,
             });
-            Ok(sites.len() as $itype)
+            Ok(self.sites_.len() as $itype)
         }
     };
 }
@@ -185,7 +188,8 @@ macro_rules! add_site {
 macro_rules! add_mutation {
     ($itype: ty) => {
         fn add_mutation(
-            mutations: &mut MutationTable<$itype>,
+            //mutations: &mut MutationTable<$itype>,
+            &mut self,
             node: $itype,
             key: usize,
             site: usize,
@@ -193,14 +197,14 @@ macro_rules! add_mutation {
             neutral: bool,
         ) -> TablesResult<$itype> {
             node_non_negative(node)?;
-            mutations.push(Mutation::<$itype> {
+            self.mutations_.push(Mutation::<$itype> {
                 node: node,
                 key: key,
                 site: site,
                 derived_state: derived_state,
                 neutral: neutral,
             });
-            Ok(mutations.len() as $itype)
+            Ok(self.mutations_.len() as $itype)
         }
     };
 }
@@ -237,14 +241,14 @@ fn sort_mutation_table<T>(sites: &SiteTable, mutations: &mut MutationTable<T>) -
     });
 }
 
-macro_rules! sort_tables_for_simplification {
-    ($itype: ty) => {
-        fn sort_tables_for_simplification(&mut self) -> () {
-            sort_edge_table(&self.nodes_, &mut self.edges_);
-            sort_mutation_table(&self.nodes_, &mut self.edges_);
-        }
-    };
-}
+//macro_rules! sort_tables_for_simplification {
+//    ($itype: ty) => {
+//        fn sort_tables_for_simplification(&mut self) -> () {
+//            sort_edge_table(&self.nodes_, &mut self.edges_);
+//            sort_mutation_table(&self.nodes_, &mut self.edges_);
+//        }
+//    };
+//}
 
 macro_rules! tree_sequence_recording_interface {
     ($itype: ty) => {
@@ -275,7 +279,7 @@ pub struct TC<T> {
 
 // Interface
 trait TCT<T> {
-    fn add_edge(&mut self, left: i64, right: i64, parent: T, child: T) -> TablesResult<usize>;
+    fn add_edge(&mut self, left: i64, right: i64, parent: T, child: T) -> TablesResult<T>;
     fn foo();
 }
 
@@ -517,10 +521,11 @@ pub trait TreeSequenceRecordingInterface<T> {
     fn foo(y: Vec<i32>, x: T) -> i32 {
         return y[x];
     }
-    fn sort_tables_for_simplification(&mut self) -> () {
-        sort_edge_table(&self.nodes_, &mut self.edges_);
-        sort_mutation_table(&self.nodes_, &mut self.edges_);
-    }
+    fn sort_tables_for_simplification(&mut self) -> ();
+    //fn sort_tables_for_simplification(&mut self) -> () {
+    //    sort_edge_table(&self.nodes_, &mut self.edges_);
+    //    sort_mutation_table(&self.nodes_, &mut self.edges_);
+    //}
 }
 
 impl TreeSequenceRecordingInterface<i32> for TableCollectionType<i32> {

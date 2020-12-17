@@ -1,7 +1,9 @@
 use crate::simplification_buffers::SimplificationBuffers;
 use crate::simplification_logic;
 use crate::tables::*;
-use crate::tsdef::SamplesVec;
+
+// FIXME
+type SamplesVec = Vec<i32>;
 
 pub fn simplify_tables(samples: &SamplesVec, tables: &mut TableCollection) -> SamplesVec {
     let mut state = SimplificationBuffers::new();

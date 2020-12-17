@@ -1,5 +1,5 @@
 use crate::simplify_tables::{simplify_tables, simplify_tables_with_buffers};
-use crate::tables::{validate_edge_table, TableCollection};
+use crate::tables::{validate_edge_table, TableCollection, TreeSequenceRecordingInterface};
 use crate::SimplificationBuffers;
 use rgsl;
 use rgsl::rng::algorithms::mt19937;
