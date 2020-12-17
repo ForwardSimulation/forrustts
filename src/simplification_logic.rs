@@ -219,14 +219,10 @@ fn buffer_edge(
     child: TsInt,
     temp_edge_buffer: &mut EdgeTable,
 ) {
-    let mut i: usize = 0;
-    while i < temp_edge_buffer.len() {
-        if temp_edge_buffer[i].child == child {
-            break;
-        }
-        i += 1;
-    }
-    if i == temp_edge_buffer.len() {
+    let i = temp_edge_buffer
+        .iter()
+        .position(|e: &Edge| e.child == child);
+    if i.is_none() {
         temp_edge_buffer.push(Edge {
             left: left,
             right: right,
@@ -234,6 +230,7 @@ fn buffer_edge(
             child: child,
         });
     } else {
+        let i = i.unwrap();
         debug_assert_eq!(child, temp_edge_buffer[i].child);
         if temp_edge_buffer[i].right == left {
             temp_edge_buffer[i].right = right;
