@@ -18,23 +18,22 @@ impl SegmentOverlapper {
     fn set_partition(&mut self) -> i64 {
         let mut tright = std::i64::MAX;
         let mut b: usize = 0;
-        let mut i: usize = 0;
 
-        while i < self.oend {
+        for i in 0..self.oend {
             if self.overlapping[i].right > self.left {
                 self.overlapping[b] = self.overlapping[i];
                 tright = std::cmp::min(tright, self.overlapping[b].right);
                 b += 1;
             }
-            i += 1;
         }
+
         self.oend = b;
 
         return tright;
     }
 
     fn num_overlaps(&self) -> usize {
-        debug_assert!(
+        assert!(
             self.oend - self.obeg <= self.overlapping.len(),
             format!(
                 "overlap details = {} {} {}",
@@ -220,31 +219,28 @@ fn buffer_edge(
     child: TsInt,
     temp_edge_buffer: &mut EdgeTable,
 ) {
-    let mut i: usize = 0;
-    while i < temp_edge_buffer.len() {
-        if temp_edge_buffer[i].child == child {
-            break;
-        }
-        i += 1;
-    }
-    if i == temp_edge_buffer.len() {
-        temp_edge_buffer.push(Edge {
+    let i = temp_edge_buffer
+        .iter()
+        .rposition(|e: &Edge| e.child == child);
+
+    match i {
+        None => temp_edge_buffer.push(Edge {
             left: left,
             right: right,
             parent: parent,
             child: child,
-        });
-    } else {
-        debug_assert_eq!(child, temp_edge_buffer[i].child);
-        if temp_edge_buffer[i].right == left {
-            temp_edge_buffer[i].right = right;
-        } else {
-            temp_edge_buffer.push(Edge {
-                left: left,
-                right: right,
-                parent: parent,
-                child: child,
-            });
+        }),
+        Some(x) => {
+            if temp_edge_buffer[x].right == left {
+                temp_edge_buffer[x].right = right;
+            } else {
+                temp_edge_buffer.push(Edge {
+                    left: left,
+                    right: right,
+                    parent: parent,
+                    child: child,
+                });
+            }
         }
     }
 }
@@ -345,7 +341,8 @@ pub fn merge_ancestors(
         let n = output_buffered_edges(temp_edge_buffer, new_edges);
 
         if n == 0 && is_sample == false {
-            new_nodes.drain(output_id as usize..new_nodes.len());
+            assert!(output_id < new_nodes.len() as TsInt);
+            new_nodes.truncate(output_id as usize);
             idmap[parent_input_id as usize] = NULLTSINT;
         }
     }
@@ -360,7 +357,7 @@ pub fn record_sample_nodes(
     idmap: &mut SamplesVec,
 ) -> () {
     for sample in samples.iter() {
-        debug_assert!(*sample >= 0);
+        assert!(*sample >= 0);
         // NOTE: the following can be debug_assert?
         if *sample == NULLTSINT {
             panic!("sample node is NULLTSINT");

@@ -181,6 +181,12 @@ mod tests {
 
     type ListType = NestedForwardList<i32>;
 
+    struct Datum {
+        datum: i32,
+    }
+
+    type DatumList = NestedForwardList<Datum>;
+
     fn make_data_for_testing() -> ListType {
         let mut list = ListType::new();
         list.reset(2);
@@ -200,6 +206,26 @@ mod tests {
         assert_eq!(*list.fetch(list.tail(0).unwrap()).unwrap(), 4);
         assert_eq!(*list.fetch(list.head(1).unwrap()).unwrap(), 0);
         assert_eq!(*list.fetch(list.tail(1).unwrap()).unwrap(), 12);
+    }
+
+    #[test]
+    fn test_fetch_mut() {
+        let mut list = make_data_for_testing();
+        let x = list.tail(1).unwrap();
+        let y = list.fetch_mut(x).unwrap();
+        *y += 1;
+        assert_eq!(*list.fetch(list.tail(1).unwrap()).unwrap(), 13);
+    }
+
+    #[test]
+    fn test_fetch_mut_struct() {
+        let mut list = DatumList::new();
+        list.reset(1);
+        list.extend(0, Datum { datum: 0 }).unwrap();
+        let x = list.tail(0).unwrap();
+        let y = list.fetch_mut(x).unwrap();
+        y.datum = 111;
+        assert_eq!(list.fetch(list.tail(0).unwrap()).unwrap().datum, 111);
     }
 
     #[test]
@@ -232,6 +258,19 @@ mod tests {
         for i in 0..5 {
             assert_eq!(3 * i, output[i] as usize);
         }
+    }
+
+    #[test]
+    fn test_nullify() {
+        let mut list = make_data_for_testing();
+        list.nullify_list(0).unwrap();
+        let mut output = Vec::<i32>::new();
+        list.consume(0, |x: &i32| {
+            output.push(*x);
+            return true;
+        })
+        .unwrap();
+        assert_eq!(output.len(), 0);
     }
 
     #[test]
