@@ -37,6 +37,7 @@ pub fn simple_time_reverser(x: i64) -> Box<dyn Fn(i64) -> f64> {
 /// # Example
 ///
 /// ```
+/// use crate::forrustts::TreeSequenceRecordingInterface;
 /// let mut tables = forrustts::TableCollection::new(100).unwrap();
 /// tables.add_node(0, 0).unwrap(); // Add a parent node at time 0
 /// tables.add_node(1, 0).unwrap(); // Add a child node at time 1
@@ -123,6 +124,7 @@ fn swap_with_empty<T>(v: &mut Vec<T>) -> () {
 /// # Example
 ///
 /// ```
+/// use crate::forrustts::TreeSequenceRecordingInterface;
 /// let mut tables = forrustts::TableCollection::new(100).unwrap();
 /// tables.add_node(0, 0).unwrap(); // Add a parent node at time 0
 /// tables.add_node(1, 0).unwrap(); // Add a child node at time 1
