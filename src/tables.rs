@@ -308,7 +308,7 @@ macro_rules! validate_edge_table {
             let mut last_left: i64 = edges[0].left;
 
             for (i, edge) in edges.iter().enumerate() {
-                    // FIXME: should be name for null
+                // FIXME: should be name for null
                 if edge.parent == -1 {
                     return Err(TablesError::NullParent);
                 }

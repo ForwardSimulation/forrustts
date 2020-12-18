@@ -249,7 +249,10 @@ fn buffer_edge(
     }
 }
 
-fn output_buffered_edges(temp_edge_buffer: &mut EdgeTable<TsInt>, new_edges: &mut EdgeTable<TsInt>) -> usize {
+fn output_buffered_edges(
+    temp_edge_buffer: &mut EdgeTable<TsInt>,
+    new_edges: &mut EdgeTable<TsInt>,
+) -> usize {
     temp_edge_buffer.sort_by(|a, b| {
         return a.child.cmp(&b.child);
     });

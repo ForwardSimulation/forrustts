@@ -234,17 +234,13 @@ fn sort_and_simplify(
     tables: &mut TableCollection,
 ) -> SamplesVec {
     tables.sort_tables_for_simplification();
-    debug_assert!(
-        tables.validate_edge_table().unwrap()
-    );
+    debug_assert!(tables.validate_edge_table().unwrap());
     let idmap = if use_state == true {
         simplify_tables_with_buffers(samples, state, tables)
     } else {
         simplify_tables(samples, tables)
     };
-    debug_assert!(
-        tables.validate_edge_table().unwrap()
-    );
+    debug_assert!(tables.validate_edge_table().unwrap());
     return idmap;
 }
 
