@@ -389,21 +389,20 @@ impl TableCollection {
         return &self.nodes_;
     }
 
-    // FIXME: validate input
     pub fn node(&self, i: IdType) -> &Node {
         return &self.nodes_[i as usize];
     }
 
-    pub fn edge(&self, i: usize) -> &Edge {
-        return &self.edges_[i];
+    pub fn edge(&self, i: IdType) -> &Edge {
+        return &self.edges_[i as usize];
     }
 
-    pub fn site(&self, i: usize) -> &Site {
-        return &self.sites_[i];
+    pub fn site(&self, i: IdType) -> &Site {
+        return &self.sites_[i as usize];
     }
 
-    pub fn mutation(&self, i: usize) -> &Mutation {
-        return &self.mutations_[i];
+    pub fn mutation(&self, i: IdType) -> &Mutation {
+        return &self.mutations_[i as usize];
     }
 
     /// Return immutable reference to [site table](type.SiteTable.html)
