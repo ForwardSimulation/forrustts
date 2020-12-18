@@ -1,7 +1,6 @@
 //! Data interchange to ``tskit`` format using [``tskit_rust``].
 
 use crate::TableCollection;
-use crate::TreeSequenceRecordingInterface;
 use tskit_rust;
 use tskit_rust::{tsk_flags_t, tsk_id_t, TSK_NODE_IS_SAMPLE, TSK_NULL};
 
@@ -193,6 +192,7 @@ pub fn convert_to_tskit_and_drain(
 mod tests {
 
     use super::*;
+    use crate::TreeSequenceRecordingInterface;
 
     #[test]
     fn test_convert_to_tskit() {
