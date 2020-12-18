@@ -23,7 +23,7 @@ pub struct NestedForwardList<Value> {
 }
 
 impl<Value> NestedForwardList<Value> {
-    fn insert_new_record(&mut self, k: i32, v: Value) -> () {
+    fn insert_new_record(&mut self, k: i32, v: Value) {
         self.data_.push(v);
         let x = (self.data_.len() - 1) as i32;
         self.head_[k as usize] = x;
@@ -33,27 +33,29 @@ impl<Value> NestedForwardList<Value> {
 
     fn check_key(&self, k: i32) -> Result<()> {
         if k < 0 {
-            return Err(NestedForwardListError::InvalidKey);
+            Err(NestedForwardListError::InvalidKey)
+        } else {
+            Ok(())
         }
-        return Ok(());
     }
 
     fn check_key_range(&self, k: usize, n: usize) -> Result<()> {
         if k >= n {
-            return Err(NestedForwardListError::KeyOutOfRange);
+            Err(NestedForwardListError::KeyOutOfRange)
+        } else {
+            Ok(())
         }
-        return Ok(());
     }
 
     // Public functions:
 
     pub const fn new() -> NestedForwardList<Value> {
-        return NestedForwardList {
+        NestedForwardList {
             head_: Vec::<i32>::new(),
             tail_: Vec::<i32>::new(),
             next_: Vec::<i32>::new(),
             data_: Vec::<Value>::new(),
-        };
+        }
     }
 
     pub fn extend(&mut self, k: i32, v: Value) -> Result<()> {
@@ -81,47 +83,47 @@ impl<Value> NestedForwardList<Value> {
         // and thus could be failure point?
         self.next_[t as usize] = self.tail_[idx];
         self.next_.push(NestedForwardList::<Value>::null());
-        return Ok(());
+        Ok(())
     }
 
     #[inline]
     pub fn null() -> i32 {
-        return -1;
+        -1
     }
 
     #[inline]
     pub fn fetch_mut(&mut self, at: i32) -> Result<&mut Value> {
         self.check_key(at)?;
         self.check_key_range(at as usize, self.data_.len())?;
-        return Ok(&mut self.data_[at as usize]);
+        Ok(&mut self.data_[at as usize])
     }
 
     #[inline]
     pub fn fetch(&self, at: i32) -> Result<&Value> {
         self.check_key(at)?;
         self.check_key_range(at as usize, self.data_.len())?;
-        return Ok(&self.data_[at as usize]);
+        Ok(&self.data_[at as usize])
     }
 
     #[inline]
     pub fn head(&self, at: i32) -> Result<i32> {
         self.check_key(at)?;
         self.check_key_range(at as usize, self.head_.len())?;
-        return Ok(self.head_[at as usize]);
+        Ok(self.head_[at as usize])
     }
 
     #[inline]
     pub fn tail(&self, at: i32) -> Result<i32> {
         self.check_key(at)?;
         self.check_key_range(at as usize, self.tail_.len())?;
-        return Ok(self.tail_[at as usize]);
+        Ok(self.tail_[at as usize])
     }
 
     #[inline]
     pub fn next(&self, at: i32) -> Result<i32> {
         self.check_key(at)?;
         self.check_key_range(at as usize, self.next_.len())?;
-        return Ok(self.next_[at as usize]);
+        Ok(self.next_[at as usize])
     }
 
     pub fn clear(&mut self) {
@@ -136,12 +138,12 @@ impl<Value> NestedForwardList<Value> {
         while itr != NestedForwardList::<Value>::null() {
             let val = self.fetch(itr)?;
             let check = f(val);
-            if check == false {
+            if !check {
                 break;
             }
             itr = self.next(itr)?;
         }
-        return Ok(());
+        Ok(())
     }
 
     pub fn nullify_list(&mut self, at: i32) -> Result<()> {
@@ -150,10 +152,10 @@ impl<Value> NestedForwardList<Value> {
         self.check_key_range(at as usize, self.tail_.len())?;
         self.head_[at as usize] = NestedForwardList::<Value>::null();
         self.tail_[at as usize] = NestedForwardList::<Value>::null();
-        return Ok(());
+        Ok(())
     }
 
-    pub fn reset(&mut self, newsize: usize) -> () {
+    pub fn reset(&mut self, newsize: usize) {
         self.clear();
         self.head_
             .resize(newsize, NestedForwardList::<Value>::null());
@@ -163,14 +165,8 @@ impl<Value> NestedForwardList<Value> {
         //self.head_.fill(NestedForwardList::<Value>::null());
         //self.tail_.fill(NestedForwardList::<Value>::null());
         // ... so we do this lambda mapping instead
-        self.head_
-            .iter_mut()
-            .map(|x| *x = NestedForwardList::<Value>::null())
-            .count();
-        self.tail_
-            .iter_mut()
-            .map(|x| *x = NestedForwardList::<Value>::null())
-            .count();
+        self.head_.iter_mut().for_each(|x| *x = Self::null());
+        self.tail_.iter_mut().for_each(|x| *x = Self::null());
     }
 }
 
@@ -196,7 +192,7 @@ mod tests {
         for i in 0..5 {
             list.extend(1, 3 * i).unwrap();
         }
-        return list;
+        list
     }
 
     #[test]
@@ -241,8 +237,8 @@ mod tests {
         }
         assert_eq!(3, output.len());
 
-        for i in 0..3 {
-            assert_eq!(2 * i, output[i] as usize);
+        for (idx, val) in output.iter().enumerate().take(3) {
+            assert_eq!(2 * idx, *val as usize);
         }
 
         output.clear();
@@ -255,8 +251,8 @@ mod tests {
         }
         assert_eq!(5, output.len());
 
-        for i in 0..5 {
-            assert_eq!(3 * i, output[i] as usize);
+        for (idx, val) in output.iter().enumerate().take(5) {
+            assert_eq!(3 * idx, *val as usize);
         }
     }
 
@@ -267,7 +263,7 @@ mod tests {
         let mut output = Vec::<i32>::new();
         list.consume(0, |x: &i32| {
             output.push(*x);
-            return true;
+            true
         })
         .unwrap();
         assert_eq!(output.len(), 0);
@@ -280,31 +276,28 @@ mod tests {
 
         list.consume(0, |x: &i32| {
             output.push(*x);
-            return true;
+            true
         })
         .unwrap();
 
-        for i in 0..3 {
-            assert_eq!(2 * i, output[i] as usize);
+        for (idx, val) in output.iter().enumerate().take(3) {
+            assert_eq!(2 * idx, *val as usize);
         }
 
         output.clear();
 
         list.consume(1, |x: &i32| {
             output.push(*x);
-            return true;
+            true
         })
         .unwrap();
 
-        for i in 0..5 {
-            assert_eq!(3 * i, output[i] as usize);
+        for (idx, val) in output.iter().enumerate().take(5) {
+            assert_eq!(3 * idx, *val as usize);
         }
 
         output.clear();
-        list.consume(1, |_: &i32| {
-            return false;
-        })
-        .unwrap();
+        list.consume(1, |_: &i32| false).unwrap();
 
         assert_eq!(output.len(), 0);
     }
@@ -315,9 +308,9 @@ mod tests {
         list.reset(1);
         let result = list.extend(-1, 2);
         match result {
-            Ok(_) => assert!(false),
-            Err(NestedForwardListError::InvalidKey) => assert!(true),
-            Err(NestedForwardListError::KeyOutOfRange) => assert!(false),
+            Ok(_) => panic!(),
+            Err(NestedForwardListError::InvalidKey) => (),
+            Err(NestedForwardListError::KeyOutOfRange) => panic!(),
         }
     }
 }

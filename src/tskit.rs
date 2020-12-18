@@ -2,7 +2,6 @@
 
 use crate::tsdef::Time;
 use crate::TableCollection;
-use tskit_rust;
 use tskit_rust::{tsk_flags_t, tsk_id_t, TSK_NODE_IS_SAMPLE, TSK_NULL};
 
 /// Return a closure to help reverse time.
@@ -55,7 +54,7 @@ pub fn simple_time_reverser(x: Time) -> Box<dyn Fn(Time) -> f64> {
 /// ```
 pub fn convert_to_tskit(
     tables: &TableCollection,
-    is_sample: &Vec<i32>,
+    is_sample: &[i32],
     convert_time: impl Fn(Time) -> f64,
     build_indexes: bool,
 ) -> tskit_rust::TableCollection {
@@ -84,14 +83,14 @@ pub fn convert_to_tskit(
         tsk_tables.add_population().unwrap();
     }
 
-    if build_indexes == true {
+    if build_indexes {
         tsk_tables.build_index(0).unwrap();
     }
 
     tsk_tables
 }
 
-fn swap_with_empty<T>(v: &mut Vec<T>) -> () {
+fn swap_with_empty<T>(v: &mut Vec<T>) {
     let mut temp = Vec::<T>::new();
     std::mem::swap(v, &mut temp);
 }
@@ -148,7 +147,7 @@ fn swap_with_empty<T>(v: &mut Vec<T>) -> () {
 /// assert_eq!(tables.edges().capacity(), 0);
 /// ```
 pub fn convert_to_tskit_and_drain(
-    is_sample: &Vec<i32>,
+    is_sample: &[i32],
     convert_time: impl Fn(Time) -> f64,
     build_indexes: bool,
     tables: &mut TableCollection,
@@ -182,7 +181,7 @@ pub fn convert_to_tskit_and_drain(
         tsk_tables.add_population().unwrap();
     }
 
-    if build_indexes == true {
+    if build_indexes {
         tsk_tables.build_index(0).unwrap();
     }
 
