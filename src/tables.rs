@@ -308,12 +308,10 @@ macro_rules! validate_edge_table {
             let mut last_left: i64 = edges[0].left;
 
             for (i, edge) in edges.iter().enumerate() {
-                // FIXME: should be name for null
-                if edge.parent == -1 {
+                if edge.parent == Self::NULL_ID {
                     return Err(TablesError::NullParent);
                 }
-                if edge.child == -1 {
-                    // FIXME: should be name for null
+                if edge.child == Self::NULL_ID {
                     return Err(TablesError::NullChild);
                 }
                 if edge.parent < 0 || edge.parent as usize >= nodes.len() {
