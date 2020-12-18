@@ -480,6 +480,8 @@ impl<T> TableCollectionType<T> {
 
 pub trait TreeSequenceRecordingInterface<T> {
     // public
+    type IdType;
+    const NULL_ID: Self::IdType;
     fn add_node(&mut self, time: TIME, deme: T) -> TablesResult<T>;
     fn add_edge(&mut self, left: POSITION, right: POSITION, parent: T, child: T)
         -> TablesResult<T>;
@@ -510,12 +512,16 @@ pub trait TreeSequenceRecordingInterface<T> {
 auxilliary_sorting_functions!(i32, sort_edge_table_i32, sort_mutation_table_i32);
 
 impl TreeSequenceRecordingInterface<i32> for TableCollectionType<i32> {
+    type IdType = i32;
+    const NULL_ID: Self::IdType = -1;
     tree_sequence_recording_interface!(i32, sort_edge_table_i32, sort_mutation_table_i32);
 }
 
 auxilliary_sorting_functions!(i64, sort_edge_table_i64, sort_mutation_table_i64);
 
 impl TreeSequenceRecordingInterface<i64> for TableCollectionType<i64> {
+    type IdType = i64;
+    const NULL_ID: Self::IdType = -1;
     tree_sequence_recording_interface!(i64, sort_edge_table_i64, sort_mutation_table_i64);
 }
 
