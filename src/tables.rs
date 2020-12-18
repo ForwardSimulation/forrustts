@@ -119,7 +119,7 @@ pub fn edge_table_add_row(
     right: Position,
     parent: IdType,
     child: IdType,
-) -> TablesResult<usize> {
+) -> TablesResult<IdType> {
     if right <= left {
         return Err(TablesError::InvalidLeftRight {
             found: (left, right),
@@ -137,7 +137,7 @@ pub fn edge_table_add_row(
         child: child,
     });
 
-    return Ok(edges.len());
+    return Ok(edges.len() as IdType);
 }
 
 // FIXME: need to validate all input params and raise errors
@@ -159,13 +159,13 @@ pub fn site_table_add_row(
     sites: &mut SiteTable,
     position: Position,
     ancestral_state: i8,
-) -> TablesResult<usize> {
+) -> TablesResult<IdType> {
     position_non_negative(position)?;
     sites.push(Site {
         position: position,
         ancestral_state: ancestral_state,
     });
-    Ok(sites.len())
+    Ok(sites.len() as IdType)
 }
 
 pub fn mutation_table_add_row(
@@ -175,7 +175,7 @@ pub fn mutation_table_add_row(
     site: usize,
     derived_state: i8,
     neutral: bool,
-) -> TablesResult<usize> {
+) -> TablesResult<IdType> {
     node_non_negative(node)?;
     mutations.push(Mutation {
         node: node,
@@ -184,7 +184,7 @@ pub fn mutation_table_add_row(
         derived_state: derived_state,
         neutral: neutral,
     });
-    return Ok(mutations.len());
+    return Ok(mutations.len() as IdType);
 }
 
 fn sort_edge_table(nodes: &NodeTable, edges: &mut EdgeTable) -> () {
@@ -331,11 +331,11 @@ impl TableCollection {
         right: Position,
         parent: IdType,
         child: IdType,
-    ) -> TablesResult<usize> {
+    ) -> TablesResult<IdType> {
         return edge_table_add_row(&mut self.edges_, left, right, parent, child);
     }
 
-    pub fn add_site(&mut self, position: Position, ancestral_state: i8) -> TablesResult<usize> {
+    pub fn add_site(&mut self, position: Position, ancestral_state: i8) -> TablesResult<IdType> {
         if position >= self.length_ {
             return Err(TablesError::InvalidPosition { found: position });
         }
@@ -349,7 +349,7 @@ impl TableCollection {
         site: usize,
         derived_state: i8,
         neutral: bool,
-    ) -> TablesResult<usize> {
+    ) -> TablesResult<IdType> {
         return mutation_table_add_row(
             &mut self.mutations_,
             node,
