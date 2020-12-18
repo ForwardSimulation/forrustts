@@ -433,6 +433,8 @@ impl<T> TableCollectionType<T> {
         return &self.nodes_;
     }
 
+    // TODO: all of the below should be taking in ID types:
+
     // FIXME: validate input
     pub fn node(&self, i: usize) -> &Node<T> {
         return &self.nodes_[i as usize];
