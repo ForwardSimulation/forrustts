@@ -288,71 +288,6 @@ macro_rules! tree_sequence_recording_interface {
     };
 }
 
-//FIXME: remove later.
-//This is a mock-up
-
-// Table row
-pub struct E<T> {
-    left: i64,
-    right: i64,
-    parent: T,
-    child: T,
-}
-
-// table collection
-pub struct TC<T> {
-    edges_: Vec<E<T>>,
-}
-
-// Interface
-trait TCT<T> {
-    fn add_edge(&mut self, left: i64, right: i64, parent: T, child: T) -> TablesResult<T>;
-    fn foo();
-}
-
-// macros for the details
-macro_rules! add_edge2 {
-    ($itype: ty) => {
-        fn add_edge(
-            &mut self,
-            left: i64,
-            right: i64,
-            parent: $itype,
-            child: $itype,
-        ) -> TablesResult<$itype> {
-            self.edges_.push(E::<$itype> {
-                left,
-                right,
-                parent,
-                child,
-            });
-            Ok(self.edges_.len() as $itype)
-        }
-    };
-}
-
-macro_rules! add_foo {
-    ($itype: ty) => {
-        fn foo() {}
-    };
-}
-
-macro_rules! mock_make_interface {
-    ($itype: ty) => {
-        add_edge2!($itype);
-        add_foo!($itype);
-    };
-}
-
-// Concrete definitions
-impl TCT<i32> for TC<i32> {
-    mock_make_interface!(i32);
-}
-
-impl TCT<i64> for TC<i64> {
-    mock_make_interface!(i64);
-}
-
 macro_rules! validate_edge_table {
     ($itype: ty) => {
         fn validate_edge_table(&self) -> TablesResult<bool> {
@@ -492,7 +427,7 @@ impl<T> TableCollectionType<T> {
     }
 
     // FIXME: validate input
-    pub fn node(&self, i: T) -> &Node<T> {
+    pub fn node(&self, i: usize) -> &Node<T> {
         return &self.nodes_[i as usize];
     }
 

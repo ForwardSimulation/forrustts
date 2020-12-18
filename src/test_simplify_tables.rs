@@ -7,10 +7,13 @@ mod test {
     // We'll clean this up later when we get better abstractions
     // into tskit_rust.
     use crate::simplify_tables::simplify_tables;
-    use crate::tsdef::{SamplesVec, TsInt};
+    use crate::tables::TreeSequenceRecordingInterface;
     use crate::wright_fisher::neutral_wf;
     use std::mem::MaybeUninit;
     use tskit_rust::bindings as tskr;
+
+    type TsInt = i32;
+    type SamplesVec = Vec<i32>;
 
     fn tables_to_treeseq(
         tables: &mut tskit_rust::TableCollection,

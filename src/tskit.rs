@@ -1,6 +1,7 @@
 //! Data interchange to ``tskit`` format using [``tskit_rust``].
 
 use crate::TableCollection;
+use crate::TreeSequenceRecordingInterface;
 use tskit_rust;
 use tskit_rust::{tsk_flags_t, tsk_id_t, TSK_NODE_IS_SAMPLE, TSK_NULL};
 
