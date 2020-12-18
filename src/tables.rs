@@ -472,7 +472,12 @@ impl<T> TableCollectionType<T> {
 
 pub trait TableCollectionInterface<T> {
     // public
+
+    /// Integer type used to identify 
+    /// objects such as [``Node``]s.
     type IdType;
+    /// The "null" value of an identifier.
+    /// This is equal to -1
     const NULL_ID: Self::IdType;
 
     /// Get the total length of the sequence/genome.
