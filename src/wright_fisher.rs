@@ -1,5 +1,5 @@
 use crate::simplify_tables::{simplify_tables, simplify_tables_with_buffers};
-use crate::tables::{validate_edge_table, TableCollection, TreeSequenceRecordingInterface};
+use crate::tables::{TableCollection, TreeSequenceRecordingInterface};
 use crate::SimplificationBuffers;
 use rgsl;
 use rgsl::rng::algorithms::mt19937;
@@ -235,7 +235,7 @@ fn sort_and_simplify(
 ) -> SamplesVec {
     tables.sort_tables_for_simplification();
     debug_assert!(
-        validate_edge_table(tables.get_length(), tables.edges(), tables.nodes()).unwrap()
+        tables.validate_edge_table().unwrap()
     );
     let idmap = if use_state == true {
         simplify_tables_with_buffers(samples, state, tables)
@@ -243,7 +243,7 @@ fn sort_and_simplify(
         simplify_tables(samples, tables)
     };
     debug_assert!(
-        validate_edge_table(tables.get_length(), tables.edges(), tables.nodes()).unwrap()
+        tables.validate_edge_table().unwrap()
     );
     return idmap;
 }

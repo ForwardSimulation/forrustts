@@ -273,6 +273,7 @@ macro_rules! tree_sequence_recording_interface {
         add_site!($itype);
         add_mutation!($itype);
         sort_tables_for_simplification!($itype);
+        validate_edge_table!($itype);
     };
 }
 
@@ -341,82 +342,85 @@ impl TCT<i64> for TC<i64> {
     mock_make_interface!(i64);
 }
 
-pub fn validate_edge_table<T>(
-    len: POSITION,
-    edges: &EdgeTable<T>,
-    nodes: &NodeTable<T>,
-) -> TablesResult<bool> {
-    if edges.len() == 0 {
-        return Ok(true);
-    }
-    let mut parent_seen = vec![0; nodes.len()];
-    let mut last_parent: usize = edges[0].parent as usize;
-    let mut last_child: usize = edges[0].child as usize;
-    let mut last_left: i64 = edges[0].left;
-
-    for (i, edge) in edges.iter().enumerate() {
-        if edge.parent == -1 {
-            // FIXME: should be name for null
-            return Err(TablesError::NullParent);
-        }
-        if edge.child == -1 {
-            // FIXME: should be name for null
-            return Err(TablesError::NullChild);
-        }
-        if edge.parent < 0 || edge.parent as usize >= nodes.len() {
-            return Err(TablesError::NodeOutOfBounds);
-        }
-        if edge.child < 0 || edge.child as usize >= nodes.len() {
-            return Err(TablesError::NodeOutOfBounds);
-        }
-        if edge.left < 0 || edge.left > len {
-            return Err(TablesError::InvalidPosition { found: edge.left });
-        }
-        if edge.right < 0 || edge.right > len {
-            return Err(TablesError::InvalidPosition { found: edge.right });
-        }
-        if edge.left >= edge.right {
-            return Err(TablesError::InvalidLeftRight {
-                found: (edge.left, edge.right),
-            });
-        }
-
-        // child time must be > parent time b/c time goes forwards
-        if nodes[edge.child as usize].time <= nodes[edge.parent as usize].time {
-            return Err(TablesError::NodeTimesUnordered);
-        }
-
-        if parent_seen[edge.parent as usize] == 1 {
-            return Err(TablesError::ParentsNotContiguous);
-        }
-
-        if i > 0 {
-            if nodes[edge.parent as usize].time > nodes[last_parent].time {
-                return Err(TablesError::ParentTimesUnsorted);
+macro_rules! validate_edge_table {
+    ($itype: ty) => {
+        fn validate_edge_table(&self) -> TablesResult<bool> {
+            let edges = self.edges_.as_slice();
+            let nodes = self.nodes_.as_slice();
+            let len = self.get_length();
+            if edges.len() == 0 {
+                return Ok(true);
             }
-            if nodes[edge.parent as usize].time == nodes[last_parent].time {
-                if edge.parent as usize == last_parent {
-                    if (edge.child as usize) < last_child {
-                        return Err(TablesError::EdgesNotSortedByChild);
+            let mut parent_seen = vec![0; nodes.len()];
+            let mut last_parent: usize = edges[0].parent as usize;
+            let mut last_child: usize = edges[0].child as usize;
+            let mut last_left: i64 = edges[0].left;
+
+            for (i, edge) in edges.iter().enumerate() {
+                if edge.parent == -1 {
+                    // FIXME: should be name for null
+                    return Err(TablesError::NullParent);
+                }
+                if edge.child == -1 {
+                    // FIXME: should be name for null
+                    return Err(TablesError::NullChild);
+                }
+                if edge.parent < 0 || edge.parent as usize >= nodes.len() {
+                    return Err(TablesError::NodeOutOfBounds);
+                }
+                if edge.child < 0 || edge.child as usize >= nodes.len() {
+                    return Err(TablesError::NodeOutOfBounds);
+                }
+                if edge.left < 0 || edge.left > len {
+                    return Err(TablesError::InvalidPosition { found: edge.left });
+                }
+                if edge.right < 0 || edge.right > len {
+                    return Err(TablesError::InvalidPosition { found: edge.right });
+                }
+                if edge.left >= edge.right {
+                    return Err(TablesError::InvalidLeftRight {
+                        found: (edge.left, edge.right),
+                    });
+                }
+
+                // child time must be > parent time b/c time goes forwards
+                if nodes[edge.child as usize].time <= nodes[edge.parent as usize].time {
+                    return Err(TablesError::NodeTimesUnordered);
+                }
+
+                if parent_seen[edge.parent as usize] == 1 {
+                    return Err(TablesError::ParentsNotContiguous);
+                }
+
+                if i > 0 {
+                    if nodes[edge.parent as usize].time > nodes[last_parent].time {
+                        return Err(TablesError::ParentTimesUnsorted);
                     }
-                    if edge.child as usize == last_child {
-                        if edge.left == last_left {
-                            return Err(TablesError::DuplicateEdges);
-                        } else if edge.left < last_left {
-                            return Err(TablesError::EdgesNotSortedByLeft);
+                    if nodes[edge.parent as usize].time == nodes[last_parent].time {
+                        if edge.parent as usize == last_parent {
+                            if (edge.child as usize) < last_child {
+                                return Err(TablesError::EdgesNotSortedByChild);
+                            }
+                            if edge.child as usize == last_child {
+                                if edge.left == last_left {
+                                    return Err(TablesError::DuplicateEdges);
+                                } else if edge.left < last_left {
+                                    return Err(TablesError::EdgesNotSortedByLeft);
+                                }
+                            }
+                        } else {
+                            parent_seen[last_parent] = 1;
                         }
                     }
-                } else {
-                    parent_seen[last_parent] = 1;
                 }
+                last_parent = edge.parent as usize;
+                last_child = edge.child as usize;
+                last_left = edge.left;
             }
-        }
-        last_parent = edge.parent as usize;
-        last_child = edge.child as usize;
-        last_left = edge.left;
-    }
 
-    return Ok(true);
+            return Ok(true);
+        }
+    };
 }
 
 /// A collection of node, edge, site, and mutation tables.
@@ -534,10 +538,7 @@ pub trait TreeSequenceRecordingInterface<T> {
         neutral: bool,
     ) -> TablesResult<T>;
     fn sort_tables_for_simplification(&mut self) -> ();
-    //fn sort_tables_for_simplification(&mut self) -> () {
-    //    sort_edge_table(&self.nodes_, &mut self.edges_);
-    //    sort_mutation_table(&self.nodes_, &mut self.edges_);
-    //}
+    fn validate_edge_table(&self) -> TablesResult<bool>;
 }
 
 auxilliary_sorting_functions!(i32);
