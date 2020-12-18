@@ -1,8 +1,8 @@
-use crate::tsdef::TsInt;
+use crate::tsdef::{IdType, Position};
 
 #[derive(Clone, Copy)]
 pub struct Segment {
-    pub left: i64,
-    pub right: i64,
-    pub node: TsInt,
+    pub left: Position,
+    pub right: Position,
+    pub node: IdType,
 }

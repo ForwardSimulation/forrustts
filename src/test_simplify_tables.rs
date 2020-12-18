@@ -7,7 +7,7 @@ mod test {
     // We'll clean this up later when we get better abstractions
     // into tskit_rust.
     use crate::simplify_tables::simplify_tables;
-    use crate::tsdef::{SamplesVec, TsInt};
+    use crate::tsdef::IdType;
     use crate::wright_fisher::neutral_wf;
     use std::mem::MaybeUninit;
     use tskit_rust::bindings as tskr;
@@ -62,10 +62,10 @@ mod test {
 
         // Now, sort and simplify the tables we got from the sim:
         tables.sort_tables_for_simplification();
-        let mut samples = SamplesVec::new();
+        let mut samples: Vec<IdType> = vec![];
         for (i, n) in tables.nodes().iter().enumerate() {
             if n.time == num_generations {
-                samples.push(i as TsInt);
+                samples.push(i as IdType);
             }
         }
 

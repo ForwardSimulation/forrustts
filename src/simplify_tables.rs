@@ -1,18 +1,18 @@
 use crate::simplification_buffers::SimplificationBuffers;
 use crate::simplification_logic;
 use crate::tables::*;
-use crate::tsdef::SamplesVec;
+use crate::IdType;
 
-pub fn simplify_tables(samples: &SamplesVec, tables: &mut TableCollection) -> SamplesVec {
+pub fn simplify_tables(samples: &[IdType], tables: &mut TableCollection) -> Vec<IdType> {
     let mut state = SimplificationBuffers::new();
     return simplify_tables_with_buffers(samples, &mut state, tables);
 }
 
 pub fn simplify_tables_with_buffers(
-    samples: &SamplesVec,
+    samples: &[IdType],
     state: &mut SimplificationBuffers,
     tables: &mut TableCollection,
-) -> SamplesVec {
+) -> Vec<IdType> {
     if tables.sites_.len() > 0 || tables.mutations_.len() > 0 {
         panic!("mutation simplification not yet implemented");
     }
