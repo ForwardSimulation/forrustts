@@ -106,32 +106,26 @@ macro_rules! table_collection_accessors {
             return self.length_;
         }
 
-        /// Return immutable reference to the [mutation table](type.MutationTable.html)
         fn mutations(&self) -> &MutationTable<$itype> {
             return &self.mutations_;
         }
 
-        /// Return immutable reference to the [edge table](type.EdgeTable.html)
         fn edges(&self) -> &EdgeTable<$itype> {
             return &self.edges_;
         }
 
-        /// Return number of edges
         fn num_edges(&self) -> usize {
             return self.edges_.len();
         }
 
-        /// Return number of nodes
         fn num_nodes(&self) -> usize {
             return self.nodes_.len();
         }
 
-        /// Return immutable reference to [node table](type.NodeTable.html)
         fn nodes(&self) -> &NodeTable<$itype> {
             return &self.nodes_;
         }
 
-        /// Return immutable reference to [site table](type.SiteTable.html)
         fn sites(&self) -> &SiteTable {
             return &self.sites_;
         }
@@ -152,22 +146,18 @@ macro_rules! table_collection_accessors {
             return &self.mutations_[i as usize];
         }
 
-        /// Provide an enumeration over the [node table](type.NodeTable.html)
         fn enumerate_nodes(&self) -> std::iter::Enumerate<std::slice::Iter<Node<$itype>>> {
             return self.nodes_.iter().enumerate();
         }
 
-        /// Provide an enumeration over the [edge table](type.EdgeTable.html)
         fn enumerate_edges(&self) -> std::iter::Enumerate<std::slice::Iter<Edge<$itype>>> {
             return self.edges_.iter().enumerate();
         }
 
-        /// Provide an enumeration over the [mutation table](type.MutationTable.html)
         fn enumerate_mutations(&self) -> std::iter::Enumerate<std::slice::Iter<Mutation<$itype>>> {
             return self.mutations_.iter().enumerate();
         }
 
-        /// Provide an enumeration over the [site table](type.SiteTable.html)
         fn enumerate_sites(&self) -> std::iter::Enumerate<std::slice::Iter<Site>> {
             return self.sites_.iter().enumerate();
         }
@@ -485,93 +475,46 @@ pub trait TableCollectionInterface<T> {
     type IdType;
     const NULL_ID: Self::IdType;
 
+    /// Get the total length of the sequence/genome.
     fn get_length(&self) -> POSITION;
-    //{
-    //    return self.length_;
-    //}
 
     /// Return immutable reference to the [mutation table](type.MutationTable.html)
     fn mutations(&self) -> &MutationTable<T>;
-    //{
-    //    return &self.mutations_;
-    //}
 
     /// Return immutable reference to the [edge table](type.EdgeTable.html)
     fn edges(&self) -> &EdgeTable<T>;
-    //{
-    //    return &self.edges_;
-    //}
 
     /// Return number of edges
     fn num_edges(&self) -> usize;
-    //{
-    //    return self.edges_.len();
-    //}
 
     /// Return number of nodes
     fn num_nodes(&self) -> usize;
-    //{
-    //    return self.nodes_.len();
-    //}
 
     /// Return immutable reference to [node table](type.NodeTable.html)
     fn nodes(&self) -> &NodeTable<T>;
-    //{
-    //    return &self.nodes_;
-    //}
 
-    // TODO: all of the below should be taking in ID types:
-
-    // FIXME: validate input
     fn node(&self, i: T) -> &Node<T>;
-    //{
-    //    return &self.nodes_[i as usize];
-    //}
 
     fn edge(&self, i: T) -> &Edge<T>;
-    //{
-    //    return &self.edges_[i];
-    //}
 
     fn site(&self, i: T) -> &Site;
-    //{
-    //    return &self.sites_[i];
-    //}
 
     fn mutation(&self, i: T) -> &Mutation<T>;
-    //{
-    //    return &self.mutations_[i];
-    //}
 
     /// Return immutable reference to [site table](type.SiteTable.html)
     fn sites(&self) -> &SiteTable;
-    //{
-    //    return &self.sites_;
-    //}
 
     /// Provide an enumeration over the [node table](type.NodeTable.html)
     fn enumerate_nodes(&self) -> std::iter::Enumerate<std::slice::Iter<Node<T>>>;
-    //{
-    //    return self.nodes_.iter().enumerate();
-    //}
 
     /// Provide an enumeration over the [edge table](type.EdgeTable.html)
     fn enumerate_edges(&self) -> std::iter::Enumerate<std::slice::Iter<Edge<T>>>;
-    //{
-    //    return self.edges_.iter().enumerate();
-    //}
 
     /// Provide an enumeration over the [mutation table](type.MutationTable.html)
     fn enumerate_mutations(&self) -> std::iter::Enumerate<std::slice::Iter<Mutation<T>>>;
-    //{
-    //    return self.mutations_.iter().enumerate();
-    //}
 
     /// Provide an enumeration over the [site table](type.SiteTable.html)
     fn enumerate_sites(&self) -> std::iter::Enumerate<std::slice::Iter<Site>>;
-    //{
-    //    return self.sites_.iter().enumerate();
-    //}
 
     fn add_node(&mut self, time: TIME, deme: T) -> TablesResult<T>;
     fn add_edge(&mut self, left: POSITION, right: POSITION, parent: T, child: T)
