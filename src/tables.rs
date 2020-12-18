@@ -1,4 +1,5 @@
 use crate::tsdef::{POSITION, TIME};
+use paste;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
@@ -218,8 +219,9 @@ macro_rules! add_mutation {
 }
 
 macro_rules! sort_edge_table {
-    ($itype: ty) => {
-        fn sort_edge_table(nodes: &NodeTable<$itype>, edges: &mut EdgeTable<$itype>) -> () {
+    ($itype: ty, $fn: expr) => {
+        paste::item! {
+        fn $fn(nodes: &NodeTable<$itype>, edges: &mut EdgeTable<$itype>) -> () {
             // NOTE: it may by more idiomatic to
             // not use a slice here, and instead allow
             // the range-checking?
@@ -241,12 +243,14 @@ macro_rules! sort_edge_table {
                 return ta.cmp(&tb).reverse();
             });
         }
+        }
     };
 }
 
 macro_rules! sort_mutation_table {
-    ($itype: ty) => {
-        fn sort_mutation_table(sites: &SiteTable, mutations: &mut MutationTable<$itype>) -> () {
+    ($itype: ty, $fn: expr) => {
+        paste::item! {
+        fn $fn(sites: &SiteTable, mutations: &mut MutationTable<$itype>) -> () {
             let sslice = &sites.as_slice();
             mutations.sort_by(|a, b| {
                 let pa = sslice[a.site].position;
@@ -254,27 +258,28 @@ macro_rules! sort_mutation_table {
                 return pa.partial_cmp(&pb).unwrap().reverse();
             });
         }
+        }
     };
 }
 
 macro_rules! sort_tables_for_simplification {
-    ($itype: ty) => {
+    ($itype: ty, $edge_fn: expr, $mut_fn: expr) => {
         fn sort_tables_for_simplification(&mut self) -> () {
-            sort_edge_table(&self.nodes_, &mut self.edges_);
-            sort_mutation_table(&self.sites_, &mut self.mutations_);
+            $edge_fn(&self.nodes_, &mut self.edges_);
+            $mut_fn(&self.sites_, &mut self.mutations_);
         }
     };
 }
 
 macro_rules! auxilliary_sorting_functions {
-    ($itype:ty) => {
-        sort_mutation_table!($itype);
-        sort_edge_table!($itype);
+    ($itype:ty, $edge_fn: expr, $mut_fn: expr) => {
+        sort_mutation_table!($itype, $mut_fn);
+        sort_edge_table!($itype, $edge_fn);
     };
 }
 
 macro_rules! tree_sequence_recording_interface {
-    ($itype: ty) => {
+    ($itype: ty, $edge_fn: expr, $mut_fn: expr) => {
         // NOTE: should be hidden
         node_non_negative!($itype);
         deme_non_negative!($itype);
@@ -283,7 +288,7 @@ macro_rules! tree_sequence_recording_interface {
         add_edge!($itype);
         add_site!($itype);
         add_mutation!($itype);
-        sort_tables_for_simplification!($itype);
+        sort_tables_for_simplification!($itype, $edge_fn, $mut_fn);
         validate_edge_table!($itype);
     };
 }
@@ -303,8 +308,8 @@ macro_rules! validate_edge_table {
             let mut last_left: i64 = edges[0].left;
 
             for (i, edge) in edges.iter().enumerate() {
-                if edge.parent == -1 {
                     // FIXME: should be name for null
+                if edge.parent == -1 {
                     return Err(TablesError::NullParent);
                 }
                 if edge.child == -1 {
@@ -379,7 +384,9 @@ pub struct TableCollectionType<T> {
     pub(crate) mutations_: MutationTable<T>,
 }
 
+/// The current "canonical" tables with 32 bit identifiers
 pub type TableCollection = TableCollectionType<i32>;
+/// Tables with 64 bit identifiers
 pub type TableCollection64 = TableCollectionType<i64>;
 
 impl<T> TableCollectionType<T> {
@@ -494,10 +501,16 @@ pub trait TreeSequenceRecordingInterface<T> {
     fn deme_non_negative(x: T) -> TablesResult<()>;
 }
 
-auxilliary_sorting_functions!(i32);
+auxilliary_sorting_functions!(i32, sort_edge_table_i32, sort_mutation_table_i32);
 
 impl TreeSequenceRecordingInterface<i32> for TableCollectionType<i32> {
-    tree_sequence_recording_interface!(i32);
+    tree_sequence_recording_interface!(i32, sort_edge_table_i32, sort_mutation_table_i32);
+}
+
+auxilliary_sorting_functions!(i64, sort_edge_table_i64, sort_mutation_table_i64);
+
+impl TreeSequenceRecordingInterface<i64> for TableCollectionType<i64> {
+    tree_sequence_recording_interface!(i64, sort_edge_table_i64, sort_mutation_table_i64);
 }
 
 #[cfg(test)]
