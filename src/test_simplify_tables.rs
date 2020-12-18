@@ -1,7 +1,5 @@
 #[cfg(test)]
 mod test {
-    use tskit_rust;
-
     // NOTE: Currently, these tests are both testing
     // stuff from tskit_rust and forrusts, which isn't great.
     // We'll clean this up later when we get better abstractions
@@ -27,7 +25,7 @@ mod test {
             assert_eq!(rv, 0);
         }
 
-        return tsk_ts;
+        tsk_ts
     }
 
     #[test]
@@ -72,8 +70,8 @@ mod test {
         simplify_tables(&samples, &mut tables);
 
         is_sample = vec![0; tables.num_nodes()];
-        for i in 0..500 {
-            is_sample[i] = 1;
+        for i in is_sample.iter_mut().take(500) {
+            *i = 1;
         }
 
         let mut simplified_rust_tables = crate::tskit::convert_to_tskit(
@@ -115,7 +113,7 @@ mod test {
             let rv =
                 tskr::tsk_treeseq_kc_distance(tsk_ts.as_mut_ptr(), rust_ts.as_mut_ptr(), 0., kcp);
             assert_eq!(rv, 0);
-            assert_eq!(kc, 0.);
+            assert!((kc - 0.).abs() < f64::EPSILON);
 
             tskr::tsk_treeseq_free(tsk_ts.as_mut_ptr());
             tskr::tsk_treeseq_free(rust_ts.as_mut_ptr());

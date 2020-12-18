@@ -1,4 +1,5 @@
 use crate::tsdef::{IdType, Position, Time, NULL_ID};
+use std::cmp::Ordering;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
@@ -87,30 +88,34 @@ pub type MutationTable = Vec<Mutation>;
 
 fn position_non_negative(x: Position) -> TablesResult<()> {
     if x < 0 {
-        return Err(TablesError::InvalidPosition { found: x });
+        Err(TablesError::InvalidPosition { found: x })
+    } else {
+        Ok(())
     }
-    return Ok(());
 }
 
 fn node_non_negative(x: IdType) -> TablesResult<()> {
     if x < 0 {
-        return Err(TablesError::InvalidNodeValue { found: x });
+        Err(TablesError::InvalidNodeValue { found: x })
+    } else {
+        Ok(())
     }
-    return Ok(());
 }
 
 fn time_non_negative(x: Time) -> TablesResult<()> {
     if x < 0 {
-        return Err(TablesError::InvalidTime { found: x });
+        Err(TablesError::InvalidTime { found: x })
+    } else {
+        Ok(())
     }
-    return Ok(());
 }
 
 fn deme_non_negative(x: IdType) -> TablesResult<()> {
     if x < 0 {
-        return Err(TablesError::InvalidDeme { found: x });
+        Err(TablesError::InvalidDeme { found: x })
+    } else {
+        Ok(())
     }
-    return Ok(());
 }
 
 pub fn edge_table_add_row(
@@ -131,13 +136,13 @@ pub fn edge_table_add_row(
     node_non_negative(child)?;
 
     edges.push(Edge {
-        left: left,
-        right: right,
-        parent: parent,
-        child: child,
+        left,
+        right,
+        parent,
+        child,
     });
 
-    return Ok(edges.len() as IdType);
+    Ok(edges.len() as IdType)
 }
 
 // FIXME: need to validate all input params and raise errors
@@ -145,14 +150,9 @@ pub fn edge_table_add_row(
 pub fn node_table_add_row(nodes: &mut NodeTable, time: Time, deme: IdType) -> TablesResult<IdType> {
     time_non_negative(time)?;
     deme_non_negative(deme)?;
-    nodes.push(Node {
-        time: time,
-        deme: deme,
-    });
+    nodes.push(Node { time, deme });
 
-    // TODO: learn if there is a way to raise error
-    // automagically if overlow.
-    return Ok((nodes.len() - 1) as IdType);
+    Ok((nodes.len() - 1) as IdType)
 }
 
 pub fn site_table_add_row(
@@ -162,8 +162,8 @@ pub fn site_table_add_row(
 ) -> TablesResult<IdType> {
     position_non_negative(position)?;
     sites.push(Site {
-        position: position,
-        ancestral_state: ancestral_state,
+        position,
+        ancestral_state,
     });
     Ok(sites.len() as IdType)
 }
@@ -178,25 +178,24 @@ pub fn mutation_table_add_row(
 ) -> TablesResult<IdType> {
     node_non_negative(node)?;
     mutations.push(Mutation {
-        node: node,
-        key: key,
-        site: site,
-        derived_state: derived_state,
-        neutral: neutral,
+        node,
+        key,
+        site,
+        derived_state,
+        neutral,
     });
-    return Ok(mutations.len() as IdType);
+    Ok(mutations.len() as IdType)
 }
 
-fn sort_edge_table(nodes: &NodeTable, edges: &mut EdgeTable) -> () {
+fn sort_edge_table(nodes: &[Node], edges: &mut EdgeTable) {
     // NOTE: it may by more idiomatic to
     // not use a slice here, and instead allow
     // the range-checking?
-    let nslice = &nodes.as_slice();
     edges.sort_by(|a, b| {
         let aindex = a.parent as usize;
         let bindex = b.parent as usize;
-        let ta = nslice[aindex].time;
-        let tb = nslice[bindex].time;
+        let ta = nodes[aindex].time;
+        let tb = nodes[bindex].time;
         if ta == tb {
             if a.parent == b.parent {
                 if a.child == b.child {
@@ -206,25 +205,20 @@ fn sort_edge_table(nodes: &NodeTable, edges: &mut EdgeTable) -> () {
             }
             return a.parent.cmp(&b.parent);
         }
-        return ta.cmp(&tb).reverse();
+        ta.cmp(&tb).reverse()
     });
 }
 
-fn sort_mutation_table(sites: &SiteTable, mutations: &mut MutationTable) -> () {
-    let sslice = &sites.as_slice();
+fn sort_mutation_table(sites: &[Site], mutations: &mut MutationTable) {
     mutations.sort_by(|a, b| {
-        let pa = sslice[a.site].position;
-        let pb = sslice[b.site].position;
-        return pa.partial_cmp(&pb).unwrap().reverse();
+        let pa = sites[a.site].position;
+        let pb = sites[b.site].position;
+        pa.cmp(&pb).reverse()
     });
 }
 
-pub fn validate_edge_table(
-    len: Position,
-    edges: &EdgeTable,
-    nodes: &NodeTable,
-) -> TablesResult<bool> {
-    if edges.len() == 0 {
+pub fn validate_edge_table(len: Position, edges: &[Edge], nodes: &[Node]) -> TablesResult<bool> {
+    if edges.is_empty() {
         return Ok(true);
     }
     let mut parent_seen = vec![0; nodes.len()];
@@ -276,10 +270,10 @@ pub fn validate_edge_table(
                         return Err(TablesError::EdgesNotSortedByChild);
                     }
                     if edge.child as usize == last_child {
-                        if edge.left == last_left {
-                            return Err(TablesError::DuplicateEdges);
-                        } else if edge.left < last_left {
-                            return Err(TablesError::EdgesNotSortedByLeft);
+                        match edge.left.cmp(&last_left) {
+                            Ordering::Greater => (),
+                            Ordering::Equal => return Err(TablesError::DuplicateEdges),
+                            Ordering::Less => return Err(TablesError::EdgesNotSortedByLeft),
                         }
                     }
                 } else {
@@ -292,7 +286,7 @@ pub fn validate_edge_table(
         last_left = edge.left;
     }
 
-    return Ok(true);
+    Ok(true)
 }
 
 /// A collection of node, edge, site, and mutation tables.
@@ -311,17 +305,17 @@ impl TableCollection {
             return Err(TablesError::InvalidGenomeLength);
         }
 
-        return Ok(TableCollection {
+        Ok(TableCollection {
             length_: genome_length,
             nodes_: NodeTable::new(),
             edges_: EdgeTable::new(),
             sites_: SiteTable::new(),
             mutations_: MutationTable::new(),
-        });
+        })
     }
 
     pub fn add_node(&mut self, time: Time, deme: IdType) -> TablesResult<IdType> {
-        return node_table_add_row(&mut self.nodes_, time, deme);
+        node_table_add_row(&mut self.nodes_, time, deme)
     }
 
     /// Add an Edge
@@ -332,14 +326,14 @@ impl TableCollection {
         parent: IdType,
         child: IdType,
     ) -> TablesResult<IdType> {
-        return edge_table_add_row(&mut self.edges_, left, right, parent, child);
+        edge_table_add_row(&mut self.edges_, left, right, parent, child)
     }
 
     pub fn add_site(&mut self, position: Position, ancestral_state: i8) -> TablesResult<IdType> {
         if position >= self.length_ {
             return Err(TablesError::InvalidPosition { found: position });
         }
-        return site_table_add_row(&mut self.sites_, position, ancestral_state);
+        site_table_add_row(&mut self.sites_, position, ancestral_state)
     }
 
     pub fn add_mutation(
@@ -350,87 +344,87 @@ impl TableCollection {
         derived_state: i8,
         neutral: bool,
     ) -> TablesResult<IdType> {
-        return mutation_table_add_row(
+        mutation_table_add_row(
             &mut self.mutations_,
             node,
             key,
             site,
             derived_state,
             neutral,
-        );
+        )
     }
 
     pub fn get_length(&self) -> Position {
-        return self.length_;
+        self.length_
     }
 
     /// Return immutable reference to the [mutation table](type.MutationTable.html)
     pub fn mutations(&self) -> &MutationTable {
-        return &self.mutations_;
+        &self.mutations_
     }
 
     /// Return immutable reference to the [edge table](type.EdgeTable.html)
     pub fn edges(&self) -> &EdgeTable {
-        return &self.edges_;
+        &self.edges_
     }
 
     /// Return number of edges
     pub fn num_edges(&self) -> usize {
-        return self.edges_.len();
+        self.edges_.len()
     }
 
     /// Return number of nodes
     pub fn num_nodes(&self) -> usize {
-        return self.nodes_.len();
+        self.nodes_.len()
     }
 
     /// Return immutable reference to [node table](type.NodeTable.html)
     pub fn nodes(&self) -> &NodeTable {
-        return &self.nodes_;
+        &self.nodes_
     }
 
     pub fn node(&self, i: IdType) -> &Node {
-        return &self.nodes_[i as usize];
+        &self.nodes_[i as usize]
     }
 
     pub fn edge(&self, i: IdType) -> &Edge {
-        return &self.edges_[i as usize];
+        &self.edges_[i as usize]
     }
 
     pub fn site(&self, i: IdType) -> &Site {
-        return &self.sites_[i as usize];
+        &self.sites_[i as usize]
     }
 
     pub fn mutation(&self, i: IdType) -> &Mutation {
-        return &self.mutations_[i as usize];
+        &self.mutations_[i as usize]
     }
 
     /// Return immutable reference to [site table](type.SiteTable.html)
     pub fn sites(&self) -> &SiteTable {
-        return &self.sites_;
+        &self.sites_
     }
 
     /// Provide an enumeration over the [node table](type.NodeTable.html)
     pub fn enumerate_nodes(&self) -> std::iter::Enumerate<std::slice::Iter<Node>> {
-        return self.nodes_.iter().enumerate();
+        self.nodes_.iter().enumerate()
     }
 
     /// Provide an enumeration over the [edge table](type.EdgeTable.html)
     pub fn enumerate_edges(&self) -> std::iter::Enumerate<std::slice::Iter<Edge>> {
-        return self.edges_.iter().enumerate();
+        self.edges_.iter().enumerate()
     }
 
     /// Provide an enumeration over the [mutation table](type.MutationTable.html)
     pub fn enumerate_mutations(&self) -> std::iter::Enumerate<std::slice::Iter<Mutation>> {
-        return self.mutations_.iter().enumerate();
+        self.mutations_.iter().enumerate()
     }
 
     /// Provide an enumeration over the [site table](type.SiteTable.html)
     pub fn enumerate_sites(&self) -> std::iter::Enumerate<std::slice::Iter<Site>> {
-        return self.sites_.iter().enumerate();
+        self.sites_.iter().enumerate()
     }
 
-    pub fn sort_tables_for_simplification(&mut self) -> () {
+    pub fn sort_tables_for_simplification(&mut self) {
         sort_edge_table(&self.nodes_, &mut self.edges_);
         sort_mutation_table(&self.sites_, &mut self.mutations_);
     }
@@ -445,7 +439,7 @@ mod test_tables {
     fn test_bad_genome_length() {
         let _ = TableCollection::new(0).map_or_else(
             |x: TablesError| assert_eq!(x, TablesError::InvalidGenomeLength),
-            |_| assert!(false),
+            |_| panic!(),
         );
     }
 
@@ -472,12 +466,12 @@ mod test_tables {
 
         let _ = tables.add_edge(-1, 1, 1, 2).map_or_else(
             |x: TablesError| assert_eq!(x, TablesError::InvalidPosition { found: -1 }),
-            |_| assert!(false),
+            |_| panic!(),
         );
 
         let _ = tables.add_edge(1, -1, 1, 2).map_or_else(
             |x: TablesError| assert_eq!(x, TablesError::InvalidLeftRight { found: (1, -1) }),
-            |_| assert!(false),
+            |_| panic!(),
         );
     }
 
@@ -487,12 +481,12 @@ mod test_tables {
 
         let _ = tables.add_edge(0, 1, -1, 2).map_or_else(
             |x: TablesError| assert_eq!(x, TablesError::InvalidNodeValue { found: -1 }),
-            |_| assert!(false),
+            |_| panic!(),
         );
 
         let _ = tables.add_edge(0, 1, 1, -2).map_or_else(
             |x: TablesError| assert_eq!(x, TablesError::InvalidNodeValue { found: -2 }),
-            |_| assert!(false),
+            |_| panic!(),
         );
     }
 }

@@ -1,5 +1,6 @@
 use crate::nested_forward_list::NestedForwardList;
 use crate::segment::Segment;
+use crate::simplification_buffers::SimplificationBuffers;
 use crate::tables::*;
 use crate::tsdef::{IdType, Position, NULL_ID};
 
@@ -29,7 +30,7 @@ impl SegmentOverlapper {
 
         self.oend = b;
 
-        return tright;
+        tright
     }
 
     fn num_overlaps(&self) -> usize {
@@ -42,13 +43,13 @@ impl SegmentOverlapper {
                 self.overlapping.len()
             )
         );
-        return self.oend - self.obeg;
+        self.oend - self.obeg
     }
 
     // Public interface below
 
     pub const fn new() -> SegmentOverlapper {
-        return SegmentOverlapper {
+        SegmentOverlapper {
             segment_queue: vec![],
             overlapping: vec![],
             left: 0,
@@ -57,10 +58,10 @@ impl SegmentOverlapper {
             qend: std::usize::MAX,
             obeg: std::usize::MAX,
             oend: std::usize::MAX,
-        };
+        }
     }
 
-    pub fn init(&mut self) -> () {
+    pub fn init(&mut self) {
         self.qbeg = 0;
         self.qend = self.segment_queue.len() - 1;
         assert!(self.qend < self.segment_queue.len());
@@ -69,18 +70,12 @@ impl SegmentOverlapper {
         self.overlapping.clear();
     }
 
-    pub fn enqueue(&mut self, left: Position, right: Position, node: IdType) -> () {
-        self.segment_queue.push(Segment {
-            left: left,
-            right: right,
-            node: node,
-        });
+    pub fn enqueue(&mut self, left: Position, right: Position, node: IdType) {
+        self.segment_queue.push(Segment { left, right, node });
     }
 
-    pub fn finalize_queue(&mut self, maxlen: Position) -> () {
-        self.segment_queue.sort_by(|a, b| {
-            return a.left.cmp(&b.left);
-        });
+    pub fn finalize_queue(&mut self, maxlen: Position) {
+        self.segment_queue.sort_by(|a, b| a.left.cmp(&b.left));
         self.segment_queue.push(Segment {
             left: maxlen,
             right: maxlen + 1,
@@ -117,23 +112,23 @@ impl SegmentOverlapper {
             }
         }
 
-        return rv;
+        rv
     }
 
     pub fn get_left(&self) -> Position {
-        return self.left;
+        self.left
     }
 
     pub fn get_right(&self) -> Position {
-        return self.right;
+        self.right
     }
 
-    pub fn clear_queue(&mut self) -> () {
+    pub fn clear_queue(&mut self) {
         self.segment_queue.clear();
     }
 
     pub fn overlap(&self, i: usize) -> &Segment {
-        return &self.overlapping[i];
+        &self.overlapping[i]
     }
 }
 
@@ -141,7 +136,7 @@ pub type AncestryList = NestedForwardList<Segment>;
 
 // FIXME: another panic! room
 pub fn find_parent_child_segment_overlap(
-    edges: &EdgeTable,
+    edges: &[Edge],
     edge_index: usize,
     num_edges: usize,
     maxlen: Position,
@@ -164,16 +159,16 @@ pub fn find_parent_child_segment_overlap(
                         seg.node,
                     );
                 }
-                return true;
+                true
             })
             .unwrap();
         i += 1;
     }
     overlapper.finalize_queue(maxlen);
-    return i;
+    i
 }
 
-pub fn setup_idmap(nodes: &NodeTable) -> Vec<IdType> {
+pub fn setup_idmap(nodes: &[Node]) -> Vec<IdType> {
     return vec![NULL_ID; nodes.len()];
 }
 
@@ -184,14 +179,10 @@ fn add_ancestry(
     right: Position,
     node: IdType,
     ancestry: &mut AncestryList,
-) -> () {
+) {
     let head = ancestry.head(input_id).unwrap();
     if head == AncestryList::null() {
-        let seg = Segment {
-            left: left,
-            right: right,
-            node: node,
-        };
+        let seg = Segment { left, right, node };
         ancestry.extend(input_id, seg).unwrap();
     } else {
         let last_idx = ancestry.tail(input_id).unwrap();
@@ -202,11 +193,7 @@ fn add_ancestry(
         if last.right == left && last.node == node {
             last.right = right;
         } else {
-            let seg = Segment {
-                left: left,
-                right: right,
-                node: node,
-            };
+            let seg = Segment { left, right, node };
             ancestry.extend(input_id, seg).unwrap();
         }
     }
@@ -225,20 +212,20 @@ fn buffer_edge(
 
     match i {
         None => temp_edge_buffer.push(Edge {
-            left: left,
-            right: right,
-            parent: parent,
-            child: child,
+            left,
+            right,
+            parent,
+            child,
         }),
         Some(x) => {
             if temp_edge_buffer[x].right == left {
                 temp_edge_buffer[x].right = right;
             } else {
                 temp_edge_buffer.push(Edge {
-                    left: left,
-                    right: right,
-                    parent: parent,
-                    child: child,
+                    left,
+                    right,
+                    parent,
+                    child,
                 });
             }
         }
@@ -246,103 +233,103 @@ fn buffer_edge(
 }
 
 fn output_buffered_edges(temp_edge_buffer: &mut EdgeTable, new_edges: &mut EdgeTable) -> usize {
-    temp_edge_buffer.sort_by(|a, b| {
-        return a.child.cmp(&b.child);
-    });
+    temp_edge_buffer.sort_by(|a, b| a.child.cmp(&b.child));
 
     // Need to store size here b/c
     // append drains contents of input!!!
     let rv = temp_edge_buffer.len();
     new_edges.append(temp_edge_buffer);
 
-    return rv;
+    rv
 }
 
 pub fn merge_ancestors(
-    input_nodes: &NodeTable,
+    input_nodes: &[Node],
     maxlen: Position,
     parent_input_id: IdType,
-    temp_edge_buffer: &mut EdgeTable,
-    new_nodes: &mut NodeTable,
-    new_edges: &mut EdgeTable,
-    ancestry: &mut AncestryList,
-    overlapper: &mut SegmentOverlapper,
+    state: &mut SimplificationBuffers,
     idmap: &mut [IdType],
 ) {
     let mut output_id = idmap[parent_input_id as usize];
     let is_sample = output_id != NULL_ID;
 
-    if is_sample == true {
-        ancestry.nullify_list(parent_input_id).unwrap();
+    if is_sample {
+        state.ancestry.nullify_list(parent_input_id).unwrap();
     }
 
     let mut previous_right: Position = 0;
     let mut ancestry_node: IdType;
-    overlapper.init();
-    temp_edge_buffer.clear();
+    state.overlapper.init();
+    state.temp_edge_buffer.clear();
 
-    while overlapper.advance() == true {
-        if overlapper.num_overlaps() == 1 {
-            ancestry_node = overlapper.overlap(0).node;
-            if is_sample == true {
+    while state.overlapper.advance() {
+        if state.overlapper.num_overlaps() == 1 {
+            ancestry_node = state.overlapper.overlap(0).node;
+            if is_sample {
                 buffer_edge(
-                    overlapper.get_left(),
-                    overlapper.get_right(),
+                    state.overlapper.get_left(),
+                    state.overlapper.get_right(),
                     output_id,
                     ancestry_node,
-                    temp_edge_buffer,
+                    &mut state.temp_edge_buffer,
                 );
                 ancestry_node = output_id;
             }
         } else {
             if output_id == NULL_ID {
-                new_nodes.push(Node {
+                state.new_nodes.push(Node {
                     time: input_nodes[parent_input_id as usize].time,
                     deme: input_nodes[parent_input_id as usize].deme,
                 });
-                output_id = (new_nodes.len() - 1) as IdType;
+                output_id = (state.new_nodes.len() - 1) as IdType;
                 idmap[parent_input_id as usize] = output_id;
             }
             ancestry_node = output_id;
-            for i in 0..overlapper.num_overlaps() as usize {
-                let o = &overlapper.overlap(i);
+            for i in 0..state.overlapper.num_overlaps() as usize {
+                let o = &state.overlapper.overlap(i);
                 buffer_edge(
-                    overlapper.get_left(),
-                    overlapper.get_right(),
+                    state.overlapper.get_left(),
+                    state.overlapper.get_right(),
                     output_id,
                     o.node,
-                    temp_edge_buffer,
+                    &mut state.temp_edge_buffer,
                 );
             }
         }
-        if is_sample == true && overlapper.get_left() != previous_right {
+        if is_sample && state.overlapper.get_left() != previous_right {
             add_ancestry(
                 parent_input_id,
                 previous_right,
-                overlapper.get_left(),
+                state.overlapper.get_left(),
                 output_id,
-                ancestry,
+                &mut state.ancestry,
             );
         }
         add_ancestry(
             parent_input_id,
-            overlapper.get_left(),
-            overlapper.get_right(),
+            state.overlapper.get_left(),
+            state.overlapper.get_right(),
             ancestry_node,
-            ancestry,
+            &mut state.ancestry,
         );
-        previous_right = overlapper.get_right();
+        previous_right = state.overlapper.get_right();
     }
-    if is_sample == true && previous_right != maxlen {
-        add_ancestry(parent_input_id, previous_right, maxlen, output_id, ancestry);
+    if is_sample && previous_right != maxlen {
+        add_ancestry(
+            parent_input_id,
+            previous_right,
+            maxlen,
+            output_id,
+            &mut state.ancestry,
+        );
     }
 
     if output_id != NULL_ID {
-        let n = output_buffered_edges(temp_edge_buffer, new_edges);
+        let n = output_buffered_edges(&mut state.temp_edge_buffer, &mut state.new_edges);
 
-        if n == 0 && is_sample == false {
-            assert!(output_id < new_nodes.len() as IdType);
-            new_nodes.truncate(output_id as usize);
+        if n == 0 && !is_sample {
+            assert!(output_id < state.new_nodes.len() as IdType);
+            state.new_nodes.truncate(output_id as usize);
             idmap[parent_input_id as usize] = NULL_ID;
         }
     }
@@ -355,7 +342,7 @@ pub fn record_sample_nodes(
     new_nodes: &mut NodeTable,
     ancestry: &mut AncestryList,
     idmap: &mut [IdType],
-) -> () {
+) {
     for sample in samples.iter() {
         assert!(*sample >= 0);
         // NOTE: the following can be debug_assert?

@@ -22,13 +22,13 @@ pub struct SimplificationBuffers {
 impl SimplificationBuffers {
     /// Create a new instance.
     pub const fn new() -> SimplificationBuffers {
-        return SimplificationBuffers {
+        SimplificationBuffers {
             new_edges: EdgeTable::new(),
             temp_edge_buffer: EdgeTable::new(),
             new_nodes: NodeTable::new(),
             overlapper: SegmentOverlapper::new(),
             ancestry: AncestryList::new(),
-        };
+        }
     }
 
     // NOTE: should this be fully pub?

@@ -2,7 +2,6 @@ use crate::simplify_tables::{simplify_tables, simplify_tables_with_buffers};
 use crate::tables::{validate_edge_table, TableCollection};
 use crate::tsdef::*;
 use crate::SimplificationBuffers;
-use rgsl;
 use rgsl::rng::algorithms::mt19937;
 
 // Some of the material below seems like a candidate for a public API,
@@ -18,11 +17,11 @@ struct Parent {
 
 impl Parent {
     pub const fn new(index: usize, node0: IdType, node1: IdType) -> Parent {
-        return Parent {
-            index: index,
-            node0: node0,
-            node1: node1,
-        };
+        Parent {
+            index,
+            node0,
+            node1,
+        }
     }
 }
 
@@ -36,13 +35,13 @@ struct Birth {
 
 impl Birth {
     pub const fn new(index: usize, parent0: &Parent, parent1: &Parent) -> Birth {
-        return Birth {
-            index: index,
+        Birth {
+            index,
             p0node0: parent0.node0,
             p0node1: parent0.node1,
             p1node0: parent1.node0,
             p1node1: parent1.node1,
-        };
+        }
     }
 }
 
@@ -50,11 +49,11 @@ type VecParent = Vec<Parent>;
 type VecBirth = Vec<Birth>;
 
 fn deaths_and_parents(
-    parents: &VecParent,
+    parents: &[Parent],
     psurvival: f64,
     rng: &mut rgsl::Rng,
     births: &mut VecBirth,
-) -> () {
+) {
     births.clear();
     for i in 0..parents.len() {
         if rng.uniform() > psurvival {
@@ -68,20 +67,21 @@ fn deaths_and_parents(
 /// Decide which node to pass on from a parent.
 fn mendel(rng: &mut rgsl::Rng, n0: IdType, n1: IdType) -> (IdType, IdType) {
     if rng.uniform() < 0.5 {
-        return (n1, n0);
+        (n1, n0)
+    } else {
+        (n0, n1)
     }
-    return (n0, n1);
 }
 
 fn generate_births(
-    births: &VecBirth,
+    births: &[Birth],
     littler: f64,
     birth_time: Time,
     rng: &mut rgsl::Rng,
     parents: &mut VecParent,
     breakpoints: &mut Vec<Position>,
     tables: &mut TableCollection,
-) -> () {
+) {
     for b in births {
         let parent0_nodes = mendel(rng, b.p0node0, b.p0node1);
         let parent1_nodes = mendel(rng, b.p1node0, b.p1node1);
@@ -105,10 +105,10 @@ fn generate_births(
 fn record_edges(
     parents: (IdType, IdType),
     child: IdType,
-    breakpoints: &Vec<Position>,
+    breakpoints: &[Position],
     tables: &mut TableCollection,
-) -> () {
-    if breakpoints.len() == 0 {
+) {
+    if breakpoints.is_empty() {
         tables
             .add_edge(0, tables.get_length(), parents.0, child)
             .unwrap();
@@ -148,7 +148,7 @@ fn next_breakpoint_distance(
         Some(x) => x,
         None => breakpoints.len(),
     };
-    return i;
+    i
 }
 
 /// If some breakpoints are not unique,
@@ -163,7 +163,7 @@ fn prune_breakpoints(breakpoints: &mut Vec<Position>) {
     let mut i: usize = 1;
     while i < breakpoints.len() {
         if breakpoints[i - 1] == breakpoints[i] {
-            i = i - 1;
+            i -= 1;
             break;
         }
         i += 1;
@@ -176,13 +176,11 @@ fn prune_breakpoints(breakpoints: &mut Vec<Position>) {
             let not_equal = next_breakpoint_distance(
                 breakpoints[i],
                 &breakpoints[i..breakpoints.len()],
-                |a, b| {
-                    return a != b;
-                },
+                |a, b| a != b,
             );
-            let even = if not_equal % 2 == 0 { true } else { false };
-            for j in start..i + 1 - even as usize {
-                odd_breakpoints.push(breakpoints[j]);
+            let even = not_equal % 2 == 0;
+            for j in breakpoints.iter().take(i + 1 - even as usize).skip(start) {
+                odd_breakpoints.push(*j);
             }
             start = i + not_equal;
             if start >= breakpoints.len() {
@@ -192,9 +190,7 @@ fn prune_breakpoints(breakpoints: &mut Vec<Position>) {
                 + next_breakpoint_distance(
                     breakpoints[i],
                     &breakpoints[i..breakpoints.len()],
-                    |a, b| {
-                        return a == b;
-                    },
+                    |a, b| a == b,
                 );
         }
         std::mem::swap(breakpoints, &mut odd_breakpoints);
@@ -206,21 +202,21 @@ fn recombination_breakpoints(
     maxlen: Position,
     rng: &mut rgsl::Rng,
     breakpoints: &mut Vec<Position>,
-) -> () {
+) {
     breakpoints.clear();
     let nxovers = rng.poisson(littler);
     for _ in 0..nxovers {
         breakpoints.push(rng.flat(0., maxlen as f64) as Position);
     }
-    breakpoints.sort();
+    breakpoints.sort_unstable();
     prune_breakpoints(breakpoints);
-    if breakpoints.len() > 0 {
+    if !breakpoints.is_empty() {
         breakpoints.push(Position::MAX);
     }
 }
 
 // NOTE: I've apparently decided on changing my naming convention?
-fn fill_samples(parents: &VecParent, samples: &mut Vec<IdType>) -> () {
+fn fill_samples(parents: &[Parent], samples: &mut Vec<IdType>) {
     samples.clear();
     for p in parents {
         samples.push(p.node0);
@@ -230,7 +226,7 @@ fn fill_samples(parents: &VecParent, samples: &mut Vec<IdType>) -> () {
 
 fn sort_and_simplify(
     use_state: bool,
-    samples: &Vec<IdType>,
+    samples: &[IdType],
     state: &mut SimplificationBuffers,
     tables: &mut TableCollection,
 ) -> Vec<IdType> {
@@ -238,7 +234,7 @@ fn sort_and_simplify(
     debug_assert!(
         validate_edge_table(tables.get_length(), tables.edges(), tables.nodes()).unwrap()
     );
-    let idmap = if use_state == true {
+    let idmap = if use_state {
         simplify_tables_with_buffers(samples, state, tables)
     } else {
         simplify_tables(samples, tables)
@@ -246,7 +242,7 @@ fn sort_and_simplify(
     debug_assert!(
         validate_edge_table(tables.get_length(), tables.edges(), tables.nodes()).unwrap()
     );
-    return idmap;
+    idmap
 }
 
 fn simplify_and_remap_nodes(
@@ -255,7 +251,7 @@ fn simplify_and_remap_nodes(
     parents: &mut VecParent,
     state: &mut SimplificationBuffers,
     tables: &mut TableCollection,
-) -> () {
+) {
     fill_samples(parents, samples);
     let idmap = sort_and_simplify(use_state, samples, state, tables);
     for p in parents {
@@ -268,19 +264,23 @@ fn validate_simplification_interval(x: Time) -> Time {
     if x < 1 {
         panic!("simplification_interval must be None or >= 1");
     }
-    return x;
+    x
 }
 
 // NOTE: this function is a copy of the simulation
 // found in fwdpp/examples/edge_buffering.cc
 
-fn neutral_wf_impl(
-    seed: usize,
-    popsize: u32,
-    nsteps: Time,
+struct PopulationParams {
+    size: u32,
     genome_length: Position,
     littler: f64,
     psurvival: f64,
+}
+
+fn neutral_wf_impl(
+    pop_params: PopulationParams,
+    seed: usize,
+    nsteps: Time,
     simplification_interval: Option<Time>,
     use_state: bool,
 ) -> TableCollection {
@@ -302,7 +302,7 @@ fn neutral_wf_impl(
 
     rng.set(seed);
 
-    let mut tables = TableCollection::new(genome_length).unwrap();
+    let mut tables = TableCollection::new(pop_params.genome_length).unwrap();
     let mut parents = VecParent::new();
     let mut births = VecBirth::new();
     let mut samples: Vec<IdType> = vec![];
@@ -310,7 +310,7 @@ fn neutral_wf_impl(
 
     // Record nodes for the first generation
     // Nodes will have birth time 0 in deme 0.
-    for i in 0..popsize {
+    for i in 0..pop_params.size {
         let n0 = tables.add_node(0, 0).unwrap();
         let n1 = tables.add_node(0, 0).unwrap();
         parents.push(Parent::new(i as usize, n0, n1));
@@ -320,10 +320,10 @@ fn neutral_wf_impl(
     let mut state = SimplificationBuffers::new();
 
     for birth_time in 1..(nsteps + 1) {
-        deaths_and_parents(&parents, psurvival, &mut rng, &mut births);
+        deaths_and_parents(&parents, pop_params.psurvival, &mut rng, &mut births);
         generate_births(
             &births,
-            littler,
+            pop_params.littler,
             birth_time,
             &mut rng,
             &mut parents,
@@ -345,7 +345,7 @@ fn neutral_wf_impl(
         }
     }
 
-    if simplified == false && actual_simplification_interval != -1 {
+    if !simplified && actual_simplification_interval != -1 {
         simplify_and_remap_nodes(
             use_state,
             &mut samples,
@@ -355,28 +355,30 @@ fn neutral_wf_impl(
         );
     }
 
-    return tables;
+    tables
 }
 
 pub fn neutral_wf(
     seed: usize,
-    popsize: u32,
+    size: u32,
     nsteps: Time,
     genome_length: Position,
     littler: f64,
     psurvival: f64,
     simplification_interval: Option<Time>,
 ) -> TableCollection {
-    return neutral_wf_impl(
+    neutral_wf_impl(
+        PopulationParams {
+            size,
+            genome_length,
+            littler,
+            psurvival,
+        },
         seed,
-        popsize,
         nsteps,
-        genome_length,
-        littler,
-        psurvival,
         simplification_interval,
         true,
-    );
+    )
 }
 
 #[cfg(test)]
@@ -403,7 +405,18 @@ mod test {
     }
 
     fn run_sim(use_state: bool) -> TableCollection {
-        return neutral_wf_impl(666, 1000, 2000, 100000, 5e-3, 0.0, Some(100), use_state);
+        neutral_wf_impl(
+            PopulationParams {
+                size: 1000,
+                genome_length: 100000,
+                littler: 5e-3,
+                psurvival: 0.0,
+            },
+            666,
+            2000,
+            Some(100),
+            use_state,
+        )
     }
 
     #[test]

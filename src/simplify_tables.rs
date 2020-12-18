@@ -5,7 +5,7 @@ use crate::IdType;
 
 pub fn simplify_tables(samples: &[IdType], tables: &mut TableCollection) -> Vec<IdType> {
     let mut state = SimplificationBuffers::new();
-    return simplify_tables_with_buffers(samples, &mut state, tables);
+    simplify_tables_with_buffers(samples, &mut state, tables)
 }
 
 pub fn simplify_tables_with_buffers(
@@ -13,7 +13,7 @@ pub fn simplify_tables_with_buffers(
     state: &mut SimplificationBuffers,
     tables: &mut TableCollection,
 ) -> Vec<IdType> {
-    if tables.sites_.len() > 0 || tables.mutations_.len() > 0 {
+    if !tables.sites_.is_empty() || !tables.mutations_.is_empty() {
         panic!("mutation simplification not yet implemented");
     }
 
@@ -49,11 +49,7 @@ pub fn simplify_tables_with_buffers(
             &tables.nodes_,
             tables.get_length(),
             u,
-            &mut state.temp_edge_buffer,
-            &mut state.new_nodes,
-            &mut state.new_edges,
-            &mut state.ancestry,
-            &mut state.overlapper,
+            state,
             &mut idmap,
         );
 
@@ -70,5 +66,5 @@ pub fn simplify_tables_with_buffers(
     tables.edges_.append(&mut state.new_edges);
     std::mem::swap(&mut tables.nodes_, &mut state.new_nodes);
 
-    return idmap;
+    idmap
 }
