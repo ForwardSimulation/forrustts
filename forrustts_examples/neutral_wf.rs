@@ -1,5 +1,6 @@
 use clap::{value_t, value_t_or_exit, App, Arg};
 use forrustts::wright_fisher::neutral_wf;
+use forrustts::TableCollectionInterface;
 use tskit_rust;
 
 fn main() {

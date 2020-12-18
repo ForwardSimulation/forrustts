@@ -7,7 +7,7 @@ mod test {
     // We'll clean this up later when we get better abstractions
     // into tskit_rust.
     use crate::simplify_tables::simplify_tables;
-    use crate::tables::TreeSequenceRecordingInterface;
+    use crate::tables::TableCollectionInterface;
     use crate::wright_fisher::neutral_wf;
     use std::mem::MaybeUninit;
     use tskit_rust::bindings as tskr;

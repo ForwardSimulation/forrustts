@@ -100,6 +100,80 @@ fn time_non_negative(x: TIME) -> TablesResult<()> {
     Ok(())
 }
 
+macro_rules! table_collection_accessors {
+    ($itype: ty) => {
+        fn get_length(&self) -> POSITION {
+            return self.length_;
+        }
+
+        /// Return immutable reference to the [mutation table](type.MutationTable.html)
+        fn mutations(&self) -> &MutationTable<$itype> {
+            return &self.mutations_;
+        }
+
+        /// Return immutable reference to the [edge table](type.EdgeTable.html)
+        fn edges(&self) -> &EdgeTable<$itype> {
+            return &self.edges_;
+        }
+
+        /// Return number of edges
+        fn num_edges(&self) -> usize {
+            return self.edges_.len();
+        }
+
+        /// Return number of nodes
+        fn num_nodes(&self) -> usize {
+            return self.nodes_.len();
+        }
+
+        /// Return immutable reference to [node table](type.NodeTable.html)
+        fn nodes(&self) -> &NodeTable<$itype> {
+            return &self.nodes_;
+        }
+
+        /// Return immutable reference to [site table](type.SiteTable.html)
+        fn sites(&self) -> &SiteTable {
+            return &self.sites_;
+        }
+
+        fn node(&self, i: $itype) -> &Node<$itype> {
+            return &self.nodes_[i as usize];
+        }
+
+        fn edge(&self, i: $itype) -> &Edge<$itype> {
+            return &self.edges_[i as usize];
+        }
+
+        fn site(&self, i: $itype) -> &Site {
+            return &self.sites_[i as usize];
+        }
+
+        fn mutation(&self, i: $itype) -> &Mutation<$itype> {
+            return &self.mutations_[i as usize];
+        }
+
+        /// Provide an enumeration over the [node table](type.NodeTable.html)
+        fn enumerate_nodes(&self) -> std::iter::Enumerate<std::slice::Iter<Node<$itype>>> {
+            return self.nodes_.iter().enumerate();
+        }
+
+        /// Provide an enumeration over the [edge table](type.EdgeTable.html)
+        fn enumerate_edges(&self) -> std::iter::Enumerate<std::slice::Iter<Edge<$itype>>> {
+            return self.edges_.iter().enumerate();
+        }
+
+        /// Provide an enumeration over the [mutation table](type.MutationTable.html)
+        fn enumerate_mutations(&self) -> std::iter::Enumerate<std::slice::Iter<Mutation<$itype>>> {
+            return self.mutations_.iter().enumerate();
+        }
+
+        /// Provide an enumeration over the [site table](type.SiteTable.html)
+        fn enumerate_sites(&self) -> std::iter::Enumerate<std::slice::Iter<Site>> {
+            return self.sites_.iter().enumerate();
+        }
+    };
+}
+
 macro_rules! node_non_negative {
     ($itype: ty) => {
         fn node_non_negative(x: $itype) -> TablesResult<()> {
@@ -284,6 +358,7 @@ macro_rules! tree_sequence_recording_interface {
         node_non_negative!($itype);
         deme_non_negative!($itype);
         // The public interfact
+        table_collection_accessors!($itype);
         add_node!($itype);
         add_edge!($itype);
         add_site!($itype);
@@ -402,84 +477,102 @@ impl<T> TableCollectionType<T> {
         })
     }
 
-    pub fn get_length(&self) -> i64 {
-        return self.length_;
-    }
+    // TODO: all of the below should be taking in ID types:
+}
+
+pub trait TableCollectionInterface<T> {
+    // public
+    type IdType;
+    const NULL_ID: Self::IdType;
+
+    fn get_length(&self) -> POSITION;
+    //{
+    //    return self.length_;
+    //}
 
     /// Return immutable reference to the [mutation table](type.MutationTable.html)
-    pub fn mutations(&self) -> &MutationTable<T> {
-        return &self.mutations_;
-    }
+    fn mutations(&self) -> &MutationTable<T>;
+    //{
+    //    return &self.mutations_;
+    //}
 
     /// Return immutable reference to the [edge table](type.EdgeTable.html)
-    pub fn edges(&self) -> &EdgeTable<T> {
-        return &self.edges_;
-    }
+    fn edges(&self) -> &EdgeTable<T>;
+    //{
+    //    return &self.edges_;
+    //}
 
     /// Return number of edges
-    pub fn num_edges(&self) -> usize {
-        return self.edges_.len();
-    }
+    fn num_edges(&self) -> usize;
+    //{
+    //    return self.edges_.len();
+    //}
 
     /// Return number of nodes
-    pub fn num_nodes(&self) -> usize {
-        return self.nodes_.len();
-    }
+    fn num_nodes(&self) -> usize;
+    //{
+    //    return self.nodes_.len();
+    //}
 
     /// Return immutable reference to [node table](type.NodeTable.html)
-    pub fn nodes(&self) -> &NodeTable<T> {
-        return &self.nodes_;
-    }
+    fn nodes(&self) -> &NodeTable<T>;
+    //{
+    //    return &self.nodes_;
+    //}
 
     // TODO: all of the below should be taking in ID types:
 
     // FIXME: validate input
-    pub fn node(&self, i: usize) -> &Node<T> {
-        return &self.nodes_[i as usize];
-    }
+    fn node(&self, i: T) -> &Node<T>;
+    //{
+    //    return &self.nodes_[i as usize];
+    //}
 
-    pub fn edge(&self, i: usize) -> &Edge<T> {
-        return &self.edges_[i];
-    }
+    fn edge(&self, i: T) -> &Edge<T>;
+    //{
+    //    return &self.edges_[i];
+    //}
 
-    pub fn site(&self, i: usize) -> &Site {
-        return &self.sites_[i];
-    }
+    fn site(&self, i: T) -> &Site;
+    //{
+    //    return &self.sites_[i];
+    //}
 
-    pub fn mutation(&self, i: usize) -> &Mutation<T> {
-        return &self.mutations_[i];
-    }
+    fn mutation(&self, i: T) -> &Mutation<T>;
+    //{
+    //    return &self.mutations_[i];
+    //}
 
     /// Return immutable reference to [site table](type.SiteTable.html)
-    pub fn sites(&self) -> &SiteTable {
-        return &self.sites_;
-    }
+    fn sites(&self) -> &SiteTable;
+    //{
+    //    return &self.sites_;
+    //}
 
     /// Provide an enumeration over the [node table](type.NodeTable.html)
-    pub fn enumerate_nodes(&self) -> std::iter::Enumerate<std::slice::Iter<Node<T>>> {
-        return self.nodes_.iter().enumerate();
-    }
+    fn enumerate_nodes(&self) -> std::iter::Enumerate<std::slice::Iter<Node<T>>>;
+    //{
+    //    return self.nodes_.iter().enumerate();
+    //}
 
     /// Provide an enumeration over the [edge table](type.EdgeTable.html)
-    pub fn enumerate_edges(&self) -> std::iter::Enumerate<std::slice::Iter<Edge<T>>> {
-        return self.edges_.iter().enumerate();
-    }
+    fn enumerate_edges(&self) -> std::iter::Enumerate<std::slice::Iter<Edge<T>>>;
+    //{
+    //    return self.edges_.iter().enumerate();
+    //}
 
     /// Provide an enumeration over the [mutation table](type.MutationTable.html)
-    pub fn enumerate_mutations(&self) -> std::iter::Enumerate<std::slice::Iter<Mutation<T>>> {
-        return self.mutations_.iter().enumerate();
-    }
+    fn enumerate_mutations(&self) -> std::iter::Enumerate<std::slice::Iter<Mutation<T>>>;
+    //{
+    //    return self.mutations_.iter().enumerate();
+    //}
 
     /// Provide an enumeration over the [site table](type.SiteTable.html)
-    pub fn enumerate_sites(&self) -> std::iter::Enumerate<std::slice::Iter<Site>> {
-        return self.sites_.iter().enumerate();
-    }
-}
+    fn enumerate_sites(&self) -> std::iter::Enumerate<std::slice::Iter<Site>>;
+    //{
+    //    return self.sites_.iter().enumerate();
+    //}
 
-pub trait TreeSequenceRecordingInterface<T> {
-    // public
-    type IdType;
-    const NULL_ID: Self::IdType;
     fn add_node(&mut self, time: TIME, deme: T) -> TablesResult<T>;
     fn add_edge(&mut self, left: POSITION, right: POSITION, parent: T, child: T)
         -> TablesResult<T>;
@@ -509,7 +602,7 @@ pub trait TreeSequenceRecordingInterface<T> {
 
 auxilliary_sorting_functions!(i32, sort_edge_table_i32, sort_mutation_table_i32);
 
-impl TreeSequenceRecordingInterface<i32> for TableCollectionType<i32> {
+impl TableCollectionInterface<i32> for TableCollectionType<i32> {
     type IdType = i32;
     const NULL_ID: Self::IdType = -1;
     tree_sequence_recording_interface!(i32, sort_edge_table_i32, sort_mutation_table_i32);
@@ -517,7 +610,7 @@ impl TreeSequenceRecordingInterface<i32> for TableCollectionType<i32> {
 
 auxilliary_sorting_functions!(i64, sort_edge_table_i64, sort_mutation_table_i64);
 
-impl TreeSequenceRecordingInterface<i64> for TableCollectionType<i64> {
+impl TableCollectionInterface<i64> for TableCollectionType<i64> {
     type IdType = i64;
     const NULL_ID: Self::IdType = -1;
     tree_sequence_recording_interface!(i64, sort_edge_table_i64, sort_mutation_table_i64);

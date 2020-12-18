@@ -372,7 +372,7 @@ pub fn record_sample_nodes(
         if idmap[*sample as usize] != NULLTSINT {
             panic!("invalid sample list!");
         }
-        let n = tables.node(*sample as usize);
+        let n = tables.node(*sample);
         new_nodes.push(Node::<i32> {
             time: n.time,
             deme: n.deme,
