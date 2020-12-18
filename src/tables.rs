@@ -1,4 +1,4 @@
-use crate::tsdef::{TsInt, NULLTSINT};
+use crate::tsdef::{IdType, Position, Time, NULL_ID};
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
@@ -6,18 +6,18 @@ pub enum TablesError {
     #[error("Invalid genome length")]
     InvalidGenomeLength,
     #[error("Invalid node: {found:?}")]
-    InvalidNodeValue { found: TsInt },
+    InvalidNodeValue { found: IdType },
     #[error("Invalid value for position: {found:?}")]
-    InvalidPosition { found: i64 },
+    InvalidPosition { found: Position },
     #[error("Invalid position range: {found:?}")]
-    InvalidLeftRight { found: (i64, i64) },
+    InvalidLeftRight { found: (Position, Position) },
     #[error("Invalid value for time: {found:?}")]
-    InvalidTime { found: i64 },
+    InvalidTime { found: Time },
     #[error("Invalid value for deme: {found:?}")]
-    InvalidDeme { found: i32 },
-    #[error("Parent is NULLTSINT")]
+    InvalidDeme { found: IdType },
+    #[error("Parent is NULL_ID")]
     NullParent,
-    #[error("Child is NULLTSINT")]
+    #[error("Child is NULL_ID")]
     NullChild,
     #[error("Node is out of bounds")]
     NodeOutOfBounds,
@@ -41,20 +41,20 @@ pub type TablesResult<T> = std::result::Result<T, TablesError>;
 /// A Node of a tree sequence
 pub struct Node {
     /// Birth time
-    pub time: i64,
+    pub time: Time,
     /// Population (deme) of node
-    pub deme: TsInt,
+    pub deme: IdType,
 }
 
 /// An Edge is a transmission event
 #[derive(Copy, Clone)]
 pub struct Edge {
-    pub left: i64,
-    pub right: i64,
+    pub left: Position,
+    pub right: Position,
     /// Index of parent in a [NodeTable](type.NodeTable.html)
-    pub parent: TsInt,
+    pub parent: IdType,
     /// Index of child in a [NodeTable](type.NodeTable.html)
-    pub child: TsInt,
+    pub child: IdType,
 }
 
 // TODO: It would be nice to use generics here
@@ -64,7 +64,7 @@ pub struct Edge {
 /// A Site is the location and
 /// ancestral state of a tables::Mutation
 pub struct Site {
-    pub position: i64,
+    pub position: Position,
     pub ancestral_state: i8,
 }
 
@@ -72,7 +72,7 @@ pub struct Site {
 /// needed about a mutation to track it
 /// on a tree sequence.
 pub struct Mutation {
-    pub node: TsInt,
+    pub node: IdType,
     pub key: usize,
     pub site: usize,
     pub derived_state: i8,
@@ -85,28 +85,28 @@ pub type EdgeTable = Vec<Edge>;
 pub type SiteTable = Vec<Site>;
 pub type MutationTable = Vec<Mutation>;
 
-fn position_non_negative(x: i64) -> TablesResult<()> {
+fn position_non_negative(x: Position) -> TablesResult<()> {
     if x < 0 {
         return Err(TablesError::InvalidPosition { found: x });
     }
     return Ok(());
 }
 
-fn node_non_negative(x: TsInt) -> TablesResult<()> {
+fn node_non_negative(x: IdType) -> TablesResult<()> {
     if x < 0 {
         return Err(TablesError::InvalidNodeValue { found: x });
     }
     return Ok(());
 }
 
-fn time_non_negative(x: i64) -> TablesResult<()> {
+fn time_non_negative(x: Time) -> TablesResult<()> {
     if x < 0 {
         return Err(TablesError::InvalidTime { found: x });
     }
     return Ok(());
 }
 
-fn deme_non_negative(x: i32) -> TablesResult<()> {
+fn deme_non_negative(x: IdType) -> TablesResult<()> {
     if x < 0 {
         return Err(TablesError::InvalidDeme { found: x });
     }
@@ -115,10 +115,10 @@ fn deme_non_negative(x: i32) -> TablesResult<()> {
 
 pub fn edge_table_add_row(
     edges: &mut EdgeTable,
-    left: i64,
-    right: i64,
-    parent: TsInt,
-    child: TsInt,
+    left: Position,
+    right: Position,
+    parent: IdType,
+    child: IdType,
 ) -> TablesResult<usize> {
     if right <= left {
         return Err(TablesError::InvalidLeftRight {
@@ -142,7 +142,7 @@ pub fn edge_table_add_row(
 
 // FIXME: need to validate all input params and raise errors
 // if invalid.
-pub fn node_table_add_row(nodes: &mut NodeTable, time: i64, deme: i32) -> TablesResult<TsInt> {
+pub fn node_table_add_row(nodes: &mut NodeTable, time: Time, deme: IdType) -> TablesResult<IdType> {
     time_non_negative(time)?;
     deme_non_negative(deme)?;
     nodes.push(Node {
@@ -152,12 +152,12 @@ pub fn node_table_add_row(nodes: &mut NodeTable, time: i64, deme: i32) -> Tables
 
     // TODO: learn if there is a way to raise error
     // automagically if overlow.
-    return Ok((nodes.len() - 1) as TsInt);
+    return Ok((nodes.len() - 1) as IdType);
 }
 
 pub fn site_table_add_row(
     sites: &mut SiteTable,
-    position: i64,
+    position: Position,
     ancestral_state: i8,
 ) -> TablesResult<usize> {
     position_non_negative(position)?;
@@ -170,7 +170,7 @@ pub fn site_table_add_row(
 
 pub fn mutation_table_add_row(
     mutations: &mut MutationTable,
-    node: TsInt,
+    node: IdType,
     key: usize,
     site: usize,
     derived_state: i8,
@@ -219,20 +219,24 @@ fn sort_mutation_table(sites: &SiteTable, mutations: &mut MutationTable) -> () {
     });
 }
 
-pub fn validate_edge_table(len: i64, edges: &EdgeTable, nodes: &NodeTable) -> TablesResult<bool> {
+pub fn validate_edge_table(
+    len: Position,
+    edges: &EdgeTable,
+    nodes: &NodeTable,
+) -> TablesResult<bool> {
     if edges.len() == 0 {
         return Ok(true);
     }
     let mut parent_seen = vec![0; nodes.len()];
     let mut last_parent: usize = edges[0].parent as usize;
     let mut last_child: usize = edges[0].child as usize;
-    let mut last_left: i64 = edges[0].left;
+    let mut last_left: Position = edges[0].left;
 
     for (i, edge) in edges.iter().enumerate() {
-        if edge.parent == NULLTSINT {
+        if edge.parent == NULL_ID {
             return Err(TablesError::NullParent);
         }
-        if edge.child == NULLTSINT {
+        if edge.child == NULL_ID {
             return Err(TablesError::NullChild);
         }
         if edge.parent < 0 || edge.parent as usize >= nodes.len() {
@@ -293,7 +297,7 @@ pub fn validate_edge_table(len: i64, edges: &EdgeTable, nodes: &NodeTable) -> Ta
 
 /// A collection of node, edge, site, and mutation tables.
 pub struct TableCollection {
-    length_: i64, // Not visible outside of this module
+    length_: Position, // Not visible outside of this module
 
     pub(crate) nodes_: NodeTable,
     pub(crate) edges_: EdgeTable,
@@ -302,7 +306,7 @@ pub struct TableCollection {
 }
 
 impl TableCollection {
-    pub const fn new(genome_length: i64) -> TablesResult<TableCollection> {
+    pub const fn new(genome_length: Position) -> TablesResult<TableCollection> {
         if genome_length < 1 {
             return Err(TablesError::InvalidGenomeLength);
         }
@@ -316,22 +320,22 @@ impl TableCollection {
         });
     }
 
-    pub fn add_node(&mut self, time: i64, deme: i32) -> TablesResult<TsInt> {
+    pub fn add_node(&mut self, time: Time, deme: IdType) -> TablesResult<IdType> {
         return node_table_add_row(&mut self.nodes_, time, deme);
     }
 
     /// Add an Edge
     pub fn add_edge(
         &mut self,
-        left: i64,
-        right: i64,
-        parent: TsInt,
-        child: TsInt,
+        left: Position,
+        right: Position,
+        parent: IdType,
+        child: IdType,
     ) -> TablesResult<usize> {
         return edge_table_add_row(&mut self.edges_, left, right, parent, child);
     }
 
-    pub fn add_site(&mut self, position: i64, ancestral_state: i8) -> TablesResult<usize> {
+    pub fn add_site(&mut self, position: Position, ancestral_state: i8) -> TablesResult<usize> {
         if position >= self.length_ {
             return Err(TablesError::InvalidPosition { found: position });
         }
@@ -340,7 +344,7 @@ impl TableCollection {
 
     pub fn add_mutation(
         &mut self,
-        node: TsInt,
+        node: IdType,
         key: usize,
         site: usize,
         derived_state: i8,
@@ -356,7 +360,7 @@ impl TableCollection {
         );
     }
 
-    pub fn get_length(&self) -> i64 {
+    pub fn get_length(&self) -> Position {
         return self.length_;
     }
 
@@ -386,7 +390,7 @@ impl TableCollection {
     }
 
     // FIXME: validate input
-    pub fn node(&self, i: TsInt) -> &Node {
+    pub fn node(&self, i: IdType) -> &Node {
         return &self.nodes_[i as usize];
     }
 

@@ -12,12 +12,12 @@ use rgsl::rng::algorithms::mt19937;
 
 struct Parent {
     index: usize,
-    node0: TsInt,
-    node1: TsInt,
+    node0: IdType,
+    node1: IdType,
 }
 
 impl Parent {
-    pub const fn new(index: usize, node0: TsInt, node1: TsInt) -> Parent {
+    pub const fn new(index: usize, node0: IdType, node1: IdType) -> Parent {
         return Parent {
             index: index,
             node0: node0,
@@ -28,10 +28,10 @@ impl Parent {
 
 struct Birth {
     index: usize,
-    p0node0: TsInt,
-    p0node1: TsInt,
-    p1node0: TsInt,
-    p1node1: TsInt,
+    p0node0: IdType,
+    p0node1: IdType,
+    p1node0: IdType,
+    p1node1: IdType,
 }
 
 impl Birth {
@@ -66,7 +66,7 @@ fn deaths_and_parents(
 }
 
 /// Decide which node to pass on from a parent.
-fn mendel(rng: &mut rgsl::Rng, n0: TsInt, n1: TsInt) -> (TsInt, TsInt) {
+fn mendel(rng: &mut rgsl::Rng, n0: IdType, n1: IdType) -> (IdType, IdType) {
     if rng.uniform() < 0.5 {
         return (n1, n0);
     }
@@ -76,10 +76,10 @@ fn mendel(rng: &mut rgsl::Rng, n0: TsInt, n1: TsInt) -> (TsInt, TsInt) {
 fn generate_births(
     births: &VecBirth,
     littler: f64,
-    birth_time: i64,
+    birth_time: Time,
     rng: &mut rgsl::Rng,
     parents: &mut VecParent,
-    breakpoints: &mut Vec<i64>,
+    breakpoints: &mut Vec<Position>,
     tables: &mut TableCollection,
 ) -> () {
     for b in births {
@@ -87,8 +87,8 @@ fn generate_births(
         let parent1_nodes = mendel(rng, b.p1node0, b.p1node1);
 
         // Record 2 new nodes
-        let new_node_0: TsInt = tables.add_node(birth_time, 0).unwrap();
-        let new_node_1: TsInt = tables.add_node(birth_time, 0).unwrap();
+        let new_node_0: IdType = tables.add_node(birth_time, 0).unwrap();
+        let new_node_1: IdType = tables.add_node(birth_time, 0).unwrap();
 
         recombination_breakpoints(littler, tables.get_length(), rng, breakpoints);
         record_edges(parent0_nodes, new_node_0, breakpoints, tables);
@@ -103,9 +103,9 @@ fn generate_births(
 }
 
 fn record_edges(
-    parents: (TsInt, TsInt),
-    child: TsInt,
-    breakpoints: &Vec<i64>,
+    parents: (IdType, IdType),
+    child: IdType,
+    breakpoints: &Vec<Position>,
     tables: &mut TableCollection,
 ) -> () {
     if breakpoints.len() == 0 {
@@ -139,7 +139,11 @@ fn record_edges(
     }
 }
 
-fn next_breakpoint_distance(v: i64, breakpoints: &[i64], f: impl Fn(i64, i64) -> bool) -> usize {
+fn next_breakpoint_distance(
+    v: Position,
+    breakpoints: &[Position],
+    f: impl Fn(Position, Position) -> bool,
+) -> usize {
     let i = match breakpoints.iter().position(|x| f(*x, v)) {
         Some(x) => x,
         None => breakpoints.len(),
@@ -155,7 +159,7 @@ fn next_breakpoint_distance(v: i64, breakpoints: &[i64], f: impl Fn(i64, i64) ->
 /// affect the offspring gamete.
 /// We need to ensure we don't do things like
 /// add edges with left == right, etc..
-fn prune_breakpoints(breakpoints: &mut Vec<i64>) {
+fn prune_breakpoints(breakpoints: &mut Vec<Position>) {
     let mut i: usize = 1;
     while i < breakpoints.len() {
         if breakpoints[i - 1] == breakpoints[i] {
@@ -166,7 +170,7 @@ fn prune_breakpoints(breakpoints: &mut Vec<i64>) {
     }
 
     if i < breakpoints.len() {
-        let mut odd_breakpoints = Vec::<i64>::new();
+        let mut odd_breakpoints = Vec::<Position>::new();
         let mut start: usize = 0;
         while i < breakpoints.len() {
             let not_equal = next_breakpoint_distance(
@@ -199,24 +203,24 @@ fn prune_breakpoints(breakpoints: &mut Vec<i64>) {
 
 fn recombination_breakpoints(
     littler: f64,
-    maxlen: i64,
+    maxlen: Position,
     rng: &mut rgsl::Rng,
-    breakpoints: &mut Vec<i64>,
+    breakpoints: &mut Vec<Position>,
 ) -> () {
     breakpoints.clear();
     let nxovers = rng.poisson(littler);
     for _ in 0..nxovers {
-        breakpoints.push(rng.flat(0., maxlen as f64) as i64);
+        breakpoints.push(rng.flat(0., maxlen as f64) as Position);
     }
     breakpoints.sort();
     prune_breakpoints(breakpoints);
     if breakpoints.len() > 0 {
-        breakpoints.push(std::i64::MAX);
+        breakpoints.push(Position::MAX);
     }
 }
 
 // NOTE: I've apparently decided on changing my naming convention?
-fn fill_samples(parents: &VecParent, samples: &mut SamplesVec) -> () {
+fn fill_samples(parents: &VecParent, samples: &mut Vec<IdType>) -> () {
     samples.clear();
     for p in parents {
         samples.push(p.node0);
@@ -226,10 +230,10 @@ fn fill_samples(parents: &VecParent, samples: &mut SamplesVec) -> () {
 
 fn sort_and_simplify(
     use_state: bool,
-    samples: &SamplesVec,
+    samples: &Vec<IdType>,
     state: &mut SimplificationBuffers,
     tables: &mut TableCollection,
-) -> SamplesVec {
+) -> Vec<IdType> {
     tables.sort_tables_for_simplification();
     debug_assert!(
         validate_edge_table(tables.get_length(), tables.edges(), tables.nodes()).unwrap()
@@ -247,7 +251,7 @@ fn sort_and_simplify(
 
 fn simplify_and_remap_nodes(
     use_state: bool,
-    samples: &mut SamplesVec,
+    samples: &mut Vec<IdType>,
     parents: &mut VecParent,
     state: &mut SimplificationBuffers,
     tables: &mut TableCollection,
@@ -260,7 +264,7 @@ fn simplify_and_remap_nodes(
     }
 }
 
-fn validate_simplification_interval(x: i64) -> i64 {
+fn validate_simplification_interval(x: Time) -> Time {
     if x < 1 {
         panic!("simplification_interval must be None or >= 1");
     }
@@ -273,16 +277,16 @@ fn validate_simplification_interval(x: i64) -> i64 {
 fn neutral_wf_impl(
     seed: usize,
     popsize: u32,
-    nsteps: i64,
-    genome_length: i64,
+    nsteps: Time,
+    genome_length: Position,
     littler: f64,
     psurvival: f64,
-    simplification_interval: Option<i64>,
+    simplification_interval: Option<Time>,
     use_state: bool,
 ) -> TableCollection {
     // FIXME: gotta validate input params!
 
-    let mut actual_simplification_interval: i64 = -1;
+    let mut actual_simplification_interval: Time = -1;
 
     match simplification_interval {
         None => (),
@@ -301,7 +305,7 @@ fn neutral_wf_impl(
     let mut tables = TableCollection::new(genome_length).unwrap();
     let mut parents = VecParent::new();
     let mut births = VecBirth::new();
-    let mut samples = SamplesVec::new();
+    let mut samples: Vec<IdType> = vec![];
     let mut breakpoints = vec![];
 
     // Record nodes for the first generation
@@ -357,11 +361,11 @@ fn neutral_wf_impl(
 pub fn neutral_wf(
     seed: usize,
     popsize: u32,
-    nsteps: i64,
-    genome_length: i64,
+    nsteps: Time,
+    genome_length: Position,
     littler: f64,
     psurvival: f64,
-    simplification_interval: Option<i64>,
+    simplification_interval: Option<Time>,
 ) -> TableCollection {
     return neutral_wf_impl(
         seed,

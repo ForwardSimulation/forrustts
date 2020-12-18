@@ -1,5 +1,6 @@
 //! Data interchange to ``tskit`` format using [``tskit_rust``].
 
+use crate::tsdef::Time;
 use crate::TableCollection;
 use tskit_rust;
 use tskit_rust::{tsk_flags_t, tsk_id_t, TSK_NODE_IS_SAMPLE, TSK_NULL};
@@ -8,8 +9,8 @@ use tskit_rust::{tsk_flags_t, tsk_id_t, TSK_NODE_IS_SAMPLE, TSK_NULL};
 ///
 /// For all input values, ``t`` the closure will
 /// return ``-1.0*(t - x) as f64``.
-pub fn simple_time_reverser(x: i64) -> Box<dyn Fn(i64) -> f64> {
-    Box::new(move |t: i64| -1. * (t - x) as f64)
+pub fn simple_time_reverser(x: Time) -> Box<dyn Fn(Time) -> f64> {
+    Box::new(move |t: Time| -1. * (t - x) as f64)
 }
 
 /// Convert a [``TableCollection``](crate::TableCollection)
@@ -55,7 +56,7 @@ pub fn simple_time_reverser(x: i64) -> Box<dyn Fn(i64) -> f64> {
 pub fn convert_to_tskit(
     tables: &TableCollection,
     is_sample: &Vec<i32>,
-    convert_time: impl Fn(i64) -> f64,
+    convert_time: impl Fn(Time) -> f64,
     build_indexes: bool,
 ) -> tskit_rust::TableCollection {
     let mut tsk_tables = tskit_rust::TableCollection::new(tables.get_length() as f64).unwrap();
@@ -148,7 +149,7 @@ fn swap_with_empty<T>(v: &mut Vec<T>) -> () {
 /// ```
 pub fn convert_to_tskit_and_drain(
     is_sample: &Vec<i32>,
-    convert_time: impl Fn(i64) -> f64,
+    convert_time: impl Fn(Time) -> f64,
     build_indexes: bool,
     tables: &mut TableCollection,
 ) -> tskit_rust::TableCollection {
