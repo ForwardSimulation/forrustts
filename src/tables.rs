@@ -14,7 +14,7 @@ pub enum TablesError {
     #[error("Invalid value for time: {found:?}")]
     InvalidTime { found: i64 },
     #[error("Invalid value for deme: {found:?}")]
-    InvalidDeme { found: i32 },
+    InvalidDeme { found: i64 },
     #[error("Parent is NULLTSINT")]
     NullParent,
     #[error("Child is NULLTSINT")]
@@ -92,13 +92,6 @@ fn position_non_negative(x: POSITION) -> TablesResult<()> {
     Ok(())
 }
 
-fn node_non_negative<T>(x: T) -> TablesResult<()> {
-    if x < 0 {
-        return Err(TablesError::InvalidNodeValue { found: x });
-    }
-    Ok(())
-}
-
 fn time_non_negative(x: TIME) -> TablesResult<()> {
     if x < 0 {
         return Err(TablesError::InvalidTime { found: x });
@@ -106,11 +99,26 @@ fn time_non_negative(x: TIME) -> TablesResult<()> {
     Ok(())
 }
 
-fn deme_non_negative<T>(x: T) -> TablesResult<()> {
-    if x < 0 {
-        return Err(TablesError::InvalidDeme { found: x });
-    }
-    Ok(())
+macro_rules! node_non_negative {
+    ($itype: ty) => {
+        fn node_non_negative(x: $itype) -> TablesResult<()> {
+            if x < 0 {
+                return Err(TablesError::InvalidNodeValue { found: x as i64 });
+            }
+            Ok(())
+        }
+    };
+}
+
+macro_rules! deme_non_negative {
+    ($itype: ty) => {
+        fn deme_non_negative(x: $itype) -> TablesResult<()> {
+            if x < 0 {
+                return Err(TablesError::InvalidDeme { found: x as i64 });
+            }
+            Ok(())
+        }
+    };
 }
 
 macro_rules! add_edge {
@@ -130,8 +138,8 @@ macro_rules! add_edge {
             }
             position_non_negative(left)?;
             position_non_negative(right)?;
-            node_non_negative(parent)?;
-            node_non_negative(child)?;
+            Self::node_non_negative(parent)?;
+            Self::node_non_negative(child)?;
 
             self.edges_.push(Edge::<$itype> {
                 left: left,
@@ -154,7 +162,7 @@ macro_rules! add_node {
             deme: $itype,
         ) -> TablesResult<$itype> {
             time_non_negative(time)?;
-            deme_non_negative(deme)?;
+            Self::deme_non_negative(deme)?;
             self.nodes_.push(Node::<$itype> {
                 time: time,
                 deme: deme,
@@ -196,7 +204,7 @@ macro_rules! add_mutation {
             derived_state: i8,
             neutral: bool,
         ) -> TablesResult<$itype> {
-            node_non_negative(node)?;
+            Self::node_non_negative(node)?;
             self.mutations_.push(Mutation::<$itype> {
                 node: node,
                 key: key,
@@ -267,6 +275,9 @@ macro_rules! auxilliary_sorting_functions {
 
 macro_rules! tree_sequence_recording_interface {
     ($itype: ty) => {
+        // NOTE: should be hidden
+        node_non_negative!($itype);
+        deme_non_negative!($itype);
         // The public interfact
         add_node!($itype);
         add_edge!($itype);
@@ -539,6 +550,10 @@ pub trait TreeSequenceRecordingInterface<T> {
     ) -> TablesResult<T>;
     fn sort_tables_for_simplification(&mut self) -> ();
     fn validate_edge_table(&self) -> TablesResult<bool>;
+
+    // Should not be in the docs...
+    fn node_non_negative(x: T) -> TablesResult<()>;
+    fn deme_non_negative(x: T) -> TablesResult<()>;
 }
 
 auxilliary_sorting_functions!(i32);
