@@ -501,6 +501,10 @@ pub trait TreeSequenceRecordingInterface<T> {
     fn deme_non_negative(x: T) -> TablesResult<()>;
 }
 
+// TODO: explore simplifying these macros by making
+// the internal sorting functions trait members
+// w/hidden docs?
+
 auxilliary_sorting_functions!(i32, sort_edge_table_i32, sort_mutation_table_i32);
 
 impl TreeSequenceRecordingInterface<i32> for TableCollectionType<i32> {
