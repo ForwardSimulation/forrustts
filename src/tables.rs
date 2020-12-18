@@ -486,8 +486,11 @@ pub trait TreeSequenceRecordingInterface<T> {
     fn sort_tables_for_simplification(&mut self) -> ();
     fn validate_edge_table(&self) -> TablesResult<bool>;
 
-    // Should not be in the docs...
+    // Trait interfaces are all "public",
+    // so we hide some details from the docs.
+    #[doc(hidden)]
     fn node_non_negative(x: T) -> TablesResult<()>;
+    #[doc(hidden)]
     fn deme_non_negative(x: T) -> TablesResult<()>;
 }
 
