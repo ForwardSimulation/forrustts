@@ -1,6 +1,5 @@
 use clap::{value_t, value_t_or_exit, App, Arg};
 use forrustts::wright_fisher::neutral_wf;
-use tskit_rust;
 
 fn main() {
     let matches = App::new("neutral_wf")
@@ -47,7 +46,7 @@ fn main() {
         )
         .get_matches();
 
-    let N = value_t_or_exit!(matches.value_of("popsize"), u32);
+    let popsize = value_t_or_exit!(matches.value_of("popsize"), u32);
     let g = value_t_or_exit!(matches.value_of("generations"), i64);
     let rho = value_t_or_exit!(matches.value_of("rho"), f64);
     let simplify_input = value_t!(matches.value_of("simplification_interval"), i64).unwrap_or(-1);
@@ -60,9 +59,9 @@ fn main() {
         simplify = Some(simplify_input);
     }
 
-    let r = rho / (4.0 * N as f64);
+    let r = rho / (4.0 * popsize as f64);
 
-    let mut tables = neutral_wf(seed, N, g, 10000000, r, 0.0, simplify);
+    let mut tables = neutral_wf(seed, popsize, g, 10000000, r, 0.0, simplify);
 
     let mut is_sample = vec![0 as i32; tables.num_nodes()];
     for (i, n) in tables.enumerate_nodes() {
@@ -74,7 +73,7 @@ fn main() {
     let mut tskit_tables = forrustts::tskit::convert_to_tskit_and_drain(
         &is_sample,
         forrustts::tskit::simple_time_reverser(g),
-        if simplify.is_some() { true } else { false },
+        simplify.is_some(),
         &mut tables,
     );
 
