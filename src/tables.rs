@@ -63,16 +63,16 @@ pub struct Edge {
 // and derived_state.
 
 /// A Site is the location and
-/// ancestral state of a tables::Mutation
+/// ancestral state of a tables::MutationRecord
 pub struct Site {
     pub position: Position,
     pub ancestral_state: i8,
 }
 
-/// A Mutation is the minimal information
+/// A MutationRecord is the minimal information
 /// needed about a mutation to track it
 /// on a tree sequence.
-pub struct Mutation {
+pub struct MutationRecord {
     pub node: IdType,
     pub key: usize,
     pub site: usize,
@@ -84,7 +84,7 @@ pub struct Mutation {
 pub type NodeTable = Vec<Node>;
 pub type EdgeTable = Vec<Edge>;
 pub type SiteTable = Vec<Site>;
-pub type MutationTable = Vec<Mutation>;
+pub type MutationTable = Vec<MutationRecord>;
 
 fn position_non_negative(x: Position) -> TablesResult<()> {
     if x < 0 {
@@ -177,7 +177,7 @@ pub fn mutation_table_add_row(
     neutral: bool,
 ) -> TablesResult<IdType> {
     node_non_negative(node)?;
-    mutations.push(Mutation {
+    mutations.push(MutationRecord {
         node,
         key,
         site,
@@ -395,7 +395,7 @@ impl TableCollection {
         &self.sites_[i as usize]
     }
 
-    pub fn mutation(&self, i: IdType) -> &Mutation {
+    pub fn mutation(&self, i: IdType) -> &MutationRecord {
         &self.mutations_[i as usize]
     }
 
@@ -415,7 +415,7 @@ impl TableCollection {
     }
 
     /// Provide an enumeration over the [mutation table](type.MutationTable.html)
-    pub fn enumerate_mutations(&self) -> std::iter::Enumerate<std::slice::Iter<Mutation>> {
+    pub fn enumerate_mutations(&self) -> std::iter::Enumerate<std::slice::Iter<MutationRecord>> {
         self.mutations_.iter().enumerate()
     }
 
