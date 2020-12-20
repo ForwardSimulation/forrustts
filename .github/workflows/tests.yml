@@ -83,6 +83,9 @@ jobs:
           override: true
       - run: rustup component add clippy
       - run: |
-          cargo clippy
+          cargo clippy -- -D warnings
       - run: |
-          cargo clippy --tests
+          cargo clippy --tests -- -D warnings
+      - name: Run clippy on the examples
+        working-directory: forrustts_examples
+        run: cargo clippy -- -D warnings
