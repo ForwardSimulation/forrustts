@@ -151,7 +151,7 @@ pub fn find_parent_child_segment_overlap(
     while i < num_edges && edges[i].parent == u {
         let edge = &edges[i];
         ancestry
-            .consume(edges[i].child, |seg: &Segment| {
+            .for_each(edges[i].child, |seg: &Segment| {
                 if seg.right > edge.left && edge.right > seg.left {
                     overlapper.enqueue(
                         std::cmp::max(seg.left, edge.left),

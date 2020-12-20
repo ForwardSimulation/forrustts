@@ -133,7 +133,7 @@ impl<Value> NestedForwardList<Value> {
         self.next_.clear();
     }
 
-    pub fn consume(&self, at: i32, mut f: impl FnMut(&Value) -> bool) -> Result<()> {
+    pub fn for_each(&self, at: i32, mut f: impl FnMut(&Value) -> bool) -> Result<()> {
         let mut itr = self.head(at)?;
         while itr != NestedForwardList::<Value>::null() {
             let val = self.fetch(itr)?;
@@ -261,7 +261,7 @@ mod tests {
         let mut list = make_data_for_testing();
         list.nullify_list(0).unwrap();
         let mut output = Vec::<i32>::new();
-        list.consume(0, |x: &i32| {
+        list.for_each(0, |x: &i32| {
             output.push(*x);
             true
         })
@@ -270,11 +270,11 @@ mod tests {
     }
 
     #[test]
-    fn test_consume_data_round_trip() {
+    fn test_for_each_data_round_trip() {
         let list = make_data_for_testing();
         let mut output = Vec::<i32>::new();
 
-        list.consume(0, |x: &i32| {
+        list.for_each(0, |x: &i32| {
             output.push(*x);
             true
         })
@@ -286,7 +286,7 @@ mod tests {
 
         output.clear();
 
-        list.consume(1, |x: &i32| {
+        list.for_each(1, |x: &i32| {
             output.push(*x);
             true
         })
@@ -297,7 +297,7 @@ mod tests {
         }
 
         output.clear();
-        list.consume(1, |_: &i32| false).unwrap();
+        list.for_each(1, |_: &i32| false).unwrap();
 
         assert_eq!(output.len(), 0);
     }
