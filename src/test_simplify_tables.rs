@@ -92,13 +92,15 @@ mod test {
                 std::ptr::null_mut(),
             );
             assert!(rv == 0);
+        }
 
-            // Get tree sequences now
-            let mut tsk_ts = tables_to_treeseq(&mut tsk_tables);
+        // Get tree sequences now
+        let mut tsk_ts = tables_to_treeseq(&mut tsk_tables);
+        let mut rust_ts = tables_to_treeseq(&mut simplified_rust_tables);
+
+        unsafe {
             assert_eq!(500, tskr::tsk_treeseq_get_num_samples(tsk_ts.as_ptr()));
-            let mut rust_ts = tables_to_treeseq(&mut simplified_rust_tables);
             assert_eq!(500, tskr::tsk_treeseq_get_num_samples(rust_ts.as_ptr()));
-
             let ne = tskr::tsk_treeseq_get_num_edges(tsk_ts.as_ptr());
             let ne2 = tskr::tsk_treeseq_get_num_edges(rust_ts.as_ptr());
             assert_eq!(ne, ne2);
