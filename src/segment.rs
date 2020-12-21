@@ -6,3 +6,9 @@ pub struct Segment {
     pub right: Position,
     pub node: IdType,
 }
+
+impl Segment {
+    pub fn new(left: Position, right: Position, node: IdType) -> Self {
+        Segment { left, right, node }
+    }
+}
