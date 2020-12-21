@@ -1,20 +1,30 @@
-use crate::simplification_buffers::SimplificationBuffers;
 use crate::simplification_logic;
 use crate::tables::*;
 use crate::IdType;
+use crate::SimplificationBuffers;
+use crate::SimplificationFlags;
 
-pub fn simplify_tables(samples: &[IdType], tables: &mut TableCollection) -> Vec<IdType> {
+pub fn simplify_tables(
+    samples: &[IdType],
+    flags: SimplificationFlags,
+    tables: &mut TableCollection,
+) -> Vec<IdType> {
     let mut state = SimplificationBuffers::new();
-    simplify_tables_with_buffers(samples, &mut state, tables)
+    simplify_tables_with_buffers(samples, flags, &mut state, tables)
 }
 
 pub fn simplify_tables_with_buffers(
     samples: &[IdType],
+    flags: SimplificationFlags,
     state: &mut SimplificationBuffers,
     tables: &mut TableCollection,
 ) -> Vec<IdType> {
     if !tables.sites_.is_empty() || !tables.mutations_.is_empty() {
         panic!("mutation simplification not yet implemented");
+    }
+
+    if flags.bits() != 0 {
+        panic!("SimplificationFlags must be zero");
     }
 
     let mut idmap = simplification_logic::setup_idmap(&tables.nodes_);
