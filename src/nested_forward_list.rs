@@ -4,6 +4,8 @@ use thiserror::Error;
 pub enum NestedForwardListError {
     #[error("Invalid key")]
     InvalidKey,
+    #[error("Tail is null")]
+    NullTail,
     #[error("Invalid key")]
     KeyOutOfRange,
 }
@@ -75,7 +77,7 @@ impl<Value> NestedForwardList<Value> {
         }
         let t = self.tail_[idx];
         if t == NestedForwardList::<Value>::null() {
-            panic!("unexpected null");
+            return Err(NestedForwardListError::NullTail {});
         }
         self.data_.push(v);
         self.tail_[idx] = (self.data_.len() - 1) as i32;
@@ -311,6 +313,7 @@ mod tests {
             Ok(_) => panic!(),
             Err(NestedForwardListError::InvalidKey) => (),
             Err(NestedForwardListError::KeyOutOfRange) => panic!(),
+            Err(NestedForwardListError::NullTail) => panic!(),
         }
     }
 }
