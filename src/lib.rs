@@ -19,5 +19,10 @@ pub use tsdef::*;
 pub mod tskit;
 pub mod wright_fisher;
 
+/// Get the tskit_rust version number.
+pub fn version() -> &'static str {
+    return env!("CARGO_PKG_VERSION");
+}
+
 // These are testing modules
 mod test_simplify_tables;
