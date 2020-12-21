@@ -2,6 +2,7 @@ use crate::simplify_tables::{simplify_tables, simplify_tables_with_buffers};
 use crate::tables::{validate_edge_table, TableCollection};
 use crate::tsdef::*;
 use crate::SimplificationBuffers;
+use crate::SimplificationFlags;
 use rgsl::rng::algorithms::mt19937;
 
 // Some of the material below seems like a candidate for a public API,
@@ -235,9 +236,9 @@ fn sort_and_simplify(
         validate_edge_table(tables.get_length(), tables.edges(), tables.nodes()).unwrap()
     );
     let idmap = if use_state {
-        simplify_tables_with_buffers(samples, state, tables)
+        simplify_tables_with_buffers(samples, SimplificationFlags::empty(), state, tables)
     } else {
-        simplify_tables(samples, tables)
+        simplify_tables(samples, SimplificationFlags::empty(), tables)
     };
     debug_assert!(
         validate_edge_table(tables.get_length(), tables.edges(), tables.nodes()).unwrap()
