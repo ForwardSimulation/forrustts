@@ -4,10 +4,11 @@ mod test {
     // stuff from tskit_rust and forrusts, which isn't great.
     // We'll clean this up later when we get better abstractions
     // into tskit_rust.
-    use crate::simplify_tables::simplify_tables;
+    use crate::simplify_tables;
     use crate::tsdef::IdType;
     use crate::wright_fisher::neutral_wf;
     use crate::SimplificationFlags;
+    use crate::SimplificationOutput;
     use std::mem::MaybeUninit;
     use tskit_rust::bindings as tskr;
 
@@ -68,7 +69,13 @@ mod test {
             }
         }
 
-        simplify_tables(&samples, SimplificationFlags::empty(), &mut tables);
+        let mut output = SimplificationOutput::new();
+        simplify_tables(
+            &samples,
+            SimplificationFlags::empty(),
+            &mut tables,
+            &mut output,
+        );
 
         is_sample = vec![0; tables.num_nodes()];
         for i in is_sample.iter_mut().take(500) {
