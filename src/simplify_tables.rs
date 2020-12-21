@@ -3,14 +3,16 @@ use crate::tables::*;
 use crate::IdType;
 use crate::SimplificationBuffers;
 use crate::SimplificationFlags;
+use crate::SimplificationOutput;
 
 pub fn simplify_tables(
     samples: &[IdType],
     flags: SimplificationFlags,
     tables: &mut TableCollection,
-) -> Vec<IdType> {
+    output: &mut SimplificationOutput,
+) {
     let mut state = SimplificationBuffers::new();
-    simplify_tables_with_buffers(samples, flags, &mut state, tables)
+    simplify_tables_with_buffers(samples, flags, &mut state, tables, output)
 }
 
 pub fn simplify_tables_with_buffers(
@@ -18,7 +20,8 @@ pub fn simplify_tables_with_buffers(
     flags: SimplificationFlags,
     state: &mut SimplificationBuffers,
     tables: &mut TableCollection,
-) -> Vec<IdType> {
+    output: &mut SimplificationOutput,
+) {
     if !tables.sites_.is_empty() || !tables.mutations_.is_empty() {
         panic!("mutation simplification not yet implemented");
     }
@@ -27,7 +30,7 @@ pub fn simplify_tables_with_buffers(
         panic!("SimplificationFlags must be zero");
     }
 
-    let mut idmap = simplification_logic::setup_idmap(&tables.nodes_);
+    simplification_logic::setup_idmap(&tables.nodes_, &mut output.idmap);
 
     state.clear();
     state.ancestry.reset(tables.num_nodes());
@@ -37,7 +40,7 @@ pub fn simplify_tables_with_buffers(
         &tables,
         &mut state.new_nodes,
         &mut state.ancestry,
-        &mut idmap,
+        &mut output.idmap,
     );
 
     let mut edge_i = 0;
@@ -60,7 +63,7 @@ pub fn simplify_tables_with_buffers(
             tables.get_length(),
             u,
             state,
-            &mut idmap,
+            &mut output.idmap,
         );
 
         if state.new_edges.len() >= 1024 && new_edges_inserted + state.new_edges.len() < edge_i {
@@ -75,6 +78,4 @@ pub fn simplify_tables_with_buffers(
     tables.edges_.truncate(new_edges_inserted);
     tables.edges_.append(&mut state.new_edges);
     std::mem::swap(&mut tables.nodes_, &mut state.new_nodes);
-
-    idmap
 }

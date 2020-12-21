@@ -168,8 +168,9 @@ pub fn find_parent_child_segment_overlap(
     i
 }
 
-pub fn setup_idmap(nodes: &[Node]) -> Vec<IdType> {
-    return vec![NULL_ID; nodes.len()];
+pub fn setup_idmap(nodes: &[Node], idmap: &mut Vec<IdType>) {
+    idmap.resize(nodes.len(), NULL_ID);
+    idmap.iter_mut().for_each(|x| *x = NULL_ID);
 }
 
 // FIXME: this will panic! if we get error from AncestryList

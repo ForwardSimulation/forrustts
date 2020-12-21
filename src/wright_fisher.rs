@@ -3,6 +3,7 @@ use crate::tables::{validate_edge_table, TableCollection};
 use crate::tsdef::*;
 use crate::SimplificationBuffers;
 use crate::SimplificationFlags;
+use crate::SimplificationOutput;
 use rgsl::rng::algorithms::mt19937;
 
 // Some of the material below seems like a candidate for a public API,
@@ -230,20 +231,20 @@ fn sort_and_simplify(
     samples: &[IdType],
     state: &mut SimplificationBuffers,
     tables: &mut TableCollection,
-) -> Vec<IdType> {
+    output: &mut SimplificationOutput,
+) {
     tables.sort_tables_for_simplification();
     debug_assert!(
         validate_edge_table(tables.get_length(), tables.edges(), tables.nodes()).unwrap()
     );
-    let idmap = if use_state {
-        simplify_tables_with_buffers(samples, SimplificationFlags::empty(), state, tables)
+    if use_state {
+        simplify_tables_with_buffers(samples, SimplificationFlags::empty(), state, tables, output);
     } else {
-        simplify_tables(samples, SimplificationFlags::empty(), tables)
-    };
+        simplify_tables(samples, SimplificationFlags::empty(), tables, output);
+    }
     debug_assert!(
         validate_edge_table(tables.get_length(), tables.edges(), tables.nodes()).unwrap()
     );
-    idmap
 }
 
 fn simplify_and_remap_nodes(
@@ -252,12 +253,13 @@ fn simplify_and_remap_nodes(
     parents: &mut VecParent,
     state: &mut SimplificationBuffers,
     tables: &mut TableCollection,
+    output: &mut SimplificationOutput,
 ) {
     fill_samples(parents, samples);
-    let idmap = sort_and_simplify(use_state, samples, state, tables);
+    sort_and_simplify(use_state, samples, state, tables, output);
     for p in parents {
-        p.node0 = idmap[p.node0 as usize];
-        p.node1 = idmap[p.node1 as usize];
+        p.node0 = output.idmap[p.node0 as usize];
+        p.node1 = output.idmap[p.node1 as usize];
     }
 }
 
@@ -320,6 +322,8 @@ fn neutral_wf_impl(
     let mut simplified = false;
     let mut state = SimplificationBuffers::new();
 
+    let mut output = SimplificationOutput::new();
+
     for birth_time in 1..(nsteps + 1) {
         deaths_and_parents(&parents, pop_params.psurvival, &mut rng, &mut births);
         generate_births(
@@ -339,6 +343,7 @@ fn neutral_wf_impl(
                 &mut parents,
                 &mut state,
                 &mut tables,
+                &mut output,
             );
             simplified = true;
         } else {
@@ -353,6 +358,7 @@ fn neutral_wf_impl(
             &mut parents,
             &mut state,
             &mut tables,
+            &mut output,
         );
     }
 
