@@ -170,6 +170,18 @@ impl<Value> NestedForwardList<Value> {
         self.head_.iter_mut().for_each(|x| *x = Self::null());
         self.tail_.iter_mut().for_each(|x| *x = Self::null());
     }
+
+    pub fn head_itr(&self) -> std::slice::Iter<'_, i32> {
+        self.head_.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self.head_.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.head_.is_empty()
+    }
 }
 
 #[cfg(test)]
@@ -194,6 +206,9 @@ mod tests {
         for i in 0..5 {
             list.extend(1, 3 * i).unwrap();
         }
+        assert_eq!(list.head_.len(), 2);
+        assert_eq!(list.data_.len(), 8);
+        assert_eq!(list.tail_.len(), 2);
         list
     }
 
@@ -314,6 +329,46 @@ mod tests {
             Err(NestedForwardListError::InvalidKey) => (),
             Err(NestedForwardListError::KeyOutOfRange) => panic!(),
             Err(NestedForwardListError::NullTail) => panic!(),
+        }
+    }
+
+    #[test]
+    fn test_head_forward_iteration() {
+        let list = make_data_for_testing();
+        let mut output = Vec::<i32>::new();
+        for (i, _) in list.head_itr().enumerate() {
+            list.for_each(i as i32, |x: &i32| {
+                output.push(*x);
+                true
+            })
+            .unwrap();
+        }
+        assert_eq!(output.len(), 8);
+        for (idx, val) in output.iter().enumerate().take(3) {
+            assert_eq!(2 * idx, *val as usize);
+        }
+        for (idx, val) in output.iter().enumerate().skip(3) {
+            assert_eq!(3 * (idx - 3), *val as usize);
+        }
+    }
+
+    #[test]
+    fn test_head_reverse_iteration() {
+        let list = make_data_for_testing();
+        let mut output = Vec::<i32>::new();
+        for (i, _) in list.head_itr().rev().enumerate() {
+            list.for_each((list.len() - i - 1) as i32, |x: &i32| {
+                output.push(*x);
+                true
+            })
+            .unwrap();
+        }
+        assert_eq!(output.len(), 8);
+        for (idx, val) in output.iter().enumerate().take(5) {
+            assert_eq!(3 * idx, *val as usize);
+        }
+        for (idx, val) in output.iter().enumerate().skip(5) {
+            assert_eq!(2 * (idx - 5), *val as usize);
         }
     }
 }
