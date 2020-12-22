@@ -1,9 +1,13 @@
+use crate::simplify_from_edge_buffer::simplify_from_edge_buffer;
 use crate::simplify_tables::{simplify_tables, simplify_tables_with_buffers};
 use crate::tables::{validate_edge_table, TableCollection};
 use crate::tsdef::*;
+use crate::EdgeBuffer;
+use crate::Segment;
 use crate::SimplificationBuffers;
 use crate::SimplificationFlags;
 use crate::SimplificationOutput;
+use bitflags::bitflags;
 use rgsl::rng::algorithms::mt19937;
 
 // Some of the material below seems like a candidate for a public API,
@@ -50,18 +54,34 @@ impl Birth {
 type VecParent = Vec<Parent>;
 type VecBirth = Vec<Birth>;
 
-fn deaths_and_parents(
-    parents: &[Parent],
-    psurvival: f64,
-    rng: &mut rgsl::Rng,
-    births: &mut VecBirth,
-) {
-    births.clear();
-    for i in 0..parents.len() {
+struct PopulationState {
+    pub parents: VecParent,
+    pub births: VecBirth,
+    pub alive_at_last_simplification: Vec<IdType>,
+    pub edge_buffer: EdgeBuffer,
+    pub tables: TableCollection,
+}
+
+impl PopulationState {
+    pub fn new(genome_length: Position) -> Self {
+        PopulationState {
+            parents: vec![],
+            births: vec![],
+            alive_at_last_simplification: vec![],
+            edge_buffer: EdgeBuffer::new(),
+            tables: TableCollection::new(genome_length).unwrap(),
+        }
+    }
+}
+
+fn deaths_and_parents(psurvival: f64, rng: &mut rgsl::Rng, pop: &mut PopulationState) {
+    pop.births.clear();
+    for i in 0..pop.parents.len() {
         if rng.uniform() > psurvival {
-            let parent0 = rng.flat(0., parents.len() as f64) as usize;
-            let parent1 = rng.flat(0., parents.len() as f64) as usize;
-            births.push(Birth::new(i, &parents[parent0], &parents[parent1]));
+            let parent0 = rng.flat(0., pop.parents.len() as f64) as usize;
+            let parent1 = rng.flat(0., pop.parents.len() as f64) as usize;
+            pop.births
+                .push(Birth::new(i, &pop.parents[parent0], &pop.parents[parent1]));
         }
     }
 }
@@ -76,31 +96,78 @@ fn mendel(rng: &mut rgsl::Rng, n0: IdType, n1: IdType) -> (IdType, IdType) {
 }
 
 fn generate_births(
-    births: &[Birth],
     littler: f64,
     birth_time: Time,
     rng: &mut rgsl::Rng,
-    parents: &mut VecParent,
     breakpoints: &mut Vec<Position>,
-    tables: &mut TableCollection,
+    pop: &mut PopulationState,
+    recorder: impl Fn((IdType, IdType), IdType, &[Position], &mut TableCollection, &mut EdgeBuffer),
 ) {
-    for b in births {
+    for b in &pop.births {
         let parent0_nodes = mendel(rng, b.p0node0, b.p0node1);
         let parent1_nodes = mendel(rng, b.p1node0, b.p1node1);
 
         // Record 2 new nodes
-        let new_node_0: IdType = tables.add_node(birth_time, 0).unwrap();
-        let new_node_1: IdType = tables.add_node(birth_time, 0).unwrap();
+        let new_node_0: IdType = pop.tables.add_node(birth_time, 0).unwrap();
+        let new_node_1: IdType = pop.tables.add_node(birth_time, 0).unwrap();
 
-        recombination_breakpoints(littler, tables.get_length(), rng, breakpoints);
-        record_edges(parent0_nodes, new_node_0, breakpoints, tables);
+        recombination_breakpoints(littler, pop.tables.get_length(), rng, breakpoints);
+        recorder(
+            parent0_nodes,
+            new_node_0,
+            breakpoints,
+            &mut pop.tables,
+            &mut pop.edge_buffer,
+        );
 
-        recombination_breakpoints(littler, tables.get_length(), rng, breakpoints);
-        record_edges(parent1_nodes, new_node_1, breakpoints, tables);
+        recombination_breakpoints(littler, pop.tables.get_length(), rng, breakpoints);
+        recorder(
+            parent1_nodes,
+            new_node_1,
+            breakpoints,
+            &mut pop.tables,
+            &mut pop.edge_buffer,
+        );
 
-        parents[b.index].index = b.index;
-        parents[b.index].node0 = new_node_0;
-        parents[b.index].node1 = new_node_1;
+        pop.parents[b.index].index = b.index;
+        pop.parents[b.index].node0 = new_node_0;
+        pop.parents[b.index].node1 = new_node_1;
+    }
+}
+
+fn buffer_edges(
+    parents: (IdType, IdType),
+    child: IdType,
+    breakpoints: &[Position],
+    tables: &mut TableCollection,
+    buffer: &mut EdgeBuffer,
+) {
+    if breakpoints.is_empty() {
+        buffer
+            .extend(parents.0, Segment::new(0, tables.get_length(), child))
+            .unwrap();
+        return;
+    }
+
+    // If we don't have a breakpoint at 0, add an edge
+    if breakpoints[0] != 0 {
+        buffer
+            .extend(parents.0, Segment::new(0, breakpoints[0], child))
+            .unwrap();
+    }
+
+    for i in 1..breakpoints.len() {
+        let a = breakpoints[i - 1];
+        let b = if i < (breakpoints.len() - 1) {
+            breakpoints[i]
+        } else {
+            tables.get_length()
+        };
+        if i % 2 == 0 {
+            buffer.extend(parents.0, Segment::new(a, b, child)).unwrap();
+        } else {
+            buffer.extend(parents.1, Segment::new(a, b, child)).unwrap();
+        }
     }
 }
 
@@ -109,6 +176,7 @@ fn record_edges(
     child: IdType,
     breakpoints: &[Position],
     tables: &mut TableCollection,
+    _: &mut EdgeBuffer,
 ) {
     if breakpoints.is_empty() {
         tables
@@ -124,8 +192,6 @@ fn record_edges(
             .unwrap();
     }
 
-    // FIXME: this will generate invalid edge tables when breakpoints
-    // are not unique.  Gotta mimic what fwdpp does here.
     for i in 1..breakpoints.len() {
         let a = breakpoints[i - 1];
         let b = if i < (breakpoints.len() - 1) {
@@ -227,39 +293,76 @@ fn fill_samples(parents: &[Parent], samples: &mut Vec<IdType>) {
 }
 
 fn sort_and_simplify(
-    use_state: bool,
+    flags: SimulationFlags,
     samples: &[IdType],
     state: &mut SimplificationBuffers,
-    tables: &mut TableCollection,
+    pop: &mut PopulationState,
     output: &mut SimplificationOutput,
 ) {
-    tables.sort_tables_for_simplification();
-    debug_assert!(
-        validate_edge_table(tables.get_length(), tables.edges(), tables.nodes()).unwrap()
-    );
-    if use_state {
-        simplify_tables_with_buffers(samples, SimplificationFlags::empty(), state, tables, output);
+    if !flags.contains(SimulationFlags::BUFFER_EDGES) {
+        pop.tables.sort_tables_for_simplification();
+        debug_assert!(validate_edge_table(
+            pop.tables.get_length(),
+            pop.tables.edges(),
+            pop.tables.nodes()
+        )
+        .unwrap());
+        if flags.contains(SimulationFlags::USE_STATE) {
+            simplify_tables_with_buffers(
+                samples,
+                SimplificationFlags::empty(),
+                state,
+                &mut pop.tables,
+                output,
+            );
+        } else {
+            simplify_tables(
+                samples,
+                SimplificationFlags::empty(),
+                &mut pop.tables,
+                output,
+            );
+        }
+        debug_assert!(validate_edge_table(
+            pop.tables.get_length(),
+            pop.tables.edges(),
+            pop.tables.nodes()
+        )
+        .unwrap());
     } else {
-        simplify_tables(samples, SimplificationFlags::empty(), tables, output);
+        simplify_from_edge_buffer(
+            samples,
+            &pop.alive_at_last_simplification,
+            SimplificationFlags::empty(),
+            state,
+            &mut pop.edge_buffer,
+            &mut pop.tables,
+            output,
+        );
     }
-    debug_assert!(
-        validate_edge_table(tables.get_length(), tables.edges(), tables.nodes()).unwrap()
-    );
 }
 
 fn simplify_and_remap_nodes(
-    use_state: bool,
+    flags: SimulationFlags,
     samples: &mut Vec<IdType>,
-    parents: &mut VecParent,
     state: &mut SimplificationBuffers,
-    tables: &mut TableCollection,
+    pop: &mut PopulationState,
     output: &mut SimplificationOutput,
 ) {
-    fill_samples(parents, samples);
-    sort_and_simplify(use_state, samples, state, tables, output);
-    for p in parents {
+    fill_samples(&pop.parents, samples);
+    sort_and_simplify(flags, samples, state, pop, output);
+
+    for p in &mut pop.parents {
         p.node0 = output.idmap[p.node0 as usize];
         p.node1 = output.idmap[p.node1 as usize];
+    }
+
+    if flags.contains(SimulationFlags::BUFFER_EDGES) {
+        pop.alive_at_last_simplification.clear();
+        for p in &pop.parents {
+            pop.alive_at_last_simplification.push(p.node0);
+            pop.alive_at_last_simplification.push(p.node1);
+        }
     }
 }
 
@@ -273,25 +376,65 @@ fn validate_simplification_interval(x: Time) -> Time {
 // NOTE: this function is a copy of the simulation
 // found in fwdpp/examples/edge_buffering.cc
 
-struct PopulationParams {
-    size: u32,
-    genome_length: Position,
-    littler: f64,
-    psurvival: f64,
+pub struct PopulationParams {
+    pub size: u32,
+    pub genome_length: Position,
+    pub littler: f64,
+    pub psurvival: f64,
 }
 
-fn neutral_wf_impl(
+impl PopulationParams {
+    pub fn new(size: u32, genome_length: Position, littler: f64, psurvival: f64) -> Self {
+        PopulationParams {
+            size,
+            genome_length,
+            littler,
+            psurvival,
+        }
+    }
+}
+
+bitflags! {
+    #[derive(Default)]
+    pub struct SimulationFlags: u32
+    {
+        const USE_STATE = 1 << 0;
+        const BUFFER_EDGES = 1 << 1;
+    }
+}
+
+pub struct SimulationParameters {
+    pub simplification_interval: Option<Time>,
+    pub seed: usize,
+    pub nsteps: Time,
+    pub flags: SimulationFlags,
+}
+
+impl SimulationParameters {
+    pub fn new(
+        simplification_interval: Option<Time>,
+        seed: usize,
+        nsteps: Time,
+        flags: SimulationFlags,
+    ) -> Self {
+        SimulationParameters {
+            simplification_interval,
+            seed,
+            nsteps,
+            flags,
+        }
+    }
+}
+
+pub fn neutral_wf(
     pop_params: PopulationParams,
-    seed: usize,
-    nsteps: Time,
-    simplification_interval: Option<Time>,
-    use_state: bool,
-) -> TableCollection {
+    params: SimulationParameters,
+) -> (TableCollection, Vec<i32>) {
     // FIXME: gotta validate input params!
 
     let mut actual_simplification_interval: Time = -1;
 
-    match simplification_interval {
+    match params.simplification_interval {
         None => (),
         Some(x) => actual_simplification_interval = validate_simplification_interval(x),
     }
@@ -303,20 +446,22 @@ fn neutral_wf_impl(
         Some(x) => rng = x,
     }
 
-    rng.set(seed);
+    rng.set(params.seed);
 
-    let mut tables = TableCollection::new(pop_params.genome_length).unwrap();
-    let mut parents = VecParent::new();
-    let mut births = VecBirth::new();
+    let mut pop = PopulationState::new(pop_params.genome_length);
     let mut samples: Vec<IdType> = vec![];
     let mut breakpoints = vec![];
 
     // Record nodes for the first generation
     // Nodes will have birth time 0 in deme 0.
     for i in 0..pop_params.size {
-        let n0 = tables.add_node(0, 0).unwrap();
-        let n1 = tables.add_node(0, 0).unwrap();
-        parents.push(Parent::new(i as usize, n0, n1));
+        let n0 = pop.tables.add_node(0, 0).unwrap();
+        let n1 = pop.tables.add_node(0, 0).unwrap();
+        pop.parents.push(Parent::new(i as usize, n0, n1));
+    }
+
+    for i in 0..pop.tables.num_nodes() {
+        pop.alive_at_last_simplification.push(i as IdType);
     }
 
     let mut simplified = false;
@@ -324,25 +469,29 @@ fn neutral_wf_impl(
 
     let mut output = SimplificationOutput::new();
 
-    for birth_time in 1..(nsteps + 1) {
-        deaths_and_parents(&parents, pop_params.psurvival, &mut rng, &mut births);
+    let new_edge_handler = if params.flags.contains(SimulationFlags::BUFFER_EDGES) {
+        buffer_edges
+    } else {
+        record_edges
+    };
+
+    for birth_time in 1..(params.nsteps + 1) {
+        deaths_and_parents(pop_params.psurvival, &mut rng, &mut pop);
         generate_births(
-            &births,
             pop_params.littler,
             birth_time,
             &mut rng,
-            &mut parents,
             &mut breakpoints,
-            &mut tables,
+            &mut pop,
+            new_edge_handler,
         );
         if actual_simplification_interval != -1 && birth_time % actual_simplification_interval == 0
         {
             simplify_and_remap_nodes(
-                use_state,
+                params.flags,
                 &mut samples,
-                &mut parents,
                 &mut state,
-                &mut tables,
+                &mut pop,
                 &mut output,
             );
             simplified = true;
@@ -353,45 +502,41 @@ fn neutral_wf_impl(
 
     if !simplified && actual_simplification_interval != -1 {
         simplify_and_remap_nodes(
-            use_state,
+            params.flags,
             &mut samples,
-            &mut parents,
             &mut state,
-            &mut tables,
+            &mut pop,
             &mut output,
         );
     }
 
-    tables
-}
+    let mut is_alive: Vec<i32> = vec![0; pop.tables.num_nodes()];
 
-pub fn neutral_wf(
-    seed: usize,
-    size: u32,
-    nsteps: Time,
-    genome_length: Position,
-    littler: f64,
-    psurvival: f64,
-    simplification_interval: Option<Time>,
-) -> TableCollection {
-    neutral_wf_impl(
-        PopulationParams {
-            size,
-            genome_length,
-            littler,
-            psurvival,
-        },
-        seed,
-        nsteps,
-        simplification_interval,
-        true,
-    )
+    for p in pop.parents {
+        is_alive[p.node0 as usize] = 1;
+        is_alive[p.node1 as usize] = 1;
+    }
+
+    (pop.tables, is_alive)
 }
 
 #[cfg(test)]
 mod test {
 
     use super::*;
+
+    #[test]
+    fn test_flags() {
+        let flags = SimulationFlags::empty();
+        assert!(!flags.contains(SimulationFlags::USE_STATE));
+        assert!(!flags.contains(SimulationFlags::BUFFER_EDGES));
+        let flags = SimulationFlags::USE_STATE;
+        assert!(flags.contains(SimulationFlags::USE_STATE));
+        assert!(!flags.contains(SimulationFlags::BUFFER_EDGES));
+        let flags = SimulationFlags::BUFFER_EDGES;
+        assert!(!flags.contains(SimulationFlags::USE_STATE));
+        assert!(flags.contains(SimulationFlags::BUFFER_EDGES));
+    }
 
     #[test]
     fn test_prune_breakpoints() {
@@ -411,25 +556,27 @@ mod test {
         assert!(b == vec![2, 3, 5]);
     }
 
-    fn run_sim(use_state: bool) -> TableCollection {
-        neutral_wf_impl(
+    fn run_sim(use_state: bool) -> (TableCollection, Vec<i32>) {
+        let flags = if use_state {
+            SimulationFlags::USE_STATE
+        } else {
+            SimulationFlags::empty()
+        };
+        neutral_wf(
             PopulationParams {
                 size: 1000,
                 genome_length: 100000,
                 littler: 5e-3,
                 psurvival: 0.0,
             },
-            666,
-            2000,
-            Some(100),
-            use_state,
+            SimulationParameters::new(Some(100), 666, 2000, flags),
         )
     }
 
     #[test]
     fn compare_state_to_no_state() {
-        let tables = run_sim(false);
-        let tables_state = run_sim(true);
+        let (tables, _) = run_sim(false);
+        let (tables_state, _) = run_sim(true);
 
         assert_eq!(tables.num_nodes(), tables_state.num_nodes());
         assert_eq!(tables.num_edges(), tables_state.num_edges());
