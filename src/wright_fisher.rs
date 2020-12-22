@@ -3,6 +3,7 @@ use crate::simplify_tables::{simplify_tables, simplify_tables_with_buffers};
 use crate::tables::{validate_edge_table, TableCollection};
 use crate::tsdef::*;
 use crate::EdgeBuffer;
+use crate::ForrusttsError;
 use crate::Segment;
 use crate::SimplificationBuffers;
 use crate::SimplificationFlags;
@@ -314,14 +315,16 @@ fn sort_and_simplify(
                 state,
                 &mut pop.tables,
                 output,
-            );
+            )
+            .unwrap();
         } else {
             simplify_tables(
                 samples,
                 SimplificationFlags::empty(),
                 &mut pop.tables,
                 output,
-            );
+            )
+            .unwrap();
         }
         debug_assert!(validate_edge_table(
             pop.tables.get_length(),
@@ -338,7 +341,8 @@ fn sort_and_simplify(
             &mut pop.edge_buffer,
             &mut pop.tables,
             output,
-        );
+        )
+        .unwrap();
     }
 }
 
@@ -429,7 +433,7 @@ impl SimulationParameters {
 pub fn neutral_wf(
     pop_params: PopulationParams,
     params: SimulationParameters,
-) -> (TableCollection, Vec<i32>) {
+) -> Result<(TableCollection, Vec<i32>), ForrusttsError> {
     // FIXME: gotta validate input params!
 
     let mut actual_simplification_interval: Time = -1;
@@ -517,7 +521,7 @@ pub fn neutral_wf(
         is_alive[p.node1 as usize] = 1;
     }
 
-    (pop.tables, is_alive)
+    Ok((pop.tables, is_alive))
 }
 
 #[cfg(test)]
@@ -571,6 +575,7 @@ mod test {
             },
             SimulationParameters::new(Some(100), 666, 2000, flags),
         )
+        .unwrap()
     }
 
     #[test]

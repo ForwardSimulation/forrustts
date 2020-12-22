@@ -1,6 +1,7 @@
 use crate::simplification_logic;
 use crate::tables::*;
 use crate::EdgeBuffer;
+use crate::ForrusttsError;
 use crate::Segment;
 use crate::SimplificationBuffers;
 use crate::SimplificationFlags;
@@ -28,16 +29,16 @@ fn find_pre_existing_edges(
     tables: &TableCollection,
     alive_at_last_simplification: &[IdType],
     edge_buffer: &EdgeBuffer,
-) -> Vec<ParentLocation> {
+) -> Result<Vec<ParentLocation>, ForrusttsError> {
     let mut alive_with_new_edges: Vec<i32> = vec![];
 
     for a in alive_at_last_simplification {
-        if edge_buffer.head(*a).unwrap() != EdgeBuffer::null() {
+        if edge_buffer.head(*a)? != EdgeBuffer::null() {
             alive_with_new_edges.push(*a);
         }
     }
     if alive_with_new_edges.is_empty() {
-        return vec![];
+        return Ok(vec![]);
     }
 
     let mut starts = vec![usize::MAX; tables.num_nodes()];
@@ -79,11 +80,13 @@ fn find_pre_existing_edges(
             let t0 = tables.nodes_[rv[i - 1].parent as usize].time;
             let t1 = tables.nodes_[rv[i].parent as usize].time;
             if t0 < t1 {
-                panic!("existing edges not properly sorted by time");
+                return Err(ForrusttsError::SimplificationError {
+                    value: "existing edges not properly sorted by time".to_string(),
+                });
             }
         }
     }
-    rv
+    Ok(rv)
 }
 
 fn queue_children(
@@ -92,66 +95,33 @@ fn queue_children(
     right: Position,
     ancestry: &mut simplification_logic::AncestryList,
     overlapper: &mut simplification_logic::SegmentOverlapper,
-) {
-    ancestry
-        .for_each(child, |seg: &Segment| {
-            if seg.right > left && right > seg.left {
-                overlapper.enqueue(
-                    std::cmp::max(seg.left, left),
-                    std::cmp::min(seg.right, right),
-                    seg.node,
-                );
-            }
-            true
-        })
-        .unwrap();
+) -> Result<(), ForrusttsError> {
+    Ok(ancestry.for_each(child, |seg: &Segment| {
+        if seg.right > left && right > seg.left {
+            overlapper.enqueue(
+                std::cmp::max(seg.left, left),
+                std::cmp::min(seg.right, right),
+                seg.node,
+            );
+        }
+        true
+    })?)
 }
 
 fn process_births_from_buffer(
     head: IdType,
     edge_buffer: &EdgeBuffer,
     state: &mut SimplificationBuffers,
-) {
+) -> Result<(), ForrusttsError> {
     // Have to take references here to
     // make the borrow checker happy.
     let a = &mut state.ancestry;
     let o = &mut state.overlapper;
-    edge_buffer
-        .for_each(head, |seg: &Segment| {
-            queue_children(seg.node, seg.left, seg.right, a, o);
-            true
-        })
-        .unwrap();
+    Ok(edge_buffer.for_each(head, |seg: &Segment| {
+        queue_children(seg.node, seg.left, seg.right, a, o).unwrap();
+        true
+    })?)
 }
-
-// This function implements process_births_from_buffer
-// and queue_children from fwdpp::ts.
-//fn process_births_from_buffer(
-//    node: IdType,
-//    edge_buffer: &EdgeBuffer,
-//    state: &mut SimplificationBuffers,
-//) {
-//    // Have to take references here to
-//    // make the borrow checker happy.
-//    let a = &mut state.ancestry;
-//    let o = &mut state.overlapper;
-//    edge_buffer
-//        .for_each(node, |seg: &Segment| {
-//            a.for_each(seg.node, |aseg: &Segment| {
-//                if aseg.left > seg.left && seg.right > aseg.left {
-//                    o.enqueue(
-//                        std::cmp::max(seg.left, aseg.left),
-//                        std::cmp::min(seg.right, aseg.right),
-//                        seg.node,
-//                    );
-//                }
-//                true
-//            })
-//            .unwrap();
-//            true
-//        })
-//        .unwrap();
-//}
 
 pub fn simplify_from_edge_buffer(
     samples: &[IdType],
@@ -161,15 +131,19 @@ pub fn simplify_from_edge_buffer(
     edge_buffer: &mut EdgeBuffer,
     tables: &mut TableCollection,
     output: &mut SimplificationOutput,
-) {
+) -> Result<(), ForrusttsError> {
     // FIXME: validate alive_at_last_simplification
 
     if !tables.sites_.is_empty() || !tables.mutations_.is_empty() {
-        panic!("mutation simplification not yet implemented");
+        return Err(ForrusttsError::SimplificationError {
+            value: "mutation simplification not yet implemented".to_string(),
+        });
     }
 
     if flags.bits() != 0 {
-        panic!("SimplificationFlags must be zero");
+        return Err(ForrusttsError::SimplificationError {
+            value: "SimplificationFlags must be zero".to_string(),
+        });
     }
 
     simplification_logic::setup_idmap(&tables.nodes_, &mut output.idmap);
@@ -183,7 +157,7 @@ pub fn simplify_from_edge_buffer(
         &mut state.new_nodes,
         &mut state.ancestry,
         &mut output.idmap,
-    );
+    )?;
 
     // Process all edges since the last simplification.
     let mut max_time = Time::MIN;
@@ -199,7 +173,7 @@ pub fn simplify_from_edge_buffer(
         // 2. Left offspring
         {
             state.overlapper.clear_queue();
-            process_births_from_buffer(head, edge_buffer, state);
+            process_births_from_buffer(head, edge_buffer, state)?;
             state.overlapper.finalize_queue(tables.get_length());
             simplification_logic::merge_ancestors(
                 &tables.nodes(),
@@ -207,14 +181,14 @@ pub fn simplify_from_edge_buffer(
                 head,
                 state,
                 &mut output.idmap,
-            );
+            )?;
         } else if ptime <= max_time {
             break;
         }
     }
 
     let existing_edges =
-        find_pre_existing_edges(&tables, &alive_at_last_simplification, &edge_buffer);
+        find_pre_existing_edges(&tables, &alive_at_last_simplification, &edge_buffer)?;
 
     let mut edge_i = 0;
     let num_edges = tables.num_edges();
@@ -233,14 +207,14 @@ pub fn simplify_from_edge_buffer(
                 u,
                 &mut state.ancestry,
                 &mut state.overlapper,
-            );
+            )?;
             simplification_logic::merge_ancestors(
                 &tables.nodes_,
                 tables.get_length(),
                 u,
                 state,
                 &mut output.idmap,
-            );
+            )?;
         }
         if ex.start != usize::MAX {
             while (edge_i as usize) < ex.start
@@ -256,14 +230,14 @@ pub fn simplify_from_edge_buffer(
                     u,
                     &mut state.ancestry,
                     &mut state.overlapper,
-                );
+                )?;
                 simplification_logic::merge_ancestors(
                     &tables.nodes_,
                     tables.get_length(),
                     u,
                     state,
                     &mut output.idmap,
-                );
+                )?;
             }
         }
         // now, handle ex.parent
@@ -272,7 +246,9 @@ pub fn simplify_from_edge_buffer(
             while edge_i < ex.stop {
                 // TODO: a debug assert or regular assert?
                 if tables.edges_[edge_i].parent != ex.parent {
-                    panic!("Unexpected parent node");
+                    return Err(ForrusttsError::SimplificationError {
+                        value: "Unexpected parent node".to_string(),
+                    });
                 }
                 let a = &mut state.ancestry;
                 let o = &mut state.overlapper;
@@ -282,14 +258,16 @@ pub fn simplify_from_edge_buffer(
                     tables.edges_[edge_i].right,
                     a,
                     o,
-                );
+                )?;
                 edge_i += 1;
             }
             if edge_i < num_edges && tables.edges_[edge_i].parent == ex.parent {
-                panic!("error traversing pre-existing edges for parent");
+                return Err(ForrusttsError::SimplificationError {
+                    value: "error traversing pre-existing edges for parent".to_string(),
+                });
             }
         }
-        process_births_from_buffer(ex.parent, edge_buffer, state);
+        process_births_from_buffer(ex.parent, edge_buffer, state)?;
         state.overlapper.finalize_queue(tables.get_length());
         simplification_logic::merge_ancestors(
             &tables.nodes_,
@@ -297,7 +275,7 @@ pub fn simplify_from_edge_buffer(
             ex.parent,
             state,
             &mut output.idmap,
-        );
+        )?;
     }
 
     // Handle remaining edges.
@@ -311,7 +289,7 @@ pub fn simplify_from_edge_buffer(
             u,
             &mut state.ancestry,
             &mut state.overlapper,
-        );
+        )?;
 
         simplification_logic::merge_ancestors(
             &tables.nodes_,
@@ -319,10 +297,28 @@ pub fn simplify_from_edge_buffer(
             u,
             state,
             &mut output.idmap,
-        );
+        )?;
     }
 
     std::mem::swap(&mut tables.edges_, &mut state.new_edges);
     std::mem::swap(&mut tables.nodes_, &mut state.new_nodes);
     edge_buffer.reset(tables.num_nodes());
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+
+    // This shows that the closure error gets propagated
+    // as the result type.
+    #[test]
+    fn test_process_births_from_buffer_closure_error() {
+        let b = EdgeBuffer::new();
+        let mut s = SimplificationBuffers::new();
+        assert!(process_births_from_buffer(-1, &b, &mut s)
+            .map_or_else(|_: ForrusttsError| true, |_| false));
+    }
 }

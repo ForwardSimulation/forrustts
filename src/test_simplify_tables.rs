@@ -7,6 +7,7 @@ mod test {
     use crate::simplify_tables;
     use crate::tsdef::{IdType, Position, Time};
     use crate::wright_fisher::*;
+    use crate::ForrusttsError;
     use crate::SimplificationFlags;
     use crate::SimplificationOutput;
     use crate::TableCollection;
@@ -38,7 +39,7 @@ mod test {
         seed: usize,
         simplification_interval: Option<Time>,
         flags: SimulationFlags,
-    ) -> (TableCollection, Vec<i32>) {
+    ) -> Result<(TableCollection, Vec<i32>), ForrusttsError> {
         // None here means "never simplify".
         neutral_wf(
             PopulationParams {
@@ -74,7 +75,8 @@ mod test {
             42,
             None,
             SimulationFlags::empty(),
-        );
+        )
+        .unwrap();
 
         let mut tsk_tables = crate::tskit::convert_to_tskit(
             &tables,
@@ -100,7 +102,8 @@ mod test {
             SimplificationFlags::empty(),
             &mut tables,
             &mut output,
-        );
+        )
+        .unwrap();
 
         is_sample = vec![0; tables.num_nodes()];
         for i in is_sample.iter_mut().take(500) {
@@ -168,7 +171,8 @@ mod test {
             14613641,
             Some(100),
             flags,
-        );
+        )
+        .unwrap();
 
         let flags = SimulationFlags::BUFFER_EDGES;
         let (tables_buffered, is_sample_buffered) = simulate_data(
@@ -178,7 +182,8 @@ mod test {
             14613641,
             Some(100),
             flags,
-        );
+        )
+        .unwrap();
 
         // The sums of node times should be the same if we've got
         // both methods working
@@ -236,7 +241,8 @@ mod test {
             14613641,
             Some(100),
             flags,
-        );
+        )
+        .unwrap();
 
         let flags = SimulationFlags::BUFFER_EDGES;
         let (tables_buffered, is_sample_buffered) = simulate_data(
@@ -246,7 +252,8 @@ mod test {
             14613641,
             Some(100),
             flags,
-        );
+        )
+        .unwrap();
 
         assert_eq!(tables_sorted.num_nodes(), tables_buffered.num_nodes());
 

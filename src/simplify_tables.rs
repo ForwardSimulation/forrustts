@@ -1,5 +1,6 @@
 use crate::simplification_logic;
 use crate::tables::*;
+use crate::ForrusttsError;
 use crate::IdType;
 use crate::SimplificationBuffers;
 use crate::SimplificationFlags;
@@ -10,7 +11,7 @@ pub fn simplify_tables(
     flags: SimplificationFlags,
     tables: &mut TableCollection,
     output: &mut SimplificationOutput,
-) {
+) -> Result<(), ForrusttsError> {
     let mut state = SimplificationBuffers::new();
     simplify_tables_with_buffers(samples, flags, &mut state, tables, output)
 }
@@ -21,13 +22,17 @@ pub fn simplify_tables_with_buffers(
     state: &mut SimplificationBuffers,
     tables: &mut TableCollection,
     output: &mut SimplificationOutput,
-) {
+) -> Result<(), ForrusttsError> {
     if !tables.sites_.is_empty() || !tables.mutations_.is_empty() {
-        panic!("mutation simplification not yet implemented");
+        return Err(ForrusttsError::SimplificationError {
+            value: "mutation simplification not yet implemented".to_string(),
+        });
     }
 
     if flags.bits() != 0 {
-        panic!("SimplificationFlags must be zero");
+        return Err(ForrusttsError::SimplificationError {
+            value: "SimplificationFlags must be zero".to_string(),
+        });
     }
 
     simplification_logic::setup_idmap(&tables.nodes_, &mut output.idmap);
@@ -41,7 +46,7 @@ pub fn simplify_tables_with_buffers(
         &mut state.new_nodes,
         &mut state.ancestry,
         &mut output.idmap,
-    );
+    )?;
 
     let mut edge_i = 0;
     let num_edges = tables.num_edges();
@@ -56,7 +61,7 @@ pub fn simplify_tables_with_buffers(
             u,
             &mut state.ancestry,
             &mut state.overlapper,
-        );
+        )?;
 
         simplification_logic::merge_ancestors(
             &tables.nodes_,
@@ -64,7 +69,7 @@ pub fn simplify_tables_with_buffers(
             u,
             state,
             &mut output.idmap,
-        );
+        )?;
 
         if state.new_edges.len() >= 1024 && new_edges_inserted + state.new_edges.len() < edge_i {
             for i in state.new_edges.drain(..) {
@@ -78,4 +83,6 @@ pub fn simplify_tables_with_buffers(
     tables.edges_.truncate(new_edges_inserted);
     tables.edges_.append(&mut state.new_edges);
     std::mem::swap(&mut tables.nodes_, &mut state.new_nodes);
+
+    Ok(())
 }
