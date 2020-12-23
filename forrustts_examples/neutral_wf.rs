@@ -99,7 +99,8 @@ fn main() {
             nsteps: g,
             flags,
         },
-    );
+    )
+    .unwrap();
 
     let mut tskit_tables = forrustts::tskit::convert_to_tskit_and_drain(
         &is_sample,

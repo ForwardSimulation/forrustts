@@ -3,6 +3,7 @@ use crate::segment::Segment;
 use crate::simplification_buffers::SimplificationBuffers;
 use crate::tables::*;
 use crate::tsdef::{IdType, Position, NULL_ID};
+use crate::ForrusttsError;
 
 pub struct SegmentOverlapper {
     segment_queue: Vec<Segment>,
@@ -134,7 +135,6 @@ impl SegmentOverlapper {
 
 pub type AncestryList = NestedForwardList<Segment>;
 
-// FIXME: another panic! room
 pub fn find_parent_child_segment_overlap(
     edges: &[Edge],
     edge_index: usize,
@@ -143,29 +143,29 @@ pub fn find_parent_child_segment_overlap(
     u: IdType,
     ancestry: &mut AncestryList,
     overlapper: &mut SegmentOverlapper,
-) -> usize {
+) -> Result<usize, ForrusttsError> {
     overlapper.clear_queue();
 
     let mut i = edge_index;
 
     while i < num_edges && edges[i].parent == u {
         let edge = &edges[i];
-        ancestry
-            .for_each(edges[i].child, |seg: &Segment| {
-                if seg.right > edge.left && edge.right > seg.left {
-                    overlapper.enqueue(
-                        std::cmp::max(seg.left, edge.left),
-                        std::cmp::min(seg.right, edge.right),
-                        seg.node,
-                    );
-                }
-                true
-            })
-            .unwrap();
+
+        ancestry.for_each(edges[i].child, |seg: &Segment| {
+            if seg.right > edge.left && edge.right > seg.left {
+                overlapper.enqueue(
+                    std::cmp::max(seg.left, edge.left),
+                    std::cmp::min(seg.right, edge.right),
+                    seg.node,
+                );
+            }
+            true
+        })?;
+
         i += 1;
     }
     overlapper.finalize_queue(maxlen);
-    i
+    Ok(i)
 }
 
 pub fn setup_idmap(nodes: &[Node], idmap: &mut Vec<IdType>) {
@@ -173,31 +173,33 @@ pub fn setup_idmap(nodes: &[Node], idmap: &mut Vec<IdType>) {
     idmap.iter_mut().for_each(|x| *x = NULL_ID);
 }
 
-// FIXME: this will panic! if we get error from AncestryList
 fn add_ancestry(
     input_id: IdType,
     left: Position,
     right: Position,
     node: IdType,
     ancestry: &mut AncestryList,
-) {
-    let head = ancestry.head(input_id).unwrap();
+) -> Result<(), ForrusttsError> {
+    let head = ancestry.head(input_id)?;
     if head == AncestryList::null() {
         let seg = Segment { left, right, node };
-        ancestry.extend(input_id, seg).unwrap();
+        ancestry.extend(input_id, seg)?;
     } else {
-        let last_idx = ancestry.tail(input_id).unwrap();
+        let last_idx = ancestry.tail(input_id)?;
         if last_idx == AncestryList::null() {
-            panic!("last_idx is NULL_ID");
+            return Err(ForrusttsError::SimplificationError {
+                value: "last_idx is NULL_ID".to_string(),
+            });
         }
-        let last = ancestry.fetch_mut(last_idx).unwrap();
+        let last = ancestry.fetch_mut(last_idx)?;
         if last.right == left && last.node == node {
             last.right = right;
         } else {
             let seg = Segment { left, right, node };
-            ancestry.extend(input_id, seg).unwrap();
+            ancestry.extend(input_id, seg)?;
         }
     }
+    Ok(())
 }
 
 fn buffer_edge(
@@ -250,12 +252,12 @@ pub fn merge_ancestors(
     parent_input_id: IdType,
     state: &mut SimplificationBuffers,
     idmap: &mut [IdType],
-) {
+) -> Result<(), ForrusttsError> {
     let mut output_id = idmap[parent_input_id as usize];
     let is_sample = output_id != NULL_ID;
 
     if is_sample {
-        state.ancestry.nullify_list(parent_input_id).unwrap();
+        state.ancestry.nullify_list(parent_input_id)?;
     }
 
     let mut previous_right: Position = 0;
@@ -304,7 +306,7 @@ pub fn merge_ancestors(
                 state.overlapper.get_left(),
                 output_id,
                 &mut state.ancestry,
-            );
+            )?;
         }
         add_ancestry(
             parent_input_id,
@@ -312,7 +314,7 @@ pub fn merge_ancestors(
             state.overlapper.get_right(),
             ancestry_node,
             &mut state.ancestry,
-        );
+        )?;
         previous_right = state.overlapper.get_right();
     }
     if is_sample && previous_right != maxlen {
@@ -322,7 +324,7 @@ pub fn merge_ancestors(
             maxlen,
             output_id,
             &mut state.ancestry,
-        );
+        )?;
     }
 
     if output_id != NULL_ID {
@@ -334,24 +336,28 @@ pub fn merge_ancestors(
             idmap[parent_input_id as usize] = NULL_ID;
         }
     }
+    Ok(())
 }
 
-// FIXME: we are panic!-ing here, too
 pub fn record_sample_nodes(
     samples: &[IdType],
     tables: &TableCollection,
     new_nodes: &mut NodeTable,
     ancestry: &mut AncestryList,
     idmap: &mut [IdType],
-) {
+) -> Result<(), ForrusttsError> {
     for sample in samples.iter() {
         assert!(*sample >= 0);
         // NOTE: the following can be debug_assert?
         if *sample == NULL_ID {
-            panic!("sample node is NULL_ID");
+            return Err(ForrusttsError::SimplificationError {
+                value: "sample node is NULL_ID".to_string(),
+            });
         }
         if idmap[*sample as usize] != NULL_ID {
-            panic!("invalid sample list!");
+            return Err(ForrusttsError::SimplificationError {
+                value: "invalid sample list!".to_string(),
+            });
         }
         let n = tables.node(*sample);
         new_nodes.push(Node {
@@ -365,8 +371,9 @@ pub fn record_sample_nodes(
             tables.get_length(),
             (new_nodes.len() - 1) as IdType,
             ancestry,
-        );
+        )?;
 
         idmap[*sample as usize] = (new_nodes.len() - 1) as IdType;
     }
+    Ok(())
 }
