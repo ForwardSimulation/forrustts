@@ -1,3 +1,4 @@
+use crate::simplification_common::*;
 use crate::simplification_logic;
 use crate::tables::*;
 use crate::EdgeBuffer;
@@ -132,32 +133,7 @@ pub fn simplify_from_edge_buffer(
     tables: &mut TableCollection,
     output: &mut SimplificationOutput,
 ) -> Result<(), ForrusttsError> {
-    // FIXME: validate alive_at_last_simplification
-
-    if !tables.sites_.is_empty() || !tables.mutations_.is_empty() {
-        return Err(ForrusttsError::SimplificationError {
-            value: "mutation simplification not yet implemented".to_string(),
-        });
-    }
-
-    if flags.bits() != 0 {
-        return Err(ForrusttsError::SimplificationError {
-            value: "SimplificationFlags must be zero".to_string(),
-        });
-    }
-
-    simplification_logic::setup_idmap(&tables.nodes_, &mut output.idmap);
-
-    state.clear();
-    state.ancestry.reset(tables.num_nodes());
-
-    simplification_logic::record_sample_nodes(
-        &samples,
-        &tables,
-        &mut state.new_nodes,
-        &mut state.ancestry,
-        &mut output.idmap,
-    )?;
+    setup_simplification(samples, tables, flags, state, output)?;
 
     // Process all edges since the last simplification.
     let mut max_time = Time::MIN;
@@ -198,22 +174,12 @@ pub fn simplify_from_edge_buffer(
             && tables.nodes_[tables.edges_[edge_i].parent as usize].time
                 > tables.nodes_[ex.parent as usize].time
         {
-            let u = tables.edges_[edge_i].parent;
-            edge_i = simplification_logic::find_parent_child_segment_overlap(
-                &tables.edges_,
-                edge_i,
-                num_edges,
-                tables.get_length(),
-                u,
-                &mut state.ancestry,
-                &mut state.overlapper,
-            )?;
-            simplification_logic::merge_ancestors(
-                &tables.nodes_,
-                tables.get_length(),
-                u,
+            edge_i = process_parent(
+                tables.edges_[edge_i].parent,
+                (edge_i, num_edges),
+                &tables,
                 state,
-                &mut output.idmap,
+                output,
             )?;
         }
         if ex.start != usize::MAX {
@@ -221,22 +187,12 @@ pub fn simplify_from_edge_buffer(
                 && tables.nodes_[tables.edges_[edge_i].parent as usize].time
                     >= tables.nodes_[ex.parent as usize].time
             {
-                let u = tables.edges_[edge_i].parent;
-                edge_i = simplification_logic::find_parent_child_segment_overlap(
-                    &tables.edges_,
-                    edge_i,
-                    num_edges,
-                    tables.get_length(),
-                    u,
-                    &mut state.ancestry,
-                    &mut state.overlapper,
-                )?;
-                simplification_logic::merge_ancestors(
-                    &tables.nodes_,
-                    tables.get_length(),
-                    u,
+                edge_i = process_parent(
+                    tables.edges_[edge_i].parent,
+                    (edge_i, num_edges),
+                    &tables,
                     state,
-                    &mut output.idmap,
+                    output,
                 )?;
             }
         }
@@ -280,23 +236,12 @@ pub fn simplify_from_edge_buffer(
 
     // Handle remaining edges.
     while edge_i < num_edges {
-        let u = tables.edges_[edge_i].parent;
-        edge_i = simplification_logic::find_parent_child_segment_overlap(
-            &tables.edges_,
-            edge_i,
-            num_edges,
-            tables.get_length(),
-            u,
-            &mut state.ancestry,
-            &mut state.overlapper,
-        )?;
-
-        simplification_logic::merge_ancestors(
-            &tables.nodes_,
-            tables.get_length(),
-            u,
+        edge_i = process_parent(
+            tables.edges_[edge_i].parent,
+            (edge_i, num_edges),
+            &tables,
             state,
-            &mut output.idmap,
+            output,
         )?;
     }
 
