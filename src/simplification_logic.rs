@@ -363,7 +363,7 @@ pub fn record_sample_nodes(
         add_ancestry(
             *sample,
             0,
-            tables.get_length(),
+            tables.genome_length(),
             (new_nodes.len() - 1) as IdType,
             ancestry,
         )?;

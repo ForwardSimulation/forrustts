@@ -15,6 +15,7 @@ bitflags! {
     /// ```
     #[derive(Default)]
     pub struct SimplificationFlags: u32 {
+        /// Placeholder
         const NONE = 0;
     }
 }

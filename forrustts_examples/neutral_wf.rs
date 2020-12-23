@@ -11,10 +11,10 @@ fn main() {
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("generations")
-                .short("g")
-                .long("generations")
-                .help("number of generations to simulate")
+            Arg::with_name("nsteps")
+                .short("n")
+                .long("nsteps")
+                .help("number of birth steps to simulate")
                 .takes_value(true),
         )
         .arg(
@@ -63,7 +63,7 @@ fn main() {
     // TODO: default params
 
     let popsize = value_t_or_exit!(matches.value_of("popsize"), u32);
-    let g = value_t_or_exit!(matches.value_of("generations"), i64);
+    let g = value_t_or_exit!(matches.value_of("nsteps"), i64);
     let rho = value_t_or_exit!(matches.value_of("rho"), f64);
     let simplify_input = value_t!(matches.value_of("simplification_interval"), i64).unwrap_or(-1);
     let psurvival = value_t!(matches.value_of("psurvival"), f64).unwrap_or(0.0);
@@ -83,7 +83,7 @@ fn main() {
     let flags = if matches.is_present("buffer_edges") {
         SimulationFlags::BUFFER_EDGES
     } else {
-        SimulationFlags::empty()
+        SimulationFlags::USE_STATE
     };
 
     let (mut tables, is_sample) = neutral_wf(
@@ -93,7 +93,7 @@ fn main() {
             littler: r,
             psurvival,
         },
-        SimulationParameters {
+        SimulationParams {
             simplification_interval: simplify,
             seed,
             nsteps: g,

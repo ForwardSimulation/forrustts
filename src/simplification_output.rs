@@ -1,3 +1,5 @@
+/// Useful information output by table
+/// simplification.
 pub struct SimplificationOutput {
     /// Maps input node ID to output ID.
     /// Values are set to [``NULL_ID``](crate::NULL_ID)
@@ -6,6 +8,7 @@ pub struct SimplificationOutput {
 }
 
 impl SimplificationOutput {
+    /// Create a new instance.
     pub fn new() -> Self {
         SimplificationOutput { idmap: vec![] }
     }

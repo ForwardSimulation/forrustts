@@ -2,37 +2,69 @@ use crate::tsdef::{IdType, Position, Time, NULL_ID};
 use std::cmp::Ordering;
 use thiserror::Error;
 
+/// Error type related to [``TableCollection``]
 #[derive(Error, Debug, PartialEq)]
 pub enum TablesError {
+    /// Raised by [``TableCollection::new``].
     #[error("Invalid genome length")]
     InvalidGenomeLength,
+    /// Raised when invalid node `ID`s are encountered.
     #[error("Invalid node: {found:?}")]
-    InvalidNodeValue { found: IdType },
+    InvalidNodeValue {
+        /// The invalid `ID`
+        found: IdType,
+    },
+    /// Raised when invalid positions are encountered.
     #[error("Invalid value for position: {found:?}")]
-    InvalidPosition { found: Position },
+    InvalidPosition {
+        /// The invalid position
+        found: Position,
+    },
+    /// Raised when an [``Edge``]'s left/right
+    /// values are invalid.
     #[error("Invalid position range: {found:?}")]
-    InvalidLeftRight { found: (Position, Position) },
+    InvalidLeftRight {
+        /// The invalid `(left, right)`.
+        found: (Position, Position),
+    },
+    /// Raised when invalid times are encountered.
     #[error("Invalid value for time: {found:?}")]
-    InvalidTime { found: Time },
+    InvalidTime {
+        /// The invalid time
+        found: Time,
+    },
     #[error("Invalid value for deme: {found:?}")]
-    InvalidDeme { found: IdType },
+    /// Raised with a deme's `ID` is invalid.
+    InvalidDeme {
+        /// The invalide deme `ID`
+        found: IdType,
+    },
     #[error("Parent is NULL_ID")]
+    /// Can be raised by [``validate_edge_table``]
     NullParent,
     #[error("Child is NULL_ID")]
+    /// Can be raised by [``validate_edge_table``]
     NullChild,
     #[error("Node is out of bounds")]
+    /// Can be raised by [``validate_edge_table``]
     NodeOutOfBounds,
     #[error("Node time order violation")]
+    /// Can be raised by [``validate_edge_table``]
     NodeTimesUnordered,
     #[error("Parents not sorted by time")]
+    /// Can be raised by [``validate_edge_table``]
     ParentTimesUnsorted,
     #[error("Parents not contiguous")]
+    /// Can be raised by [``validate_edge_table``]
     ParentsNotContiguous,
     #[error("Edges not sorted by child")]
+    /// Can be raised by [``validate_edge_table``]
     EdgesNotSortedByChild,
     #[error("Edges not sorted by left")]
+    /// Can be raised by [``validate_edge_table``]
     EdgesNotSortedByLeft,
     #[error("Duplicate edges")]
+    /// Can be raised by [``validate_edge_table``]
     DuplicateEdges,
 }
 
@@ -48,9 +80,15 @@ pub struct Node {
 }
 
 /// An Edge is a transmission event
+///
+/// An edge is a record of transmission of
+/// a half-open chunk of genome `[left, right)`
+/// from `parent` to `child`.
 #[derive(Copy, Clone)]
 pub struct Edge {
+    /// Left end
     pub left: Position,
+    /// Right end
     pub right: Position,
     /// Index of parent in a [NodeTable](type.NodeTable.html)
     pub parent: IdType,
@@ -65,7 +103,11 @@ pub struct Edge {
 /// A Site is the location and
 /// ancestral state of a tables::MutationRecord
 pub struct Site {
+    /// Position of the mutation
     pub position: Position,
+    /// The ancestral state.
+    /// [``None``] implies client code
+    /// will apply a default.
     pub ancestral_state: Option<Vec<u8>>,
 }
 
@@ -73,17 +115,28 @@ pub struct Site {
 /// needed about a mutation to track it
 /// on a tree sequence.
 pub struct MutationRecord {
+    /// The node where the mutation maps
     pub node: IdType,
+    /// Reference to mutation metadata.
     pub key: usize,
+    /// The index of the corresponding [``Site``].
     pub site: usize,
+    /// The derived state.
+    /// [``None``] implies client code
+    /// will apply a default.
     pub derived_state: Option<Vec<u8>>,
+    /// [``true``] if mutation affects fitness,
+    /// [``false``] otherwise.
     pub neutral: bool,
 }
 
-// TODO: do these need to be pub
+/// A node table
 pub type NodeTable = Vec<Node>;
+/// An edge table
 pub type EdgeTable = Vec<Edge>;
+/// A site table
 pub type SiteTable = Vec<Site>;
+/// A Mutation table
 pub type MutationTable = Vec<MutationRecord>;
 
 fn position_non_negative(x: Position) -> TablesResult<()> {
@@ -102,13 +155,13 @@ fn node_non_negative(x: IdType) -> TablesResult<()> {
     }
 }
 
-fn time_non_negative(x: Time) -> TablesResult<()> {
-    if x < 0 {
-        Err(TablesError::InvalidTime { found: x })
-    } else {
-        Ok(())
-    }
-}
+//fn time_non_negative(x: Time) -> TablesResult<()> {
+//    if x < 0 {
+//        Err(TablesError::InvalidTime { found: x })
+//    } else {
+//        Ok(())
+//    }
+//}
 
 fn deme_non_negative(x: IdType) -> TablesResult<()> {
     if x < 0 {
@@ -118,7 +171,7 @@ fn deme_non_negative(x: IdType) -> TablesResult<()> {
     }
 }
 
-pub fn edge_table_add_row(
+fn edge_table_add_row(
     edges: &mut EdgeTable,
     left: Position,
     right: Position,
@@ -142,20 +195,19 @@ pub fn edge_table_add_row(
         child,
     });
 
-    Ok(edges.len() as IdType)
+    Ok((edges.len() - 1) as IdType)
 }
 
-// FIXME: need to validate all input params and raise errors
-// if invalid.
-pub fn node_table_add_row(nodes: &mut NodeTable, time: Time, deme: IdType) -> TablesResult<IdType> {
-    time_non_negative(time)?;
+// NOTE: we allow negative times, in order to support "precapitation".
+fn node_table_add_row(nodes: &mut NodeTable, time: Time, deme: IdType) -> TablesResult<IdType> {
+    //time_non_negative(time)?;
     deme_non_negative(deme)?;
     nodes.push(Node { time, deme });
 
     Ok((nodes.len() - 1) as IdType)
 }
 
-pub fn site_table_add_row(
+fn site_table_add_row(
     sites: &mut SiteTable,
     position: Position,
     ancestral_state: Option<Vec<u8>>,
@@ -165,10 +217,10 @@ pub fn site_table_add_row(
         position,
         ancestral_state,
     });
-    Ok(sites.len() as IdType)
+    Ok((sites.len() - 1) as IdType)
 }
 
-pub fn mutation_table_add_row(
+fn mutation_table_add_row(
     mutations: &mut MutationTable,
     node: IdType,
     key: usize,
@@ -184,7 +236,7 @@ pub fn mutation_table_add_row(
         derived_state,
         neutral,
     });
-    Ok(mutations.len() as IdType)
+    Ok((mutations.len() - 1) as IdType)
 }
 
 fn sort_edge_table(nodes: &[Node], edges: &mut EdgeTable) {
@@ -217,6 +269,38 @@ fn sort_mutation_table(sites: &[Site], mutations: &mut MutationTable) {
     });
 }
 
+/// Perform a data integrity check on an [``EdgeTable``].
+///
+/// This checks, amongst other things, the sorting order
+/// of the edges.
+///
+/// # Parameters
+///
+/// * `len`, the genome length of the tables.
+///          Best obtained via [``TableCollection::genome_length``].
+/// * `edges`, the [``EdgeTable``]
+/// * `nodes`, the [``NodeTable``]
+///
+/// # Return
+///
+/// Returns ``Ok(true)`` if the tables pass all tests.
+/// This return value allows this function to be used in
+/// things like [``debug_assert``].
+///
+/// # Errors
+///
+/// Will return [``TablesError``] if the tables are not valid.
+///
+/// # Example
+///
+/// ```
+/// let mut tables = forrustts::TableCollection::new(100).unwrap();
+/// // (do some stuff now...)
+/// let rv = forrustts::validate_edge_table(tables.genome_length(),
+///                                         &tables.edges(),
+///                                         &tables.nodes()).unwrap();
+/// assert_eq!(rv, true);
+/// ```
 pub fn validate_edge_table(len: Position, edges: &[Edge], nodes: &[Node]) -> TablesResult<bool> {
     if edges.is_empty() {
         return Ok(true);
@@ -300,6 +384,15 @@ pub struct TableCollection {
 }
 
 impl TableCollection {
+    /// Create a new instance.
+    ///
+    /// # Parameters
+    ///
+    /// * `genome_length`: the total genome length for the tables.
+    ///
+    /// # Errors
+    ///
+    /// Will return [``TablesError``] if `genome_length < 1`.
     pub const fn new(genome_length: Position) -> TablesResult<TableCollection> {
         if genome_length < 1 {
             return Err(TablesError::InvalidGenomeLength);
@@ -314,11 +407,59 @@ impl TableCollection {
         })
     }
 
+    /// Add a [``Node``] to the [``NodeTable``]
+    ///
+    /// # Parameters
+    ///
+    /// * `time`, a [``Time``] representing the birth time.
+    /// * `deme` a valid [``IdType``] representing deme where the node is found.
+    ///
+    /// # Returns
+    ///
+    /// An [``IdType``] that is the new node's ``ID``.
+    /// This value is the index of the node in the node table.
+    ///
+    /// # Errors
+    ///
+    /// Will return [``TablesError``] if `deme < 0`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let mut tables = forrustts::TableCollection::new(100).unwrap();
+    /// let id = tables.add_node(1, 0).unwrap();
+    /// assert_eq!(id, 0);
+    /// ```
     pub fn add_node(&mut self, time: Time, deme: IdType) -> TablesResult<IdType> {
         node_table_add_row(&mut self.nodes_, time, deme)
     }
 
-    /// Add an Edge
+    /// Add an [``Edge``] to the [``EdgeTable``].
+    ///
+    /// # Parameters
+    ///
+    /// * `left`, the left end of the edge
+    /// * `right`, the right end of the edge
+    /// * `parent`, the parent of the edge
+    /// * `child`, the child of the edge
+    ///
+    /// # Returns
+    ///
+    /// An [``IdType``] that is the new edge's ``ID``.
+    /// This value is the index of the edge in the edge table.
+    ///
+    /// # Errors
+    ///
+    /// Will return [``TablesError``] if any of the input
+    /// are invalid.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let mut tables = forrustts::TableCollection::new(100).unwrap();
+    /// let id = tables.add_edge(0, 3, 5, 9).unwrap();
+    /// assert_eq!(id, 0);
+    /// ```
     pub fn add_edge(
         &mut self,
         left: Position,
@@ -329,17 +470,95 @@ impl TableCollection {
         edge_table_add_row(&mut self.edges_, left, right, parent, child)
     }
 
+    /// Add a [``Site``] to the [``SiteTable``];
+    ///
+    /// # Parameters
+    ///
+    /// * `position`, the mutation position.
+    /// * `ancestral_state`, the ancestral state at this site.
+    ///
+    /// # Notes
+    ///
+    /// If no `ancestral_state` is provided ([``None``]), then
+    /// client code is assumed to have some default in mind.
+    ///
+    /// The [``u8``] type can be used to encode more complex
+    /// state information.  Take a look at the unit tests
+    /// for examples. The [bitfield](https://crates.io/crates/bitfield)
+    /// crate may also be useful.
+    ///
+    /// # Returns
+    ///
+    /// An [``IdType``] that is the new site's ``ID``.
+    /// This value is the index of the site in the site table.
+    ///
+    /// # Errors
+    ///
+    /// Will return [``TablesError``] if any of the input
+    /// are invalid.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let mut tables = forrustts::TableCollection::new(100).unwrap();
+    /// // ancestral state is a u9 equal to 3
+    /// let id = tables.add_site(3, Some(vec![3])).unwrap();
+    /// assert_eq!(id, 0);
+    /// // Recovering state can be a bit messy!
+    /// assert_eq!(tables.site(id).ancestral_state.as_ref().unwrap(), &vec![3]);
+    /// ```
     pub fn add_site(
         &mut self,
         position: Position,
         ancestral_state: Option<Vec<u8>>,
     ) -> TablesResult<IdType> {
-        if position >= self.length_ {
+        if position >= self.length_ || position < 0 {
             return Err(TablesError::InvalidPosition { found: position });
         }
         site_table_add_row(&mut self.sites_, position, ancestral_state)
     }
 
+    /// Add a [``MutationRecord``] to the [``MutationTable``].
+    ///
+    /// # Parameters
+    ///
+    /// * `node`, the node where the mutation maps.
+    /// * `key`, index of the mutation's metadata.
+    /// * `site`, the [``IdType``] of the mutation's [``Site``].
+    /// * `derived_state`, the derived state of the variant.
+    /// * `neutral`, [``true``] if the mutation affects fitness,
+    ///              [``false``] otherwise.
+    ///
+    /// # Notes
+    ///
+    /// If no `derived_state` is provided ([``None``]), then
+    /// client code is assumed to have some default in mind.
+    ///
+    /// The [``u8``] type can be used to encode more complex
+    /// state information.  Take a look at the unit tests
+    /// for examples. The [bitfield](https://crates.io/crates/bitfield)
+    /// crate may also be useful.
+    ///
+    /// # Returns
+    ///
+    /// An [``IdType``] that is the new mutation's ``ID``.
+    /// This value is the index of the mutation in the mutation table.
+    ///
+    /// # Errors
+    ///
+    /// Will return [``TablesError``] if any of the input
+    /// are invalid.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let mut tables = forrustts::TableCollection::new(100).unwrap();
+    /// // derived state is a u9 equal to 3
+    /// let id = tables.add_mutation(0, 0, 0, Some(vec![3]), false).unwrap();
+    /// assert_eq!(id, 0);
+    /// // Recovering state can be a bit messy!
+    /// assert_eq!(tables.mutation(id).derived_state.as_ref().unwrap(), &vec![3]);
+    /// ```
     pub fn add_mutation(
         &mut self,
         node: IdType,
@@ -358,7 +577,8 @@ impl TableCollection {
         )
     }
 
-    pub fn get_length(&self) -> Position {
+    /// Get genome length
+    pub fn genome_length(&self) -> Position {
         self.length_
     }
 
@@ -387,18 +607,22 @@ impl TableCollection {
         &self.nodes_
     }
 
+    /// Return the i-th [``Node``].
     pub fn node(&self, i: IdType) -> &Node {
         &self.nodes_[i as usize]
     }
 
+    /// Return the i-th [``Edge``].
     pub fn edge(&self, i: IdType) -> &Edge {
         &self.edges_[i as usize]
     }
 
+    /// Return the i-th [``Site``].
     pub fn site(&self, i: IdType) -> &Site {
         &self.sites_[i as usize]
     }
 
+    /// Return the i-th [``MutationRecord``].
     pub fn mutation(&self, i: IdType) -> &MutationRecord {
         &self.mutations_[i as usize]
     }
@@ -428,6 +652,7 @@ impl TableCollection {
         self.sites_.iter().enumerate()
     }
 
+    /// Sort all tables for simplification.
     pub fn sort_tables_for_simplification(&mut self) {
         sort_edge_table(&self.nodes_, &mut self.edges_);
         sort_mutation_table(&self.sites_, &mut self.mutations_);
@@ -453,7 +678,7 @@ mod test_tables {
 
         let result = tables.add_edge(0, 1, 2, 3).unwrap();
 
-        assert_eq!(1, result);
+        assert_eq!(0, result);
         assert_eq!(1, tables.edges().len());
         assert_eq!(1, tables.num_edges());
 
@@ -492,6 +717,20 @@ mod test_tables {
             |x: TablesError| assert_eq!(x, TablesError::InvalidNodeValue { found: -2 }),
             |_| panic!(),
         );
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_add_site_negative_position() {
+        let mut tables = TableCollection::new(10).unwrap();
+        tables.add_site(-1, None).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_add_site_position_too_big() {
+        let mut tables = TableCollection::new(10).unwrap();
+        tables.add_site(tables.genome_length(), None).unwrap();
     }
 
     #[test]

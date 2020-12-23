@@ -124,6 +124,27 @@ fn process_births_from_buffer(
     })?)
 }
 
+/// Simplify a [``TableCollection``] from an [``EdgeBuffer``].
+///
+/// See [``EdgeBuffer``] for discussion.
+///
+/// # Parameters
+///
+/// * `samples`:
+/// * `alive_at_last_simplification`:
+/// * `flags`: modify the behavior of the simplification algorithm.
+/// * `state`: These are the internal data structures used
+///            by the simpilfication algorithm.
+/// * `edge_buffer`: An [``EdgeBuffer``] recording births since the last
+///                  simplification.
+/// * `tables`: a [``TableCollection``] to simplify.
+/// * `output`: Where simplification output gets written.
+///             See [``SimplificationOutput``].
+///
+/// # Notes
+///
+/// The input tables must be sorted.
+/// See [``TableCollection::sort_tables_for_simplification``].
 pub fn simplify_from_edge_buffer(
     samples: &[IdType],
     alive_at_last_simplification: &[IdType],
@@ -150,10 +171,10 @@ pub fn simplify_from_edge_buffer(
         {
             state.overlapper.clear_queue();
             process_births_from_buffer(head, edge_buffer, state)?;
-            state.overlapper.finalize_queue(tables.get_length());
+            state.overlapper.finalize_queue(tables.genome_length());
             simplification_logic::merge_ancestors(
                 &tables.nodes(),
-                tables.get_length(),
+                tables.genome_length(),
                 head,
                 state,
                 &mut output.idmap,
@@ -224,10 +245,10 @@ pub fn simplify_from_edge_buffer(
             }
         }
         process_births_from_buffer(ex.parent, edge_buffer, state)?;
-        state.overlapper.finalize_queue(tables.get_length());
+        state.overlapper.finalize_queue(tables.genome_length());
         simplification_logic::merge_ancestors(
             &tables.nodes_,
-            tables.get_length(),
+            tables.genome_length(),
             ex.parent,
             state,
             &mut output.idmap,

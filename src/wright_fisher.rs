@@ -1,5 +1,12 @@
+//! Examples of tree sequence recording with neutral
+//! Wright-Fisher models.
+//!
+//! This module provides a means of generating testing
+//! code and benchmarking utilities.  However, some of
+//! the concepts here that are *not* public may be useful
+//! to others.  Feel free to copy them!
 use crate::simplify_from_edge_buffer::simplify_from_edge_buffer;
-use crate::simplify_tables::{simplify_tables, simplify_tables_with_buffers};
+use crate::simplify_tables::*;
 use crate::tables::{validate_edge_table, TableCollection};
 use crate::tsdef::*;
 use crate::EdgeBuffer;
@@ -112,7 +119,7 @@ fn generate_births(
         let new_node_0: IdType = pop.tables.add_node(birth_time, 0).unwrap();
         let new_node_1: IdType = pop.tables.add_node(birth_time, 0).unwrap();
 
-        recombination_breakpoints(littler, pop.tables.get_length(), rng, breakpoints);
+        recombination_breakpoints(littler, pop.tables.genome_length(), rng, breakpoints);
         recorder(
             parent0_nodes,
             new_node_0,
@@ -121,7 +128,7 @@ fn generate_births(
             &mut pop.edge_buffer,
         );
 
-        recombination_breakpoints(littler, pop.tables.get_length(), rng, breakpoints);
+        recombination_breakpoints(littler, pop.tables.genome_length(), rng, breakpoints);
         recorder(
             parent1_nodes,
             new_node_1,
@@ -145,7 +152,7 @@ fn buffer_edges(
 ) {
     if breakpoints.is_empty() {
         buffer
-            .extend(parents.0, Segment::new(0, tables.get_length(), child))
+            .extend(parents.0, Segment::new(0, tables.genome_length(), child))
             .unwrap();
         return;
     }
@@ -162,7 +169,7 @@ fn buffer_edges(
         let b = if i < (breakpoints.len() - 1) {
             breakpoints[i]
         } else {
-            tables.get_length()
+            tables.genome_length()
         };
         if i % 2 == 0 {
             buffer.extend(parents.0, Segment::new(a, b, child)).unwrap();
@@ -181,7 +188,7 @@ fn record_edges(
 ) {
     if breakpoints.is_empty() {
         tables
-            .add_edge(0, tables.get_length(), parents.0, child)
+            .add_edge(0, tables.genome_length(), parents.0, child)
             .unwrap();
         return;
     }
@@ -198,7 +205,7 @@ fn record_edges(
         let b = if i < (breakpoints.len() - 1) {
             breakpoints[i]
         } else {
-            tables.get_length()
+            tables.genome_length()
         };
         if i % 2 == 0 {
             tables.add_edge(a, b, parents.0, child).unwrap();
@@ -284,7 +291,6 @@ fn recombination_breakpoints(
     }
 }
 
-// NOTE: I've apparently decided on changing my naming convention?
 fn fill_samples(parents: &[Parent], samples: &mut Vec<IdType>) {
     samples.clear();
     for p in parents {
@@ -303,13 +309,13 @@ fn sort_and_simplify(
     if !flags.contains(SimulationFlags::BUFFER_EDGES) {
         pop.tables.sort_tables_for_simplification();
         debug_assert!(validate_edge_table(
-            pop.tables.get_length(),
+            pop.tables.genome_length(),
             pop.tables.edges(),
             pop.tables.nodes()
         )
         .unwrap());
         if flags.contains(SimulationFlags::USE_STATE) {
-            simplify_tables_with_buffers(
+            simplify_tables(
                 samples,
                 SimplificationFlags::empty(),
                 state,
@@ -318,7 +324,7 @@ fn sort_and_simplify(
             )
             .unwrap();
         } else {
-            simplify_tables(
+            simplify_tables_without_state(
                 samples,
                 SimplificationFlags::empty(),
                 &mut pop.tables,
@@ -327,7 +333,7 @@ fn sort_and_simplify(
             .unwrap();
         }
         debug_assert!(validate_edge_table(
-            pop.tables.get_length(),
+            pop.tables.genome_length(),
             pop.tables.edges(),
             pop.tables.nodes()
         )
@@ -380,14 +386,26 @@ fn validate_simplification_interval(x: Time) -> Time {
 // NOTE: this function is a copy of the simulation
 // found in fwdpp/examples/edge_buffering.cc
 
+/// Parameters of a population to be evolved by
+/// [``neutral_wf``].
 pub struct PopulationParams {
+    /// Diploid population size
     pub size: u32,
+    /// Genome length.  Easiest to think "base pairs",
+    /// but more abstract concepts are valid.
     pub genome_length: Position,
+    /// Mean number of crossovers (per mating).
     pub littler: f64,
+    /// Survival probability.  Must be 0 <= p < 1.
     pub psurvival: f64,
 }
 
 impl PopulationParams {
+    /// Create a new instance
+    ///
+    /// # Limitations
+    ///
+    /// As of 0.1.0, input values are not validated.
     pub fn new(size: u32, genome_length: Position, littler: f64, psurvival: f64) -> Self {
         PopulationParams {
             size,
@@ -399,29 +417,53 @@ impl PopulationParams {
 }
 
 bitflags! {
+    /// Bitwise flag tweaking the behavior of the
+    /// simplification algorithm.
     #[derive(Default)]
     pub struct SimulationFlags: u32
     {
+        /// If set, and [``BUFFER_EDGES``] is not set,
+        /// then simplification will use a reusable set
+        /// of buffers for each call.  Otherwise,
+        /// these buffers will be allocated each time
+        /// simplification happens.
         const USE_STATE = 1 << 0;
+        /// If set, edge buffering will be used.
+        /// If not set, then the standard "record
+        /// and sort" method will be used.
         const BUFFER_EDGES = 1 << 1;
     }
 }
 
-pub struct SimulationParameters {
+/// Parameters of a simulation to be executed
+/// by [``neutral_wf``].
+pub struct SimulationParams {
+    /// How often to apply the simplification algorithm.
+    /// If ``None``, then simplification never happens.
+    /// If the value is ``Some(Time)``, then simplification
+    /// will occur after that many time steps.
     pub simplification_interval: Option<Time>,
+    /// Random number seed
     pub seed: usize,
+    /// How many birth steps to simulate.
+    /// If [``PopulationParams::psurvival``] is 0.0,
+    /// then this is the number of generations in the
+    /// standard Wright-Fisher model.
     pub nsteps: Time,
+    /// Bitwise flag tweaking the behavior of the
+    /// simplification algorithm.
     pub flags: SimulationFlags,
 }
 
-impl SimulationParameters {
+impl SimulationParams {
+    /// Create a new instance
     pub fn new(
         simplification_interval: Option<Time>,
         seed: usize,
         nsteps: Time,
         flags: SimulationFlags,
     ) -> Self {
-        SimulationParameters {
+        SimulationParams {
             simplification_interval,
             seed,
             nsteps,
@@ -430,9 +472,37 @@ impl SimulationParameters {
     }
 }
 
+/// Run a simulation of an idealized population.
+///
+/// This function simulates a constant-sized population.
+/// This is a Wright-Fisher population with the possibility
+/// of overlapping generations.
+///
+/// # Parameters
+///
+/// * pop_params is an instance of [``PopulationParams``].
+/// * params is an instance of [``SimulationParams``].
+///
+/// # Return values
+///
+/// The return value is a tuple containing a [``TableCollection``]
+/// and a vector.  The length of the vector is equal to the
+/// length of the [``crate::NodeTable``] in the return value. The vector
+/// contains 1 if the node at that index is alive at the end of
+/// the simlation and 0 otherwise.
+///
+/// # Error
+///
+/// The simulation may return [``ForrusttsError``] if an error
+/// is encountered.
+///
+/// # Limitations
+///
+/// As of version 0.1.0, the input values are not
+/// thoroughly validated.
 pub fn neutral_wf(
     pop_params: PopulationParams,
-    params: SimulationParameters,
+    params: SimulationParams,
 ) -> Result<(TableCollection, Vec<i32>), ForrusttsError> {
     // FIXME: gotta validate input params!
 
@@ -573,7 +643,7 @@ mod test {
                 littler: 5e-3,
                 psurvival: 0.0,
             },
-            SimulationParameters::new(Some(100), 666, 2000, flags),
+            SimulationParams::new(Some(100), 666, 2000, flags),
         )
         .unwrap()
     }

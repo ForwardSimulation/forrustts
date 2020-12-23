@@ -1,17 +1,31 @@
+///! Error handling
 use crate::nested_forward_list::NestedForwardListError;
 use thiserror::Error;
 
+/// Primary error type.
+///
+/// Some members of this enum implement ``From``
+/// in order to redirect other error types.
 #[derive(Error, Debug)]
 pub enum ForrusttsError {
+    /// An error that occurs during simplification.
     #[error("{value:?}")]
-    SimplificationError { value: String },
+    SimplificationError {
+        /// The error message
+        value: String,
+    },
+
+    /// A redirection of a [``crate::nested_forward_list::NestedForwardListError``].
     #[error("{value:?}")]
     ListError {
+        /// The redirected error
         #[from]
         value: NestedForwardListError,
     },
+    /// A redirection of a [``crate::TablesError``]
     #[error("{value:?}")]
     TablesError {
+        /// The redirected error
         #[from]
         value: crate::TablesError,
     },
@@ -26,7 +40,7 @@ mod test {
         if f {
             Ok(())
         } else {
-            Err(NestedForwardListError::InvalidKey)
+            Err(NestedForwardListError::InvalidIndex)
         }
     }
 
@@ -34,11 +48,8 @@ mod test {
         match return_nested_forward_list_error(false) {
             Ok(_) => Ok(()),
             Err(e) => match e {
-                NestedForwardListError::InvalidKey => Err(ForrusttsError::ListError { value: e }),
+                NestedForwardListError::InvalidIndex => Err(ForrusttsError::ListError { value: e }),
                 NestedForwardListError::NullTail => Err(ForrusttsError::ListError { value: e }),
-                NestedForwardListError::KeyOutOfRange => {
-                    Err(ForrusttsError::ListError { value: e })
-                }
                 #[allow(unreachable_patterns)]
                 _ => panic!(),
             },
@@ -51,11 +62,10 @@ mod test {
             Ok(_) => panic!(),
             Err(e) => match e {
                 ForrusttsError::ListError { value } => match value {
-                    NestedForwardListError::InvalidKey => {
-                        assert_eq!(value.to_string(), "Invalid key")
+                    NestedForwardListError::InvalidIndex => {
+                        assert_eq!(value.to_string(), "Invalid index")
                     }
                     NestedForwardListError::NullTail => panic!(),
-                    NestedForwardListError::KeyOutOfRange => panic!(),
                 },
                 #[allow(unreachable_patterns)]
                 _ => panic!(),

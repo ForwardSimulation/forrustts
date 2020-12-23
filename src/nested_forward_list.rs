@@ -1,15 +1,27 @@
+//! Compact representation of multiple forward linked lists.
+//!
+//! This module defines [``NestedForwardList``].  Client
+//! code will typically use this type via [``crate::EdgeBuffer``].
+//! See the documentation of that type for details.
+//!
+//! Most of API for this type is used internally, but
+//! it is public in case anyone finds other uses for
+//! this data structure.
+
 use thiserror::Error;
 
+/// Errror type for [``NestedForwardList``] operations.
 #[derive(Error, Debug)]
 pub enum NestedForwardListError {
-    #[error("Invalid key")]
-    InvalidKey,
+    /// Tail of a list is unexpectedly null.
     #[error("Tail is null")]
     NullTail,
-    #[error("Invalid key")]
-    KeyOutOfRange,
+    /// Used for invalid index values.
+    #[error("Invalid index")]
+    InvalidIndex,
 }
 
+/// Result type for [``NestedForwardList``] operations.
 pub type Result<T> = std::result::Result<T, NestedForwardListError>;
 
 // NOTE: I am unclear how to add a Key
@@ -17,6 +29,92 @@ pub type Result<T> = std::result::Result<T, NestedForwardListError>;
 // no notion of a static_assert.  Gotta Google
 // this in the future!
 
+/// Representation of multiple forward linked
+/// lists flattend into vectors.
+///
+/// # Overview
+///
+/// A typical representation of a forward list
+/// involves `head`, `next`, and `tail` pointers
+/// to allow iteration in one direction over
+/// a `Value`.
+///
+/// The memory layout of such a list could be
+/// "node" pointers allocated on the heap.
+/// For example, the node pointer could be intrusive,
+/// responsible for managing ownership of the `Value`
+/// elements.
+///
+/// Alternately, we could use flat arrays.
+///
+/// This type is capable of holding multiple
+/// linked lists in a single set of flattened arrays.
+///
+/// Internally, the `head` array is accessed by list indexes.
+/// In other words, to access the i-th list, make a request
+/// for the i-th `head`.  Likewise for `tail`.
+///
+/// # Usage
+///
+/// This section documents typical use.
+/// Other parts of the API exist, but are mostly used internally.
+/// They are `pub` in case anyone finds them useful.
+///
+/// ```
+/// // Our value type will be i32.
+/// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+/// let mut l = ListType::new();
+///
+/// // Create 4 empty lists
+/// l.reset(4);
+/// assert_eq!(l.len(), 4);
+///
+/// // add some data to list starting
+/// // at index 2
+/// l.extend(2, -1);
+///
+/// // There are two methods to traverse the list.
+/// // 1. Explicitly use head/next values:
+///
+/// let mut output = vec![];
+/// // Get the head of this list
+/// let mut n = l.head(2).unwrap();
+/// while n != ListType::null() {
+///    // fetch returns an immutable reference.
+///    output.push(*l.fetch(n).unwrap());
+///    // proceed to the next element
+///    n = l.next(n).unwrap();
+/// }
+/// assert_eq!(output, vec![-1]);
+///
+/// // 2. Use a closure.  The closure
+/// // returns `true` to keep iterating,
+/// // or `false` to stop, allowing searches.
+/// output.clear();
+/// l.for_each(2, |x| {output.push(*x); true});
+/// assert_eq!(output, vec![-1]);
+///
+/// // We can add data out of order:
+/// l.extend(0, 13).unwrap();
+///
+/// // Adding at a new index > that what we
+/// // asked for with "reset" will automatically
+/// // reallocate.  Create a list starting at index
+/// // 13
+/// l.extend(13, 13512).unwrap();
+/// assert_eq!(l.len(), 14);
+///
+/// // Our existing data are still fine after
+/// // this reallocation:
+/// output.clear();
+/// l.for_each(2, |x| {output.push(*x); true});
+/// assert_eq!(output, vec![-1]);
+/// ```
+///
+/// The following functions may be useful:
+///
+/// * [``NestedForwardList::clear``]
+/// * [``NestedForwardList::fetch_mut``]
 pub struct NestedForwardList<Value> {
     head_: Vec<i32>,
     tail_: Vec<i32>,
@@ -35,7 +133,7 @@ impl<Value> NestedForwardList<Value> {
 
     fn check_key(&self, k: i32) -> Result<()> {
         if k < 0 {
-            Err(NestedForwardListError::InvalidKey)
+            Err(NestedForwardListError::InvalidIndex)
         } else {
             Ok(())
         }
@@ -43,7 +141,7 @@ impl<Value> NestedForwardList<Value> {
 
     fn check_key_range(&self, k: usize, n: usize) -> Result<()> {
         if k >= n {
-            Err(NestedForwardListError::KeyOutOfRange)
+            Err(NestedForwardListError::InvalidIndex)
         } else {
             Ok(())
         }
@@ -51,6 +149,7 @@ impl<Value> NestedForwardList<Value> {
 
     // Public functions:
 
+    /// Create a new instance
     pub const fn new() -> NestedForwardList<Value> {
         NestedForwardList {
             head_: Vec::<i32>::new(),
@@ -60,6 +159,13 @@ impl<Value> NestedForwardList<Value> {
         }
     }
 
+    /// Add an element to a list starting at index `k`.
+    ///
+    /// ```
+    /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+    /// let mut l = ListType::new();
+    /// l.extend(0, 1).unwrap();
+    /// ```
     pub fn extend(&mut self, k: i32, v: Value) -> Result<()> {
         self.check_key(k)?;
 
@@ -88,11 +194,33 @@ impl<Value> NestedForwardList<Value> {
         Ok(())
     }
 
+    /// Return the null value,
+    /// which is -1.
     #[inline]
     pub fn null() -> i32 {
         -1
     }
 
+    /// Get a mutable reference to a `Value`.
+    ///
+    /// See [``NestedForwardList::fetch``]
+    /// to get an immutable reference.
+    ///
+    /// ```
+    /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+    /// let mut l = ListType::new();
+    /// l.extend(0, 1).unwrap(); // 0
+    /// l.extend(1, 7).unwrap(); // 3
+    /// l.extend(0, 11).unwrap(); // 2
+    ///
+    /// // Go through elements of list starting at 0
+    /// let mut i = l.head(0).unwrap();
+    /// assert_eq!(*l.fetch(i).unwrap(), 1);
+    ///
+    /// // We can change the data contents:
+    /// *l.fetch_mut(i).unwrap() = -33;
+    /// assert_eq!(*l.fetch(i).unwrap(), -33);
+    /// ```    
     #[inline]
     pub fn fetch_mut(&mut self, at: i32) -> Result<&mut Value> {
         self.check_key(at)?;
@@ -100,6 +228,25 @@ impl<Value> NestedForwardList<Value> {
         Ok(&mut self.data_[at as usize])
     }
 
+    /// Get a reference to a `Value`.
+    ///
+    /// See [``NestedForwardList::fetch_mut``]
+    /// to get an immutable reference.
+    ///
+    /// ```
+    /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+    /// let mut l = ListType::new();
+    /// l.extend(0, 1).unwrap(); // 0
+    /// l.extend(1, 7).unwrap(); // 3
+    /// l.extend(0, 11).unwrap(); // 2
+    ///
+    /// // Go through elements of list starting at
+    /// // 0
+    /// let mut i = l.head(0).unwrap();
+    /// assert_eq!(*l.fetch(i).unwrap(), 1);
+    /// i = l.next(i).unwrap();
+    /// assert_eq!(*l.fetch(i).unwrap(), 11);
+    /// ```    
     #[inline]
     pub fn fetch(&self, at: i32) -> Result<&Value> {
         self.check_key(at)?;
@@ -107,6 +254,19 @@ impl<Value> NestedForwardList<Value> {
         Ok(&self.data_[at as usize])
     }
 
+    /// Get the index of the head entry of a list
+    /// beginning at index `at`.
+    ///
+    /// ```
+    /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+    /// let mut l = ListType::new();
+    /// l.extend(0, 1).unwrap(); // 0
+    /// l.extend(1, 3).unwrap(); // 1
+    /// l.extend(0, 5).unwrap(); // 2
+    /// l.extend(1, 5).unwrap(); // 3
+    /// assert_eq!(l.head(0).unwrap(), 0);
+    /// assert_eq!(l.head(1).unwrap(), 1);
+    /// ```    
     #[inline]
     pub fn head(&self, at: i32) -> Result<i32> {
         self.check_key(at)?;
@@ -114,6 +274,19 @@ impl<Value> NestedForwardList<Value> {
         Ok(self.head_[at as usize])
     }
 
+    /// Get the index of the tail entry of a list
+    /// beginning at index `at`.
+    ///
+    /// ```
+    /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+    /// let mut l = ListType::new();
+    /// l.extend(0, 1).unwrap(); // 0
+    /// l.extend(1, 3).unwrap(); // 1
+    /// l.extend(0, 5).unwrap(); // 2
+    /// l.extend(1, 5).unwrap(); // 3
+    /// assert_eq!(l.tail(0).unwrap(), 2);
+    /// assert_eq!(l.tail(1).unwrap(), 3);
+    /// ```    
     #[inline]
     pub fn tail(&self, at: i32) -> Result<i32> {
         self.check_key(at)?;
@@ -121,6 +294,20 @@ impl<Value> NestedForwardList<Value> {
         Ok(self.tail_[at as usize])
     }
 
+    /// Get the index of the next data element in a list
+    ///
+    /// ```
+    /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+    /// let mut l = ListType::new();
+    /// l.extend(0, 1).unwrap();
+    /// l.extend(1, 3).unwrap();
+    /// l.extend(0, 5).unwrap();
+    /// l.extend(1, 5).unwrap();
+    /// let mut i = l.head(1).unwrap();
+    /// assert_eq!(i, 1);
+    /// let i = l.next(i).unwrap();
+    /// assert_eq!(i, 3);
+    /// ```
     #[inline]
     pub fn next(&self, at: i32) -> Result<i32> {
         self.check_key(at)?;
@@ -128,6 +315,8 @@ impl<Value> NestedForwardList<Value> {
         Ok(self.next_[at as usize])
     }
 
+    /// Clears all data.
+    /// Memory is not released.
     pub fn clear(&mut self) {
         self.data_.clear();
         self.head_.clear();
@@ -135,6 +324,30 @@ impl<Value> NestedForwardList<Value> {
         self.next_.clear();
     }
 
+    /// Traverse all data elements for the list
+    /// beginning at index `at`.
+    ///
+    /// The callback returns a [``bool``].
+    /// If the callback returns [``false``], then traversal
+    /// ends, allowing linear searches through the data.
+    ///
+    /// ```
+    /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+    /// let mut list = ListType::new();
+    /// for i in 0..3 {
+    ///     list.extend(0, 2 * i).unwrap();
+    /// }
+    /// for i in 0..5 {
+    ///     list.extend(1, 3 * i).unwrap();
+    /// }
+    /// let mut output = vec![];
+    /// list.for_each(0, |x: &i32| {
+    ///     output.push(*x);
+    ///     true
+    /// })
+    /// .unwrap();
+    /// assert_eq!(output, vec![0, 2, 4]);
+    /// ```
     pub fn for_each(&self, at: i32, mut f: impl FnMut(&Value) -> bool) -> Result<()> {
         let mut itr = self.head(at)?;
         while itr != NestedForwardList::<Value>::null() {
@@ -148,6 +361,18 @@ impl<Value> NestedForwardList<Value> {
         Ok(())
     }
 
+    /// Set the head/tail elements of the list
+    /// beginning at index ``at`` to [``NestedForwardList::null``].
+    ///
+    /// # Notes
+    ///
+    /// This effectively "kills off" the list, preventing traversal.
+    /// However, the internal data are unaffected and there is
+    /// no attempt to reclaim memory.
+    ///
+    /// A future release may implement a stack of nullified locations,
+    /// allowing their re-use.
+    ///
     pub fn nullify_list(&mut self, at: i32) -> Result<()> {
         self.check_key(at)?;
         self.check_key_range(at as usize, self.head_.len())?;
@@ -157,6 +382,28 @@ impl<Value> NestedForwardList<Value> {
         Ok(())
     }
 
+    /// Executes the following:
+    ///
+    /// 1. Clears all data via [``NestedForwardList::clear``].
+    /// 2. Sets the size of the number of lists to `newize`.
+    /// 3. The lists are all empty, and this have head/tail
+    ///    values of [``NestedForwardList::null``].
+    ///
+    /// ```
+    /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+    /// let mut l = ListType::new();
+    /// l.extend(0, 1).unwrap();
+    /// l.extend(0, 3).unwrap();
+    /// l.extend(0, 5).unwrap();
+    /// l.extend(1, 4).unwrap();
+    /// assert_eq!(l.len(), 2);
+    /// assert_eq!(l.head(0).unwrap(), 0);
+    /// assert_eq!(l.tail(0).unwrap(), 2);
+    /// l.reset(1);
+    /// assert_eq!(l.len(), 1);
+    /// // The head of this list is now null
+    /// assert_eq!(l.head(0).unwrap(), ListType::null());
+    /// ```
     pub fn reset(&mut self, newsize: usize) {
         self.clear();
         self.head_
@@ -171,14 +418,56 @@ impl<Value> NestedForwardList<Value> {
         self.tail_.iter_mut().for_each(|x| *x = Self::null());
     }
 
+    /// Obtain an iterator over the vector of list
+    /// heads.
+    /// ```
+    /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+    /// let mut l = ListType::new();
+    /// l.extend(0, 1).unwrap();
+    /// l.extend(0, 3).unwrap();
+    /// l.extend(0, 5).unwrap();
+    /// l.extend(1, -11).unwrap();
+    /// // List 0 starts at index 0
+    /// // and lines 1 starts at index 3
+    /// let heads = vec![0, 3];
+    /// for (i, j) in l.head_itr().enumerate() {
+    ///     assert_eq!(*j, heads[i]);
+    /// }
+    ///
+    /// let mut output = vec![];
+    /// for (i, j) in l.head_itr().enumerate() {
+    ///     l.for_each(i as i32, |x| {output.push(*x); true});
+    /// }
+    /// assert_eq!(output, vec![1,3,5,-11]);
+    /// ```
     pub fn head_itr(&self) -> std::slice::Iter<'_, i32> {
         self.head_.iter()
     }
 
+    /// Return length of the vector
+    /// of list heads.
+    ///
+    /// ```
+    /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+    /// let mut l = ListType::new();
+    /// assert_eq!(l.len(), 0);
+    /// l.extend(10, 1);
+    /// assert_eq!(l.len(), 11);
+    /// ```
     pub fn len(&self) -> usize {
         self.head_.len()
     }
 
+    /// Return [``true``] if the
+    /// vector of list heads is empty.
+    ///
+    /// ```
+    /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+    /// let mut l = ListType::new();
+    /// assert_eq!(l.is_empty(), true);
+    /// l.extend(10, 1);
+    /// assert_eq!(l.is_empty(), false);
+    /// ```
     pub fn is_empty(&self) -> bool {
         self.head_.is_empty()
     }
@@ -326,8 +615,7 @@ mod tests {
         let result = list.extend(-1, 2);
         match result {
             Ok(_) => panic!(),
-            Err(NestedForwardListError::InvalidKey) => (),
-            Err(NestedForwardListError::KeyOutOfRange) => panic!(),
+            Err(NestedForwardListError::InvalidIndex) => (),
             Err(NestedForwardListError::NullTail) => panic!(),
         }
     }

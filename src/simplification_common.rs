@@ -59,7 +59,7 @@ pub fn process_parent(
         &tables.edges_,
         edge_index,
         num_edges,
-        tables.get_length(),
+        tables.genome_length(),
         u,
         &mut state.ancestry,
         &mut state.overlapper,
@@ -67,7 +67,7 @@ pub fn process_parent(
 
     simplification_logic::merge_ancestors(
         &tables.nodes_,
-        tables.get_length(),
+        tables.genome_length(),
         u,
         state,
         &mut output.idmap,
