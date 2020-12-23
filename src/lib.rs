@@ -3,6 +3,7 @@ mod error;
 pub mod nested_forward_list;
 mod segment;
 mod simplification_buffers;
+mod simplification_common;
 mod simplification_flags;
 mod simplification_logic;
 mod simplification_output;

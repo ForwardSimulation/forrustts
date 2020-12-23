@@ -1,4 +1,4 @@
-use crate::simplification_logic;
+use crate::simplification_common::*;
 use crate::tables::*;
 use crate::ForrusttsError;
 use crate::IdType;
@@ -23,52 +23,18 @@ pub fn simplify_tables_with_buffers(
     tables: &mut TableCollection,
     output: &mut SimplificationOutput,
 ) -> Result<(), ForrusttsError> {
-    if !tables.sites_.is_empty() || !tables.mutations_.is_empty() {
-        return Err(ForrusttsError::SimplificationError {
-            value: "mutation simplification not yet implemented".to_string(),
-        });
-    }
-
-    if flags.bits() != 0 {
-        return Err(ForrusttsError::SimplificationError {
-            value: "SimplificationFlags must be zero".to_string(),
-        });
-    }
-
-    simplification_logic::setup_idmap(&tables.nodes_, &mut output.idmap);
-
-    state.clear();
-    state.ancestry.reset(tables.num_nodes());
-
-    simplification_logic::record_sample_nodes(
-        &samples,
-        &tables,
-        &mut state.new_nodes,
-        &mut state.ancestry,
-        &mut output.idmap,
-    )?;
+    setup_simplification(samples, tables, flags, state, output)?;
 
     let mut edge_i = 0;
     let num_edges = tables.num_edges();
     let mut new_edges_inserted: usize = 0;
     while edge_i < num_edges {
-        let u = tables.edges_[edge_i].parent;
-        edge_i = simplification_logic::find_parent_child_segment_overlap(
-            &tables.edges_,
-            edge_i,
-            num_edges,
-            tables.get_length(),
-            u,
-            &mut state.ancestry,
-            &mut state.overlapper,
-        )?;
-
-        simplification_logic::merge_ancestors(
-            &tables.nodes_,
-            tables.get_length(),
-            u,
+        edge_i = process_parent(
+            tables.edges_[edge_i].parent,
+            (edge_i, num_edges),
+            &tables,
             state,
-            &mut output.idmap,
+            output,
         )?;
 
         if state.new_edges.len() >= 1024 && new_edges_inserted + state.new_edges.len() < edge_i {
