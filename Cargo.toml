@@ -3,6 +3,11 @@ name = "forrustts"
 version = "0.1.0"
 authors = ["molpopgen <krthornt@uci.edu>"]
 edition = "2018"
+description = "Tools for forward simulation with tree sequence recording"
+license-file = "LICENSE"
+homepage = "https://github.com/molpopgen/forrustts"
+repository = "https://github.com/molpopgen/forrustts"
+keywords = ["simulation", "tree sequences", "tskit", "population genetics"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
