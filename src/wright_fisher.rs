@@ -11,6 +11,7 @@ use crate::tables::{validate_edge_table, TableCollection};
 use crate::tsdef::*;
 use crate::EdgeBuffer;
 use crate::ForrusttsError;
+use crate::SamplesInfo;
 use crate::Segment;
 use crate::SimplificationBuffers;
 use crate::SimplificationFlags;
@@ -65,7 +66,6 @@ type VecBirth = Vec<Birth>;
 struct PopulationState {
     pub parents: VecParent,
     pub births: VecBirth,
-    pub alive_at_last_simplification: Vec<IdType>,
     pub edge_buffer: EdgeBuffer,
     pub tables: TableCollection,
 }
@@ -75,7 +75,6 @@ impl PopulationState {
         PopulationState {
             parents: vec![],
             births: vec![],
-            alive_at_last_simplification: vec![],
             edge_buffer: EdgeBuffer::new(),
             tables: TableCollection::new(genome_length).unwrap(),
         }
@@ -291,17 +290,17 @@ fn recombination_breakpoints(
     }
 }
 
-fn fill_samples(parents: &[Parent], samples: &mut Vec<IdType>) {
-    samples.clear();
+fn fill_samples(parents: &[Parent], samples: &mut SamplesInfo) {
+    samples.samples.clear();
     for p in parents {
-        samples.push(p.node0);
-        samples.push(p.node1);
+        samples.samples.push(p.node0);
+        samples.samples.push(p.node1);
     }
 }
 
 fn sort_and_simplify(
     flags: SimulationFlags,
-    samples: &[IdType],
+    samples: &SamplesInfo,
     state: &mut SimplificationBuffers,
     pop: &mut PopulationState,
     output: &mut SimplificationOutput,
@@ -341,7 +340,6 @@ fn sort_and_simplify(
     } else {
         simplify_from_edge_buffer(
             samples,
-            &pop.alive_at_last_simplification,
             SimplificationFlags::empty(),
             state,
             &mut pop.edge_buffer,
@@ -354,7 +352,7 @@ fn sort_and_simplify(
 
 fn simplify_and_remap_nodes(
     flags: SimulationFlags,
-    samples: &mut Vec<IdType>,
+    samples: &mut SamplesInfo,
     state: &mut SimplificationBuffers,
     pop: &mut PopulationState,
     output: &mut SimplificationOutput,
@@ -368,10 +366,10 @@ fn simplify_and_remap_nodes(
     }
 
     if flags.contains(SimulationFlags::BUFFER_EDGES) {
-        pop.alive_at_last_simplification.clear();
+        samples.edge_buffer_founder_nodes.clear();
         for p in &pop.parents {
-            pop.alive_at_last_simplification.push(p.node0);
-            pop.alive_at_last_simplification.push(p.node1);
+            samples.edge_buffer_founder_nodes.push(p.node0);
+            samples.edge_buffer_founder_nodes.push(p.node1);
         }
     }
 }
@@ -523,7 +521,7 @@ pub fn neutral_wf(
     rng.set(params.seed);
 
     let mut pop = PopulationState::new(pop_params.genome_length);
-    let mut samples: Vec<IdType> = vec![];
+    let mut samples: SamplesInfo = Default::default();
     let mut breakpoints = vec![];
 
     // Record nodes for the first generation
@@ -535,7 +533,7 @@ pub fn neutral_wf(
     }
 
     for i in 0..pop.tables.num_nodes() {
-        pop.alive_at_last_simplification.push(i as IdType);
+        samples.edge_buffer_founder_nodes.push(i as IdType);
     }
 
     let mut simplified = false;

@@ -41,6 +41,7 @@
 mod edge_buffer;
 mod error;
 pub mod nested_forward_list;
+mod samples_info;
 mod segment;
 mod simplification_buffers;
 mod simplification_common;
@@ -54,6 +55,7 @@ mod tsdef;
 
 pub use edge_buffer::EdgeBuffer;
 pub use error::ForrusttsError;
+pub use samples_info::SamplesInfo;
 pub use segment::Segment;
 pub use simplification_buffers::SimplificationBuffers;
 pub use simplification_flags::SimplificationFlags;
