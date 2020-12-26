@@ -4,7 +4,7 @@ mod test {
     // stuff from tskit_rust and forrusts, which isn't great.
     // We'll clean this up later when we get better abstractions
     // into tskit_rust.
-    use crate::simplify_tables;
+    use crate::simplify_tables_without_state;
     use crate::tsdef::{IdType, Position, Time};
     use crate::wright_fisher::*;
     use crate::ForrusttsError;
@@ -48,7 +48,7 @@ mod test {
                 littler: 5e-3,
                 psurvival,
             },
-            SimulationParameters {
+            SimulationParams {
                 simplification_interval,
                 seed,
                 nsteps: num_generations,
@@ -97,7 +97,7 @@ mod test {
         }
 
         let mut output = SimplificationOutput::new();
-        simplify_tables(
+        simplify_tables_without_state(
             &samples,
             SimplificationFlags::empty(),
             &mut tables,

@@ -6,17 +6,56 @@ use crate::SimplificationBuffers;
 use crate::SimplificationFlags;
 use crate::SimplificationOutput;
 
-pub fn simplify_tables(
+/// Simplify a [``TableCollection``].
+///
+/// # Parameters
+///
+/// * `samples`:
+/// * `flags`: modify the behavior of the simplification algorithm.
+/// * `tables`: a [``TableCollection``] to simplify.
+/// * `output`: Where simplification output gets written.
+///             See [``SimplificationOutput``].
+///
+/// # Notes
+///
+/// The input tables must be sorted.
+/// See [``TableCollection::sort_tables_for_simplification``].
+///
+/// It is common to simplify many times during a simulation.
+/// To avoid making big allocations each time, see
+/// [``simplify_tables``] to keep memory allocations
+/// persistent between simplifications.
+pub fn simplify_tables_without_state(
     samples: &[IdType],
     flags: SimplificationFlags,
     tables: &mut TableCollection,
     output: &mut SimplificationOutput,
 ) -> Result<(), ForrusttsError> {
     let mut state = SimplificationBuffers::new();
-    simplify_tables_with_buffers(samples, flags, &mut state, tables, output)
+    simplify_tables(samples, flags, &mut state, tables, output)
 }
 
-pub fn simplify_tables_with_buffers(
+/// Simplify a [``TableCollection``].
+///
+/// This differs from [``simplify_tables_without_state``] in that the big memory
+/// allocations made during simplification are preserved in
+/// an instance of [``SimplificationBuffers``].
+///
+/// # Parameters
+///
+/// * `samples`:
+/// * `flags`: modify the behavior of the simplification algorithm.
+/// * `state`: These are the internal data structures used
+///            by the simpilfication algorithm.
+/// * `tables`: a [``TableCollection``] to simplify.
+/// * `output`: Where simplification output gets written.
+///             See [``SimplificationOutput``].
+///
+/// # Notes
+///
+/// The input tables must be sorted.
+/// See [``TableCollection::sort_tables_for_simplification``].
+pub fn simplify_tables(
     samples: &[IdType],
     flags: SimplificationFlags,
     state: &mut SimplificationBuffers,

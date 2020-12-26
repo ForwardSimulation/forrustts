@@ -1,4 +1,13 @@
 //! Data interchange to ``tskit`` format using [``tskit_rust``].
+//!
+//! # Note
+//!
+//! This module may be prone to API-breaking changes!
+//! Currently, the function implementations are the minimum
+//! needed for testing/data exchange.
+//!
+//! As things develop, we may either add new functions or
+//! refactor the existing.
 
 use crate::tsdef::Time;
 use crate::TableCollection;
@@ -58,7 +67,7 @@ pub fn convert_to_tskit(
     convert_time: impl Fn(Time) -> f64,
     build_indexes: bool,
 ) -> tskit_rust::TableCollection {
-    let mut tsk_tables = tskit_rust::TableCollection::new(tables.get_length() as f64).unwrap();
+    let mut tsk_tables = tskit_rust::TableCollection::new(tables.genome_length() as f64).unwrap();
 
     for e in tables.edges() {
         tsk_tables
@@ -152,7 +161,7 @@ pub fn convert_to_tskit_and_drain(
     build_indexes: bool,
     tables: &mut TableCollection,
 ) -> tskit_rust::TableCollection {
-    let mut tsk_tables = tskit_rust::TableCollection::new(tables.get_length() as f64).unwrap();
+    let mut tsk_tables = tskit_rust::TableCollection::new(tables.genome_length() as f64).unwrap();
 
     let mut max_pop: tsk_id_t = -1;
     for (i, n) in tables.enumerate_nodes() {
