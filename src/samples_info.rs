@@ -9,7 +9,8 @@ pub struct SamplesInfo {
     /// "ancient/remembered/preserved" sample
     /// nodes.
     pub samples: Vec<IdType>,
-    /// When using [``EdgeBuffer``] to record transmission
+    /// When using [``EdgeBuffer``](type.EdgeBuffer.html)
+    /// to record transmission
     /// events, this list must contain a list of all node IDs
     /// alive the last time simplification happened. Here,
     /// "alive" means "could leave more descendants".
