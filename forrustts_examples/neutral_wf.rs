@@ -102,7 +102,7 @@ fn main() {
     )
     .unwrap();
 
-    let mut tskit_tables = forrustts::tskit::convert_to_tskit_and_drain(
+    let mut tskit_tables = forrustts::tskit::convert_to_tskit_and_drain_minimal(
         &is_sample,
         forrustts::tskit::simple_time_reverser(g),
         simplify.is_some(),
