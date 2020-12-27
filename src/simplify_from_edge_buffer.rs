@@ -147,6 +147,11 @@ fn process_births_from_buffer(
 ///
 /// The input tables must be sorted.
 /// See [``TableCollection::sort_tables_for_simplification``].
+///
+/// # Limitations
+///
+/// The simplification code does not currently validate
+/// that "buffered" edges do indeed represent a valid sort order.
 pub fn simplify_from_edge_buffer(
     samples: &SamplesInfo,
     flags: SimplificationFlags,
