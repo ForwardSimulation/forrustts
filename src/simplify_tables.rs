@@ -1,7 +1,7 @@
 use crate::simplification_common::*;
 use crate::tables::*;
 use crate::ForrusttsError;
-use crate::IdType;
+use crate::SamplesInfo;
 use crate::SimplificationBuffers;
 use crate::SimplificationFlags;
 use crate::SimplificationOutput;
@@ -26,7 +26,7 @@ use crate::SimplificationOutput;
 /// [``simplify_tables``] to keep memory allocations
 /// persistent between simplifications.
 pub fn simplify_tables_without_state(
-    samples: &[IdType],
+    samples: &SamplesInfo,
     flags: SimplificationFlags,
     tables: &mut TableCollection,
     output: &mut SimplificationOutput,
@@ -56,7 +56,7 @@ pub fn simplify_tables_without_state(
 /// The input tables must be sorted.
 /// See [``TableCollection::sort_tables_for_simplification``].
 pub fn simplify_tables(
-    samples: &[IdType],
+    samples: &SamplesInfo,
     flags: SimplificationFlags,
     state: &mut SimplificationBuffers,
     tables: &mut TableCollection,

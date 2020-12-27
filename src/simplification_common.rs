@@ -2,6 +2,7 @@
 /// functions
 use crate::simplification_logic;
 use crate::ForrusttsError;
+use crate::SamplesInfo;
 use crate::SimplificationBuffers;
 use crate::SimplificationFlags;
 use crate::SimplificationOutput;
@@ -14,7 +15,7 @@ fn setup_idmap(nodes: &[Node], idmap: &mut Vec<IdType>) {
 }
 
 pub fn setup_simplification(
-    samples: &[IdType],
+    samples: &SamplesInfo,
     tables: &TableCollection,
     flags: SimplificationFlags,
     state: &mut SimplificationBuffers,
@@ -38,7 +39,7 @@ pub fn setup_simplification(
     state.ancestry.reset(tables.num_nodes());
 
     simplification_logic::record_sample_nodes(
-        &samples,
+        &samples.samples,
         &tables,
         &mut state.new_nodes,
         &mut state.ancestry,

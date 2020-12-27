@@ -8,6 +8,7 @@ mod test {
     use crate::tsdef::{IdType, Position, Time};
     use crate::wright_fisher::*;
     use crate::ForrusttsError;
+    use crate::SamplesInfo;
     use crate::SimplificationFlags;
     use crate::SimplificationOutput;
     use crate::TableCollection;
@@ -89,10 +90,10 @@ mod test {
 
         // Now, sort and simplify the tables we got from the sim:
         tables.sort_tables_for_simplification();
-        let mut samples: Vec<IdType> = vec![];
+        let mut samples = SamplesInfo::new();
         for (i, n) in tables.nodes().iter().enumerate() {
             if n.time == num_generations {
-                samples.push(i as IdType);
+                samples.samples.push(i as IdType);
             }
         }
 
@@ -122,8 +123,8 @@ mod test {
             assert!(rv == 0);
             let rv = tskr::tsk_table_collection_simplify(
                 tsk_tables.as_mut_ptr(),
-                samples.as_ptr(),
-                samples.len() as u32,
+                samples.samples.as_ptr(),
+                samples.samples.len() as u32,
                 0,
                 std::ptr::null_mut(),
             );

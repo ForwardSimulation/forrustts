@@ -3,6 +3,7 @@ use crate::simplification_logic;
 use crate::tables::*;
 use crate::EdgeBuffer;
 use crate::ForrusttsError;
+use crate::SamplesInfo;
 use crate::Segment;
 use crate::SimplificationBuffers;
 use crate::SimplificationFlags;
@@ -28,12 +29,12 @@ impl ParentLocation {
 
 fn find_pre_existing_edges(
     tables: &TableCollection,
-    alive_at_last_simplification: &[IdType],
+    edge_buffer_founder_nodes: &[IdType],
     edge_buffer: &EdgeBuffer,
 ) -> Result<Vec<ParentLocation>, ForrusttsError> {
     let mut alive_with_new_edges: Vec<i32> = vec![];
 
-    for a in alive_at_last_simplification {
+    for a in edge_buffer_founder_nodes {
         if edge_buffer.head(*a)? != EdgeBuffer::null() {
             alive_with_new_edges.push(*a);
         }
@@ -130,8 +131,9 @@ fn process_births_from_buffer(
 ///
 /// # Parameters
 ///
-/// * `samples`:
-/// * `alive_at_last_simplification`:
+/// * `samples`: Instance of [``SamplesInfo``]. The field
+///              [``SamplesInfo::edge_buffer_founder_nodes``]
+///              must be populated. See [``EdgeBuffer``] for details.
 /// * `flags`: modify the behavior of the simplification algorithm.
 /// * `state`: These are the internal data structures used
 ///            by the simpilfication algorithm.
@@ -146,8 +148,7 @@ fn process_births_from_buffer(
 /// The input tables must be sorted.
 /// See [``TableCollection::sort_tables_for_simplification``].
 pub fn simplify_from_edge_buffer(
-    samples: &[IdType],
-    alive_at_last_simplification: &[IdType],
+    samples: &SamplesInfo,
     flags: SimplificationFlags,
     state: &mut SimplificationBuffers,
     edge_buffer: &mut EdgeBuffer,
@@ -158,7 +159,7 @@ pub fn simplify_from_edge_buffer(
 
     // Process all edges since the last simplification.
     let mut max_time = Time::MIN;
-    for n in alive_at_last_simplification {
+    for n in samples.edge_buffer_founder_nodes.iter() {
         max_time = std::cmp::max(max_time, tables.node(*n).time);
     }
     for (i, _) in edge_buffer.head_itr().rev().enumerate() {
@@ -185,7 +186,7 @@ pub fn simplify_from_edge_buffer(
     }
 
     let existing_edges =
-        find_pre_existing_edges(&tables, &alive_at_last_simplification, &edge_buffer)?;
+        find_pre_existing_edges(&tables, &samples.edge_buffer_founder_nodes, &edge_buffer)?;
 
     let mut edge_i = 0;
     let num_edges = tables.num_edges();
