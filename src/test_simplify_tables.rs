@@ -79,7 +79,7 @@ mod test {
         )
         .unwrap();
 
-        let mut tsk_tables = crate::tskit::convert_to_tskit(
+        let mut tsk_tables = crate::tskit::convert_to_tskit_minimal(
             &tables,
             &is_sample,
             crate::tskit::simple_time_reverser(num_generations),
@@ -111,7 +111,7 @@ mod test {
             *i = 1;
         }
 
-        let mut simplified_rust_tables = crate::tskit::convert_to_tskit(
+        let mut simplified_rust_tables = crate::tskit::convert_to_tskit_minimal(
             &tables,
             &is_sample,
             crate::tskit::simple_time_reverser(num_generations),
@@ -192,14 +192,14 @@ mod test {
         let sum_times_buffered: Time = tables_buffered.nodes_.iter().map(|x| x.time).sum();
         assert_eq!(sum_times_sorted, sum_times_buffered);
 
-        let mut tables_sorted_tskit = crate::tskit::convert_to_tskit(
+        let mut tables_sorted_tskit = crate::tskit::convert_to_tskit_minimal(
             &tables_sorted,
             &is_sample_sorted,
             crate::tskit::simple_time_reverser(num_generations),
             true,
         );
 
-        let mut tables_buffered_tskit = crate::tskit::convert_to_tskit(
+        let mut tables_buffered_tskit = crate::tskit::convert_to_tskit_minimal(
             &tables_buffered,
             &is_sample_buffered,
             crate::tskit::simple_time_reverser(num_generations),
@@ -264,14 +264,14 @@ mod test {
         let sum_times_buffered: Time = tables_buffered.nodes_.iter().map(|x| x.time).sum();
         assert_eq!(sum_times_sorted, sum_times_buffered);
 
-        let mut tables_sorted_tskit = crate::tskit::convert_to_tskit(
+        let mut tables_sorted_tskit = crate::tskit::convert_to_tskit_minimal(
             &tables_sorted,
             &is_sample_sorted,
             crate::tskit::simple_time_reverser(num_generations),
             true,
         );
 
-        let mut tables_buffered_tskit = crate::tskit::convert_to_tskit(
+        let mut tables_buffered_tskit = crate::tskit::convert_to_tskit_minimal(
             &tables_buffered,
             &is_sample_buffered,
             crate::tskit::simple_time_reverser(num_generations),

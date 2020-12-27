@@ -39,6 +39,9 @@ pub fn simple_time_reverser(x: Time) -> Box<dyn Fn(Time) -> f64> {
 /// If the input ``tables`` are not sorted, pass ``false`` for
 /// `build_indexes`.
 ///
+/// This function will not be part of the long-term API.
+/// Rather, it is the minimum currently needed to get stuff done.
+///
 /// # Returns
 ///
 /// A [``tskit_rust::TableCollection``].
@@ -51,7 +54,7 @@ pub fn simple_time_reverser(x: Time) -> Box<dyn Fn(Time) -> f64> {
 /// tables.add_node(1, 0).unwrap(); // Add a child node at time 1
 /// tables.add_edge(0, 100, 0, 1).unwrap(); // Add an edge
 /// let is_sample = vec![0, 1]; // Mark the child node as a sample.
-/// let tsk_tables = forrustts::tskit::convert_to_tskit(
+/// let tsk_tables = forrustts::tskit::convert_to_tskit_minimal(
 ///     &tables,
 ///     &is_sample,
 ///     forrustts::tskit::simple_time_reverser(1),
@@ -61,7 +64,7 @@ pub fn simple_time_reverser(x: Time) -> Box<dyn Fn(Time) -> f64> {
 /// assert_eq!(tsk_tables.edges().num_rows(), 1);
 /// assert_eq!(tsk_tables.populations().num_rows(), 1);
 /// ```
-pub fn convert_to_tskit(
+pub fn convert_to_tskit_minimal(
     tables: &TableCollection,
     is_sample: &[i32],
     convert_time: impl Fn(Time) -> f64,
@@ -125,6 +128,9 @@ fn swap_with_empty<T>(v: &mut Vec<T>) {
 /// If the input ``tables`` are not sorted, pass ``false`` for
 /// `build_indexes`.
 ///
+/// This function will not be part of the long-term API.
+/// Rather, it is the minimum currently needed to get stuff done.
+///
 /// # Returns
 ///
 /// A [``tskit_rust::TableCollection``].
@@ -137,7 +143,7 @@ fn swap_with_empty<T>(v: &mut Vec<T>) {
 /// tables.add_node(1, 0).unwrap(); // Add a child node at time 1
 /// tables.add_edge(0, 100, 0, 1).unwrap(); // Add an edge
 /// let is_sample = vec![0, 1]; // Mark the child node as a sample.
-/// let tsk_tables = forrustts::tskit::convert_to_tskit_and_drain(
+/// let tsk_tables = forrustts::tskit::convert_to_tskit_and_drain_minimal(
 ///     &is_sample,
 ///     forrustts::tskit::simple_time_reverser(1),
 ///     true,
@@ -155,7 +161,7 @@ fn swap_with_empty<T>(v: &mut Vec<T>) {
 /// assert_eq!(tables.nodes().capacity(), 0);
 /// assert_eq!(tables.edges().capacity(), 0);
 /// ```
-pub fn convert_to_tskit_and_drain(
+pub fn convert_to_tskit_and_drain_minimal(
     is_sample: &[i32],
     convert_time: impl Fn(Time) -> f64,
     build_indexes: bool,
@@ -209,7 +215,8 @@ mod tests {
         tables.add_node(1, 0).unwrap(); // Add a child node at time 1
         tables.add_edge(0, 100, 0, 1).unwrap(); // Add an edge
         let is_sample = vec![0, 1]; // Mark the child node as a sample.
-        let tsk_tables = convert_to_tskit(&tables, &is_sample, simple_time_reverser(1), true);
+        let tsk_tables =
+            convert_to_tskit_minimal(&tables, &is_sample, simple_time_reverser(1), true);
         assert_eq!(tsk_tables.nodes().num_rows(), 2);
         assert_eq!(tsk_tables.edges().num_rows(), 1);
         assert_eq!(tsk_tables.populations().num_rows(), 1);
@@ -224,8 +231,12 @@ mod tests {
         tables.add_node(1, 0).unwrap(); // Add a child node at time 1
         tables.add_edge(0, 100, 0, 1).unwrap(); // Add an edge
         let is_sample = vec![0, 1]; // Mark the child node as a sample.
-        let tsk_tables =
-            convert_to_tskit_and_drain(&is_sample, simple_time_reverser(1), true, &mut tables);
+        let tsk_tables = convert_to_tskit_and_drain_minimal(
+            &is_sample,
+            simple_time_reverser(1),
+            true,
+            &mut tables,
+        );
         assert_eq!(tsk_tables.nodes().num_rows(), 2);
         assert_eq!(tsk_tables.edges().num_rows(), 1);
         assert_eq!(tsk_tables.populations().num_rows(), 1);
