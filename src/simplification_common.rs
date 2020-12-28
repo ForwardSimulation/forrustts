@@ -1,6 +1,7 @@
 /// Common functions to reuse in various "simplify tables"
 /// functions
 use crate::simplification_logic;
+use crate::validate_edge_table;
 use crate::ForrusttsError;
 use crate::SamplesInfo;
 use crate::SimplificationBuffers;
@@ -8,6 +9,16 @@ use crate::SimplificationFlags;
 use crate::SimplificationOutput;
 use crate::{IdType, NULL_ID};
 use crate::{Node, TableCollection};
+
+pub fn validate_tables(
+    tables: &TableCollection,
+    flags: &SimplificationFlags,
+) -> Result<(), ForrusttsError> {
+    if flags.contains(SimplificationFlags::VALIDATE_EDGES) {
+        validate_edge_table(tables.genome_length(), tables.edges(), tables.nodes())?;
+    }
+    Ok(())
+}
 
 fn setup_idmap(nodes: &[Node], idmap: &mut Vec<IdType>) {
     idmap.resize(nodes.len(), NULL_ID);
@@ -27,12 +38,7 @@ pub fn setup_simplification(
         });
     }
 
-    if flags.bits() != 0 {
-        return Err(ForrusttsError::SimplificationError {
-            value: "SimplificationFlags must be zero".to_string(),
-        });
-    }
-
+    validate_tables(tables, &flags)?;
     setup_idmap(&tables.nodes_, &mut output.idmap);
 
     state.clear();

@@ -91,3 +91,43 @@ pub fn simplify_tables(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // TODO: we need lots more tests of these validations!
+
+    #[test]
+    fn test_simplify_tables_unsorted_edges() {
+        let mut tables = TableCollection::new(1000).unwrap();
+
+        tables.add_node(0, 0).unwrap(); // parent
+        tables.add_node(1, 0).unwrap(); // child
+        tables.add_edge(100, tables.genome_length(), 0, 1).unwrap();
+        tables.add_edge(0, 100, 0, 1).unwrap();
+
+        let mut output = SimplificationOutput::new();
+
+        let mut samples = SamplesInfo::new();
+        samples.samples.push(1);
+
+        let _ = simplify_tables_without_state(
+            &samples,
+            SimplificationFlags::VALIDATE_ALL,
+            &mut tables,
+            &mut output,
+        )
+        .map_or_else(
+            |x: ForrusttsError| {
+                assert_eq!(
+                    x,
+                    ForrusttsError::TablesError {
+                        value: TablesError::EdgesNotSortedByLeft
+                    }
+                )
+            },
+            |_| panic!(),
+        );
+    }
+}

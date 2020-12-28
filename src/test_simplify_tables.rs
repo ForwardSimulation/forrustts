@@ -38,10 +38,10 @@ mod test {
         genome_length: Position,
         psurvival: f64,
         seed: usize,
+        // None here means "never simplify".
         simplification_interval: Option<Time>,
         flags: SimulationFlags,
     ) -> Result<(TableCollection, Vec<i32>), ForrusttsError> {
-        // None here means "never simplify".
         neutral_wf(
             PopulationParams {
                 size: 250,
@@ -54,6 +54,7 @@ mod test {
                 seed,
                 nsteps: num_generations,
                 flags,
+                simplification_flags: SimplificationFlags::VALIDATE_ALL,
             },
         )
     }
@@ -89,7 +90,7 @@ mod test {
         );
 
         // Now, sort and simplify the tables we got from the sim:
-        tables.sort_tables_for_simplification();
+        tables.sort_tables(crate::TableSortingFlags::empty());
         let mut samples = SamplesInfo::new();
         for (i, n) in tables.nodes().iter().enumerate() {
             if n.time == num_generations {
