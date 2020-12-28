@@ -1,5 +1,6 @@
 use clap::{value_t, value_t_or_exit, App, Arg};
 use forrustts::wright_fisher::*;
+use forrustts::SimplificationFlags;
 
 fn main() {
     let matches = App::new("neutral_wf")
@@ -58,6 +59,13 @@ fn main() {
                 .help("Survival probability")
                 .takes_value(true),
         )
+        .arg(
+            Arg::with_name("validate_tables")
+                .short("v")
+                .long("validate_tables")
+                .help("Validate all tables prior to simplification")
+                .takes_value(false),
+        )
         .get_matches();
 
     // TODO: default params
@@ -69,6 +77,7 @@ fn main() {
     let psurvival = value_t!(matches.value_of("psurvival"), f64).unwrap_or(0.0);
     let seed = value_t_or_exit!(matches.value_of("seed"), usize);
     let outfile = value_t_or_exit!(matches.value_of("outfile"), String);
+    let validate_tables =  matches.is_present("validate_tables");
 
     // TODO: parameter validation..
 
@@ -86,6 +95,12 @@ fn main() {
         SimulationFlags::USE_STATE
     };
 
+    let mut simplification_flags = SimplificationFlags::empty();
+
+    if validate_tables {
+        simplification_flags |= SimplificationFlags::VALIDATE_ALL;
+    }
+
     let (mut tables, is_sample) = neutral_wf(
         PopulationParams {
             size: popsize,
@@ -98,6 +113,7 @@ fn main() {
             seed,
             nsteps: g,
             flags,
+            simplification_flags,
         },
     )
     .unwrap();

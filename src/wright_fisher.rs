@@ -7,7 +7,7 @@
 //! to others.  Feel free to copy them!
 use crate::simplify_from_edge_buffer::simplify_from_edge_buffer;
 use crate::simplify_tables::*;
-use crate::tables::{validate_edge_table, TableCollection};
+use crate::tables::TableCollection;
 use crate::tsdef::*;
 use crate::EdgeBuffer;
 use crate::ForrusttsError;
@@ -300,6 +300,7 @@ fn fill_samples(parents: &[Parent], samples: &mut SamplesInfo) {
 
 fn sort_and_simplify(
     flags: SimulationFlags,
+    simplification_flags: SimplificationFlags,
     samples: &SamplesInfo,
     state: &mut SimplificationBuffers,
     pop: &mut PopulationState,
@@ -307,40 +308,23 @@ fn sort_and_simplify(
 ) {
     if !flags.contains(SimulationFlags::BUFFER_EDGES) {
         pop.tables.sort_tables(crate::TableSortingFlags::empty());
-        debug_assert!(validate_edge_table(
-            pop.tables.genome_length(),
-            pop.tables.edges(),
-            pop.tables.nodes()
-        )
-        .unwrap());
         if flags.contains(SimulationFlags::USE_STATE) {
             simplify_tables(
                 samples,
-                SimplificationFlags::empty(),
+                simplification_flags,
                 state,
                 &mut pop.tables,
                 output,
             )
             .unwrap();
         } else {
-            simplify_tables_without_state(
-                samples,
-                SimplificationFlags::empty(),
-                &mut pop.tables,
-                output,
-            )
-            .unwrap();
+            simplify_tables_without_state(samples, simplification_flags, &mut pop.tables, output)
+                .unwrap();
         }
-        debug_assert!(validate_edge_table(
-            pop.tables.genome_length(),
-            pop.tables.edges(),
-            pop.tables.nodes()
-        )
-        .unwrap());
     } else {
         simplify_from_edge_buffer(
             samples,
-            SimplificationFlags::empty(),
+            simplification_flags,
             state,
             &mut pop.edge_buffer,
             &mut pop.tables,
@@ -352,13 +336,14 @@ fn sort_and_simplify(
 
 fn simplify_and_remap_nodes(
     flags: SimulationFlags,
+    simplification_flags: SimplificationFlags,
     samples: &mut SamplesInfo,
     state: &mut SimplificationBuffers,
     pop: &mut PopulationState,
     output: &mut SimplificationOutput,
 ) {
     fill_samples(&pop.parents, samples);
-    sort_and_simplify(flags, samples, state, pop, output);
+    sort_and_simplify(flags, simplification_flags, samples, state, pop, output);
 
     for p in &mut pop.parents {
         p.node0 = output.idmap[p.node0 as usize];
@@ -451,10 +436,14 @@ pub struct SimulationParams {
     /// Bitwise flag tweaking the behavior of the
     /// simplification algorithm.
     pub flags: SimulationFlags,
+    /// Flags to affect simplification behavior
+    pub simplification_flags: SimplificationFlags,
 }
 
 impl SimulationParams {
     /// Create a new instance
+    /// [``SimulationParams::simplification_flags``]
+    /// is initialized to empty.
     pub fn new(
         simplification_interval: Option<Time>,
         seed: usize,
@@ -466,6 +455,7 @@ impl SimulationParams {
             seed,
             nsteps,
             flags,
+            simplification_flags: SimplificationFlags::empty(),
         }
     }
 }
@@ -561,6 +551,7 @@ pub fn neutral_wf(
         {
             simplify_and_remap_nodes(
                 params.flags,
+                params.simplification_flags,
                 &mut samples,
                 &mut state,
                 &mut pop,
@@ -575,6 +566,7 @@ pub fn neutral_wf(
     if !simplified && actual_simplification_interval != -1 {
         simplify_and_remap_nodes(
             params.flags,
+            params.simplification_flags,
             &mut samples,
             &mut state,
             &mut pop,

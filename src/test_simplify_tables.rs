@@ -38,10 +38,10 @@ mod test {
         genome_length: Position,
         psurvival: f64,
         seed: usize,
+        // None here means "never simplify".
         simplification_interval: Option<Time>,
         flags: SimulationFlags,
     ) -> Result<(TableCollection, Vec<i32>), ForrusttsError> {
-        // None here means "never simplify".
         neutral_wf(
             PopulationParams {
                 size: 250,
@@ -54,6 +54,7 @@ mod test {
                 seed,
                 nsteps: num_generations,
                 flags,
+                simplification_flags: SimplificationFlags::VALIDATE_ALL,
             },
         )
     }

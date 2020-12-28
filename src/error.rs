@@ -6,7 +6,7 @@ use thiserror::Error;
 ///
 /// Some members of this enum implement ``From``
 /// in order to redirect other error types.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum ForrusttsError {
     /// An error that occurs during simplification.
     #[error("{value:?}")]
