@@ -306,7 +306,7 @@ fn sort_and_simplify(
     output: &mut SimplificationOutput,
 ) {
     if !flags.contains(SimulationFlags::BUFFER_EDGES) {
-        pop.tables.sort_tables_for_simplification();
+        pop.tables.sort_tables(crate::TableSortingFlags::empty());
         debug_assert!(validate_edge_table(
             pop.tables.genome_length(),
             pop.tables.edges(),

@@ -1,4 +1,5 @@
 use crate::tsdef::{IdType, Position, Time, NULL_ID};
+use bitflags::bitflags;
 use std::cmp::Ordering;
 use thiserror::Error;
 
@@ -267,6 +268,40 @@ fn sort_mutation_table(sites: &[Site], mutations: &mut MutationTable) {
         let pb = sites[b.site].position;
         pa.cmp(&pb).reverse()
     });
+}
+
+bitflags! {
+    /// Modifies behavior of
+    /// [``TableCollection::validate_tables``]
+    ///
+    /// ```
+    /// let f = forrustts::TableValidationFlags::empty();
+    /// assert_eq!(f.contains(forrustts::TableValidationFlags::VALIDATE_ALL), true);
+    /// ```
+    #[derive(Default)]
+    pub struct TableValidationFlags: u32 {
+        /// Validate all tables.
+        /// This is also the "default"/empty.
+        const VALIDATE_ALL = 0;
+    }
+}
+
+bitflags! {
+    /// Modifies behavior of
+    /// [``TableCollection::sort_tables``]
+    ///
+    /// ```
+    /// let f = forrustts::TableSortingFlags::empty();
+    /// assert_eq!(f.contains(forrustts::TableSortingFlags::SORT_ALL), true);
+    /// ```
+    #[derive(Default)]
+    pub struct TableSortingFlags: u32 {
+        /// Sort all tables.
+        /// This is also the "default"/empty.
+        const SORT_ALL = 0;
+        /// Do not sort the edge table.
+        const SKIP_EDGE_TABLE = 1 << 0;
+    }
 }
 
 /// Perform a data integrity check on an [``EdgeTable``].
@@ -653,9 +688,25 @@ impl TableCollection {
     }
 
     /// Sort all tables for simplification.
+    #[deprecated(since = "0.1.0", note = "use sort_tables instead")]
     pub fn sort_tables_for_simplification(&mut self) {
-        sort_edge_table(&self.nodes_, &mut self.edges_);
+        self.sort_tables(TableSortingFlags::empty());
+    }
+
+    /// Sort all tables for simplification.
+    pub fn sort_tables(&mut self, flags: TableSortingFlags) {
+        if !flags.contains(TableSortingFlags::SKIP_EDGE_TABLE) {
+            sort_edge_table(&self.nodes_, &mut self.edges_);
+        }
         sort_mutation_table(&self.sites_, &mut self.mutations_);
+    }
+
+    /// Run a validation check on the tables.
+    pub fn validate(&self, flags: TableValidationFlags) -> TablesResult<bool> {
+        if flags.contains(TableValidationFlags::VALIDATE_ALL) {
+            validate_edge_table(self.genome_length(), &self.edges_, &self.nodes_)?;
+        }
+        Ok(true)
     }
 }
 

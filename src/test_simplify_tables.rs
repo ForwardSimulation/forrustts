@@ -89,7 +89,7 @@ mod test {
         );
 
         // Now, sort and simplify the tables we got from the sim:
-        tables.sort_tables_for_simplification();
+        tables.sort_tables(crate::TableSortingFlags::empty());
         let mut samples = SamplesInfo::new();
         for (i, n) in tables.nodes().iter().enumerate() {
             if n.time == num_generations {
