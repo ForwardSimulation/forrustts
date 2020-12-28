@@ -8,6 +8,15 @@ It is licensed under the GNU General Public License, version 3 or later ("GPL3+"
 
 ## Getting started
 
+Install the GNU Scientific Library.
+For example:
+
+```
+apt install libgsl-dev
+```
+
+You may use `conda` or `brew` as you see fit.
+
 [Install rust](https://www.rust-lang.org/learn/get-started)
 
 Then:
