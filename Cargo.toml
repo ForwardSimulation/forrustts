@@ -1,10 +1,10 @@
 [package]
 name = "forrustts"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["molpopgen <krthornt@uci.edu>"]
 edition = "2018"
 description = "Tools for forward simulation with tree sequence recording"
-license-file = "LICENSE"
+license = "GPL-3.0-or-later"
 homepage = "https://github.com/molpopgen/forrustts"
 repository = "https://github.com/molpopgen/forrustts"
 keywords = ["simulation", "tree_sequences", "tskit", "population_genetics"]
