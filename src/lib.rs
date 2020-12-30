@@ -24,6 +24,9 @@
 //!    that would only be useful to write when transfering
 //!    final results ot a [``tskit_rust::TableCollection``].
 //! 4. Mutation table data are different. See [``MutationRecord``].
+//! 5. Time is measured as an integer (see [``Time``]),
+//!    as are genomic locations (see [``Position``]).
+//!    In `tskit`, both are C `double`, the equivalent of [``f64``].
 //!
 //! # Where to find examples
 //!
