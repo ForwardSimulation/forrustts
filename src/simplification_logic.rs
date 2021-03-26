@@ -37,12 +37,10 @@ impl SegmentOverlapper {
     fn num_overlaps(&self) -> usize {
         assert!(
             self.oend - self.obeg <= self.overlapping.len(),
-            format!(
-                "overlap details = {} {} {}",
-                self.oend,
-                self.obeg,
-                self.overlapping.len()
-            )
+            "overlap details = {} {} {}",
+            self.oend,
+            self.obeg,
+            self.overlapping.len()
         );
         self.oend - self.obeg
     }
