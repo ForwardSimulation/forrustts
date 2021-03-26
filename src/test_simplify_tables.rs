@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod test {
     // NOTE: Currently, these tests are both testing
-    // stuff from tskit_rust and forrusts, which isn't great.
+    // stuff from tskit and forrusts, which isn't great.
     // We'll clean this up later when we get better abstractions
-    // into tskit_rust.
+    // into tskit.
     use crate::simplify_tables_without_state;
     use crate::tsdef::{IdType, Position, Time};
     use crate::wright_fisher::*;
@@ -13,11 +13,10 @@ mod test {
     use crate::SimplificationOutput;
     use crate::TableCollection;
     use std::mem::MaybeUninit;
-    use tskit_rust::bindings as tskr;
+    use tskit::bindings as tskr;
+    use tskit::ffi::TskitType;
 
-    fn tables_to_treeseq(
-        tables: &mut tskit_rust::TableCollection,
-    ) -> MaybeUninit<tskr::tsk_treeseq_t> {
+    fn tables_to_treeseq(tables: &mut tskit::TableCollection) -> MaybeUninit<tskr::tsk_treeseq_t> {
         let mut tsk_ts: MaybeUninit<tskr::tsk_treeseq_t> = MaybeUninit::uninit();
         unsafe {
             let rv = tskr::tsk_table_collection_build_index(tables.as_mut_ptr(), 0);

@@ -15,4 +15,4 @@ keywords = ["simulation", "tree_sequences", "tskit", "population_genetics"]
 bitflags = "1.2.1"
 thiserror = "1.0"
 GSL = "2.0.1"
-tskit_rust = "0.1.0"
+tskit = "0.1.1"

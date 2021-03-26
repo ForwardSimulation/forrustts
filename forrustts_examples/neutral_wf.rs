@@ -77,7 +77,7 @@ fn main() {
     let psurvival = value_t!(matches.value_of("psurvival"), f64).unwrap_or(0.0);
     let seed = value_t_or_exit!(matches.value_of("seed"), usize);
     let outfile = value_t_or_exit!(matches.value_of("outfile"), String);
-    let validate_tables =  matches.is_present("validate_tables");
+    let validate_tables = matches.is_present("validate_tables");
 
     // TODO: parameter validation..
 
@@ -129,7 +129,7 @@ fn main() {
         tskit_tables.dump(&outfile, 0).unwrap();
     } else {
         tskit_tables
-            .dump(&outfile, tskit_rust::TSK_NO_BUILD_INDEXES)
+            .dump(&outfile, tskit::TSK_NO_BUILD_INDEXES)
             .unwrap();
     }
 }

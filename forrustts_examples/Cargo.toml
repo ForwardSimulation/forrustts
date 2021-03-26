@@ -10,7 +10,7 @@ edition = "2018"
 path = "../"
 
 [dependencies]
-tskit_rust = { git = "https://github.com/molpopgen/tskit_rust", branch = "main" }
+tskit = "0.1.1"
 clap = "~2.27.0"
 
 [[bin]]

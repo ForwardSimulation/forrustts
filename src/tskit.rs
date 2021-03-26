@@ -1,4 +1,4 @@
-//! Data interchange to ``tskit`` format using [``tskit_rust``].
+//! Data interchange to ``tskit`` format using [``tskit``].
 //!
 //! # Note
 //!
@@ -11,7 +11,7 @@
 
 use crate::tsdef::Time;
 use crate::TableCollection;
-use tskit_rust::{tsk_flags_t, tsk_id_t, TSK_NODE_IS_SAMPLE, TSK_NULL};
+use tskit::{tsk_flags_t, tsk_id_t, TSK_NODE_IS_SAMPLE, TSK_NULL};
 
 /// Return a closure to help reverse time.
 ///
@@ -44,7 +44,7 @@ pub fn simple_time_reverser(x: Time) -> Box<dyn Fn(Time) -> f64> {
 ///
 /// # Returns
 ///
-/// A [``tskit_rust::TableCollection``].
+/// A [``tskit::TableCollection``].
 ///
 /// # Example
 ///
@@ -69,8 +69,8 @@ pub fn convert_to_tskit_minimal(
     is_sample: &[i32],
     convert_time: impl Fn(Time) -> f64,
     build_indexes: bool,
-) -> tskit_rust::TableCollection {
-    let mut tsk_tables = tskit_rust::TableCollection::new(tables.genome_length() as f64).unwrap();
+) -> tskit::TableCollection {
+    let mut tsk_tables = tskit::TableCollection::new(tables.genome_length() as f64).unwrap();
 
     for e in tables.edges() {
         tsk_tables
@@ -133,7 +133,7 @@ fn swap_with_empty<T>(v: &mut Vec<T>) {
 ///
 /// # Returns
 ///
-/// A [``tskit_rust::TableCollection``].
+/// A [``tskit::TableCollection``].
 ///
 /// # Example
 ///
@@ -166,8 +166,8 @@ pub fn convert_to_tskit_and_drain_minimal(
     convert_time: impl Fn(Time) -> f64,
     build_indexes: bool,
     tables: &mut TableCollection,
-) -> tskit_rust::TableCollection {
-    let mut tsk_tables = tskit_rust::TableCollection::new(tables.genome_length() as f64).unwrap();
+) -> tskit::TableCollection {
+    let mut tsk_tables = tskit::TableCollection::new(tables.genome_length() as f64).unwrap();
 
     let mut max_pop: tsk_id_t = -1;
     for (i, n) in tables.enumerate_nodes() {
