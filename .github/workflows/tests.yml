@@ -28,12 +28,20 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           override: true
-      - run: cargo check
+      - run: 
+          rustup component add clippy
+      - name: clippy
+        run: |
+          cargo clippy -- -D warnings
+      - name: clippy on tests
+        run: |
+          cargo clippy --tests -- -D warnings
+      - name: clippy on examples
+        working-directory: forrustts_examples
+        run: |
+          cargo clippy -- -D warnings
       - name: run tests
         run: cargo test
-      - name: check examples
-        working-directory: forrustts_examples
-        run: cargo check
 
   build-osx:
     runs-on: macos-latest
