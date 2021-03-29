@@ -19,7 +19,7 @@ jobs:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.6.0
         with:
-          access_token: ${{ secrets.ACTIONS }}
+          access_token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/checkout@v2
       - run: sudo apt-get update -y
@@ -43,6 +43,11 @@ jobs:
           - stable
           - nightly
     steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.6.0
+        with:
+          access_token: ${{ secrets.GITHUB_TOKEN }}
+
       - run: brew update
       - run: brew install gsl
       - uses: actions/checkout@v2
