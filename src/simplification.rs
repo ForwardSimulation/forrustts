@@ -636,8 +636,7 @@ impl Default for SimplificationOutput {
 /// During simplification, several large
 /// memory blocks are required. This type
 /// allows those allocations to be re-used
-/// in subsequent calls to
-/// [simplify_tables_with_state](fn.simplify_tables_with_state.html).
+/// in subsequent calls to [``simplify_tables``].
 /// Doing so typically improves run times at
 /// the cost of higher peak memory consumption.
 pub struct SimplificationBuffers {

@@ -22,7 +22,7 @@
 //!    used during the simulation.  Thus, it is not
 //!    part of a [``TableCollection``] and is something
 //!    that would only be useful to write when transfering
-//!    final results ot a [``tskit_rust::TableCollection``].
+//!    final results to a [`tskit::TableCollection`](::tskit::TableCollection).
 //! 4. Mutation table data are different. See [``MutationRecord``].
 //! 5. Time is measured as an integer (see [``Time``]),
 //!    as are genomic locations (see [``Position``]).
