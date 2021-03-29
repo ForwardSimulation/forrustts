@@ -31,7 +31,7 @@ pub fn simple_time_reverser(x: Time) -> Box<dyn Fn(Time) -> f64> {
 ///    is a sample (`1`) or is not a sample (`0`).
 /// * `convert_time`: A callback to convert time, *e.g.* from forwards
 ///                   to backwards. For example, see
-///                   [``simple_time_reverser``](crate::tskit::simple_time_reverser).
+///                   [``simple_time_reverser``](crate::tskit_tools::simple_time_reverser).
 /// * `build_indexes`: If `true`, build the edge table indexes for the return value.
 ///
 /// # Notes
@@ -54,10 +54,10 @@ pub fn simple_time_reverser(x: Time) -> Box<dyn Fn(Time) -> f64> {
 /// tables.add_node(1, 0).unwrap(); // Add a child node at time 1
 /// tables.add_edge(0, 100, 0, 1).unwrap(); // Add an edge
 /// let is_sample = vec![0, 1]; // Mark the child node as a sample.
-/// let tsk_tables = forrustts::tskit::convert_to_tskit_minimal(
+/// let tsk_tables = forrustts::tskit_tools::convert_to_tskit_minimal(
 ///     &tables,
 ///     &is_sample,
-///     forrustts::tskit::simple_time_reverser(1),
+///     forrustts::tskit_tools::simple_time_reverser(1),
 ///     true,
 /// );
 /// assert_eq!(tsk_tables.nodes().num_rows(), 2);
@@ -119,7 +119,7 @@ fn swap_with_empty<T>(v: &mut Vec<T>) {
 ///    is a sample (`1`) or is not a sample (`0`).
 /// * `convert_time`: A callback to convert time, *e.g.* from forwards
 ///                   to backwards. For example, see
-///                   [``simple_time_reverser``](crate::tskit::simple_time_reverser).
+///                   [``simple_time_reverser``](crate::tskit_tools::simple_time_reverser).
 /// * `build_indexes`: If `true`, build the edge table indexes for the return value.
 /// * `tables`: A mutable [``TableCollection``](crate::TableCollection)
 ///
@@ -143,9 +143,9 @@ fn swap_with_empty<T>(v: &mut Vec<T>) {
 /// tables.add_node(1, 0).unwrap(); // Add a child node at time 1
 /// tables.add_edge(0, 100, 0, 1).unwrap(); // Add an edge
 /// let is_sample = vec![0, 1]; // Mark the child node as a sample.
-/// let tsk_tables = forrustts::tskit::convert_to_tskit_and_drain_minimal(
+/// let tsk_tables = forrustts::tskit_tools::convert_to_tskit_and_drain_minimal(
 ///     &is_sample,
-///     forrustts::tskit::simple_time_reverser(1),
+///     forrustts::tskit_tools::simple_time_reverser(1),
 ///     true,
 ///     &mut tables,
 /// );
