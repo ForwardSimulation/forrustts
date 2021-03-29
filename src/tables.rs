@@ -272,7 +272,7 @@ fn sort_mutation_table(sites: &[Site], mutations: &mut MutationTable) {
 
 bitflags! {
     /// Modifies behavior of
-    /// [``TableCollection::validate_tables``]
+    /// [``TableCollection::validate``]
     ///
     /// ```
     /// let f = forrustts::TableValidationFlags::empty();
