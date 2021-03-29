@@ -519,7 +519,7 @@ impl TableCollection {
     ///
     /// The [``u8``] type can be used to encode more complex
     /// state information.  Take a look at the unit tests
-    /// for examples. The [bitfield](https://crates.io/crates/bitfield)
+    /// for examples. The [bitfield](https://docs.rs/bitfield/)
     /// crate may also be useful.
     ///
     /// # Returns
@@ -571,7 +571,7 @@ impl TableCollection {
     ///
     /// The [``u8``] type can be used to encode more complex
     /// state information.  Take a look at the unit tests
-    /// for examples. The [bitfield](https://crates.io/crates/bitfield)
+    /// for examples. The [bitfield](https://docs.rs/bitfield/)
     /// crate may also be useful.
     ///
     /// # Returns
