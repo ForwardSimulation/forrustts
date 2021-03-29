@@ -58,4 +58,16 @@ cargo tarpaulin -o html
 
 This command will run the tests and generate a nice `html` report.
 
+## Change log
+
+### 2021-03-26, Version 0.1.2
+
+#### Commits
+- [[`21a77982a8`](https://github.com/molpopgen/forrustts/commit/21a77982a8530ae32791ea7eee35af8b9f6da0a7)] bump version to 0.1.2 (molpopogen)
+- [[`4653a8b5d1`](https://github.com/molpopgen/forrustts/commit/4653a8b5d128405e9da6f50c58caadb92d97beca)] Merge pull request #64 from molpopgen/update_tskit_dependency (Kevin R. Thornton)
+- [[`6bc5030d9e`](https://github.com/molpopgen/forrustts/commit/6bc5030d9e349a0d059f1d06cb741a94522cee01)] Fix string format lint in assert. (molpopogen)
+- [[`f36c6c91df`](https://github.com/molpopgen/forrustts/commit/f36c6c91df6500ecc6f2c31246bcf5d5b32bd59e)] update to tskit 0.1.1 (molpopogen)
+- [[`b1424be2f8`](https://github.com/molpopgen/forrustts/commit/b1424be2f80400c799503c08500cf48b86c6cfd1)] Merge pull request #62 from molpopgen/doc_fixes (Kevin R. Thornton)
+- [[`5771eb18d6`](https://github.com/molpopgen/forrustts/commit/5771eb18d6659af55912697bb7bfeac2b76f2c48)] Document other differences from tskit. (molpopgen)
+
 
