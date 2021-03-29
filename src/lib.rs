@@ -41,30 +41,22 @@
 // stuff that needs documenting:
 // #![warn(missing_docs)]
 
-mod edge_buffer;
 mod error;
 pub mod nested_forward_list;
-mod samples_info;
 mod segment;
-mod simplification_buffers;
-mod simplification_common;
-mod simplification_flags;
-mod simplification_logic;
-mod simplification_output;
-mod simplify_from_edge_buffer;
-mod simplify_tables;
+mod simplification;
 mod tables;
 mod tsdef;
 
-pub use edge_buffer::EdgeBuffer;
 pub use error::ForrusttsError;
-pub use samples_info::SamplesInfo;
 pub use segment::Segment;
-pub use simplification_buffers::SimplificationBuffers;
-pub use simplification_flags::SimplificationFlags;
-pub use simplification_output::SimplificationOutput;
-pub use simplify_from_edge_buffer::simplify_from_edge_buffer;
-pub use simplify_tables::{simplify_tables, simplify_tables_without_state};
+pub use simplification::simplify_from_edge_buffer;
+pub use simplification::EdgeBuffer;
+pub use simplification::SamplesInfo;
+pub use simplification::SimplificationBuffers;
+pub use simplification::SimplificationFlags;
+pub use simplification::SimplificationOutput;
+pub use simplification::{simplify_tables, simplify_tables_without_state};
 pub use tables::*;
 pub use tsdef::*;
 

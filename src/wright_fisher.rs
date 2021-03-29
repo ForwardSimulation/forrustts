@@ -5,8 +5,9 @@
 //! code and benchmarking utilities.  However, some of
 //! the concepts here that are *not* public may be useful
 //! to others.  Feel free to copy them!
-use crate::simplify_from_edge_buffer::simplify_from_edge_buffer;
-use crate::simplify_tables::*;
+use crate::simplification::simplify_from_edge_buffer;
+use crate::simplification::simplify_tables;
+use crate::simplification::simplify_tables_without_state;
 use crate::tables::TableCollection;
 use crate::tsdef::*;
 use crate::EdgeBuffer;
