@@ -6,6 +6,11 @@ This package is currently "experimental"!
 
 It is licensed under the GNU General Public License, version 3 or later ("GPL3+").
 
+## Packaging
+
+* [crate](https://crates.io/crates/forrustts)
+* [docs](https://docs.rs/forrustts)
+
 ## Getting started
 
 Install the GNU Scientific Library.
@@ -43,12 +48,12 @@ Pass ``--help`` to any of them for usage information.
 ## CI
 
 CI testing is done using GitHub actions for both `Linux` and `macOS`.
-These actions include using [clippy](https://crates.io/crates/clippy/0.0.211), which is a very strict code linter.
+These actions include using [clippy](https://crates.io/crates/clippy/), which is a very strict code linter.
 The actions also check code format using [rustfmt](https://crates.io/crates/rustfmt-nightly).
 
 ### Code coverage
 
-Use [tarpaulin](https://docs.rs/crate/cargo-tarpaulin/0.3.12).
+Use [tarpaulin](https://docs.rs/crate/cargo-tarpaulin/).
 The documentation for that crate is excellent.
 The short version is:
 
