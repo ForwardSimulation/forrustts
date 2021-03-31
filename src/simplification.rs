@@ -12,8 +12,7 @@ struct SegmentOverlapper {
     right: Position,
     qbeg: usize,
     qend: usize,
-    obeg: usize,
-    oend: usize,
+    num_overlaps: usize,
 }
 
 impl SegmentOverlapper {
@@ -21,7 +20,7 @@ impl SegmentOverlapper {
         let mut tright = Position::MAX;
         let mut b: usize = 0;
 
-        for i in 0..self.oend {
+        for i in 0..self.num_overlaps {
             if self.overlapping[i].right > self.left {
                 self.overlapping[b] = self.overlapping[i];
                 tright = std::cmp::min(tright, self.overlapping[b].right);
@@ -29,20 +28,9 @@ impl SegmentOverlapper {
             }
         }
 
-        self.oend = b;
+        self.num_overlaps = b;
 
         tright
-    }
-
-    fn num_overlaps(&self) -> usize {
-        assert!(
-            self.oend - self.obeg <= self.overlapping.len(),
-            "overlap details = {} {} {}",
-            self.oend,
-            self.obeg,
-            self.overlapping.len()
-        );
-        self.oend - self.obeg
     }
 
     // Public interface below
@@ -55,8 +43,7 @@ impl SegmentOverlapper {
             right: Position::MAX,
             qbeg: std::usize::MAX,
             qend: std::usize::MAX,
-            obeg: std::usize::MAX,
-            oend: std::usize::MAX,
+            num_overlaps: std::usize::MAX,
         }
     }
 
@@ -64,8 +51,7 @@ impl SegmentOverlapper {
         self.qbeg = 0;
         self.qend = self.segment_queue.len() - 1;
         assert!(self.qend < self.segment_queue.len());
-        self.obeg = 0;
-        self.oend = 0;
+        self.num_overlaps = 0;
         self.overlapping.clear();
     }
 
@@ -88,16 +74,24 @@ impl SegmentOverlapper {
         if self.qbeg < self.qend {
             self.left = self.right;
             let mut tright = self.set_partition();
-            if self.num_overlaps() == 0 {
+            if self.num_overlaps == 0 {
                 self.left = self.segment_queue[self.qbeg].left;
             }
-            while self.qbeg < self.qend && self.segment_queue[self.qbeg].left == self.left {
-                tright = std::cmp::min(tright, self.segment_queue[self.qbeg].right);
-                // NOTE: I wonder how efficient this is vs C++?
-                self.overlapping
-                    .insert(self.oend, self.segment_queue[self.qbeg]);
-                self.oend += 1;
-                self.qbeg += 1;
+            for seg in self
+                .segment_queue
+                .iter()
+                .skip(self.qbeg)
+                .take(self.qend - self.qbeg)
+            {
+                if seg.left == self.left {
+                    tright = std::cmp::min(tright, seg.right);
+                    // NOTE: I wonder how efficient this is vs C++?
+                    self.overlapping.insert(self.num_overlaps, *seg);
+                    self.num_overlaps += 1;
+                    self.qbeg += 1;
+                } else {
+                    break;
+                }
             }
             self.right = std::cmp::min(self.segment_queue[self.qbeg].left, tright);
             rv = true;
@@ -105,7 +99,7 @@ impl SegmentOverlapper {
             self.left = self.right;
             self.right = Position::MAX;
             let tright = self.set_partition();
-            if self.num_overlaps() > 0 {
+            if self.num_overlaps > 0 {
                 self.right = tright;
                 rv = true
             }
@@ -124,10 +118,6 @@ impl SegmentOverlapper {
 
     fn clear_queue(&mut self) {
         self.segment_queue.clear();
-    }
-
-    fn overlap(&self, i: usize) -> &Segment {
-        &self.overlapping[i]
     }
 }
 
@@ -259,8 +249,8 @@ fn merge_ancestors(
     state.temp_edge_buffer.clear();
 
     while state.overlapper.advance() {
-        if state.overlapper.num_overlaps() == 1 {
-            ancestry_node = state.overlapper.overlap(0).node;
+        if state.overlapper.num_overlaps == 1 {
+            ancestry_node = state.overlapper.overlapping[0].node;
             if is_sample {
                 buffer_edge(
                     state.overlapper.get_left(),
@@ -281,8 +271,12 @@ fn merge_ancestors(
                 idmap[parent_input_id as usize] = output_id;
             }
             ancestry_node = output_id;
-            for i in 0..state.overlapper.num_overlaps() as usize {
-                let o = &state.overlapper.overlap(i);
+            for o in state
+                .overlapper
+                .overlapping
+                .iter()
+                .take(state.overlapper.num_overlaps)
+            {
                 buffer_edge(
                     state.overlapper.get_left(),
                     state.overlapper.get_right(),
@@ -511,7 +505,7 @@ fn find_pre_existing_edges(
 
     // TODO: this could eventually be called in a debug_assert
     if !rv.is_empty() {
-        for i in 1..rv.len() {
+        for (i, _) in rv.iter().enumerate().skip(1) {
             let t0 = tables.nodes_[rv[i - 1].parent as usize].time;
             let t1 = tables.nodes_[rv[i].parent as usize].time;
             if t0 < t1 {
