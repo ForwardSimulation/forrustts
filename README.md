@@ -13,32 +13,26 @@ It is licensed under the GNU General Public License, version 3 or later ("GPL3+"
 
 ## Getting started
 
-Install the GNU Scientific Library.
-For example:
-
-```
-apt install libgsl-dev
-```
-
-You may use `conda` or `brew` as you see fit.
-
-[Install rust](https://www.rust-lang.org/learn/get-started)
-
-Then:
-
 ```
 cargo build
 cargo test
 ```
 
-Example programs are in the subdirectory `forrustts_examples`:
+Example programs are in the subdirectory `examples/`:
 
 ```
-cd forrustts_examples
-cargo build --release
+cargo build --examples
 ```
 
-The binaries will then be found in `target/release/`.
+The binaries will then be found in `target/debug/examples`.
+
+To build optimized examples:
+
+```
+cargo build --release --examples
+```
+
+The binaries will then be found in `target/release/examples`.
 
 These programs use [clap](https://crates.io/crates/clap) for command-line options.
 Pass ``--help`` to any of them for usage information.
