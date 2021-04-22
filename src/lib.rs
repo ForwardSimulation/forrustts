@@ -30,12 +30,7 @@
 //!
 //! # Where to find examples
 //!
-//! The [repository](https://github.com/molpopgen/forrustts)
-//! contains a "sub-crate" of examples, called `forrustts_examples`.
-//!
-//! The source code of the [``wright_fisher``] module contains a full
-//! example of Wright-Fisher simulation with recombination and overlapping.
-//! generations.
+//! In the `examples/` directory of the project repository.
 
 // NOTE: uncomment the next line in order to find
 // stuff that needs documenting:
@@ -61,12 +56,8 @@ pub use tables::*;
 pub use tsdef::*;
 
 pub mod tskit_tools;
-pub mod wright_fisher;
 
 /// Get the forrustts version number.
 pub fn version() -> &'static str {
     return env!("CARGO_PKG_VERSION");
 }
-
-// These are testing modules
-mod test_simplify_tables;
