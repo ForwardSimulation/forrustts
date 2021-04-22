@@ -1,9 +1,5 @@
 #[cfg(test)]
 mod test {
-    // NOTE: Currently, these tests are both testing
-    // stuff from tskit and forrusts, which isn't great.
-    // We'll clean this up later when we get better abstractions
-    // into tskit.
     use crate::simplify_tables_without_state;
     use crate::tsdef::{IdType, Position, Time};
     use crate::wright_fisher::*;
@@ -12,25 +8,7 @@ mod test {
     use crate::SimplificationFlags;
     use crate::SimplificationOutput;
     use crate::TableCollection;
-    use std::mem::MaybeUninit;
-    use tskit::bindings as tskr;
-    use tskit::ffi::TskitType;
-
-    fn tables_to_treeseq(tables: &mut tskit::TableCollection) -> MaybeUninit<tskr::tsk_treeseq_t> {
-        let mut tsk_ts: MaybeUninit<tskr::tsk_treeseq_t> = MaybeUninit::uninit();
-        unsafe {
-            let rv = tskr::tsk_table_collection_build_index(tables.as_mut_ptr(), 0);
-            assert_eq!(rv, 0);
-            let rv = tskr::tsk_treeseq_init(
-                tsk_ts.as_mut_ptr(),
-                tables.as_ptr(),
-                tskr::TSK_SAMPLE_LISTS,
-            );
-            assert_eq!(rv, 0);
-        }
-
-        tsk_ts
-    }
+    use tskit::TableAccess;
 
     fn simulate_data(
         num_generations: Time,
@@ -111,52 +89,44 @@ mod test {
             *i = 1;
         }
 
-        let mut simplified_rust_tables = crate::tskit_tools::convert_to_tskit_minimal(
+        let simplified_rust_tables = crate::tskit_tools::convert_to_tskit_minimal(
             &tables,
             &is_sample,
             crate::tskit_tools::simple_time_reverser(num_generations),
             true,
         );
 
-        unsafe {
-            let rv = tskr::tsk_table_collection_sort(tsk_tables.as_mut_ptr(), std::ptr::null(), 0);
-            assert!(rv == 0);
-            let rv = tskr::tsk_table_collection_simplify(
-                tsk_tables.as_mut_ptr(),
-                samples.samples.as_ptr(),
-                samples.samples.len() as u32,
-                0,
-                std::ptr::null_mut(),
-            );
-            assert!(rv == 0);
-        }
+        tsk_tables
+            .full_sort(tskit::TableSortOptions::default())
+            .unwrap();
+        tsk_tables
+            .simplify(
+                &samples.samples,
+                tskit::SimplificationOptions::default(),
+                false,
+            )
+            .unwrap();
 
         // Get tree sequences now
-        let mut tsk_ts = tables_to_treeseq(&mut tsk_tables);
-        let mut rust_ts = tables_to_treeseq(&mut simplified_rust_tables);
+        let tsk_ts = tsk_tables
+            .tree_sequence(tskit::TreeSequenceFlags::BUILD_INDEXES)
+            .unwrap();
 
-        unsafe {
-            assert_eq!(500, tskr::tsk_treeseq_get_num_samples(tsk_ts.as_ptr()));
-            assert_eq!(500, tskr::tsk_treeseq_get_num_samples(rust_ts.as_ptr()));
-            let ne = tskr::tsk_treeseq_get_num_edges(tsk_ts.as_ptr());
-            let ne2 = tskr::tsk_treeseq_get_num_edges(rust_ts.as_ptr());
-            assert_eq!(ne, ne2);
-            let nn = tskr::tsk_treeseq_get_num_nodes(tsk_ts.as_ptr());
-            let nn2 = tskr::tsk_treeseq_get_num_nodes(rust_ts.as_ptr());
-            assert_eq!(nn, nn2);
+        let rust_ts = simplified_rust_tables
+            .tree_sequence(tskit::TreeSequenceFlags::BUILD_INDEXES)
+            .unwrap();
 
-            // We expect the rv to be 0,
-            // so let's init it to something else
-            let mut kc: f64 = -1.;
-            let kcp: *mut f64 = &mut kc;
-            let rv =
-                tskr::tsk_treeseq_kc_distance(tsk_ts.as_mut_ptr(), rust_ts.as_mut_ptr(), 0., kcp);
-            assert_eq!(rv, 0);
-            assert!((kc - 0.).abs() < f64::EPSILON);
+        assert_eq!(500, tsk_ts.num_samples());
+        assert_eq!(500, rust_ts.num_samples());
+        let ne = tsk_ts.edges().num_rows();
+        let ne2 = rust_ts.edges().num_rows();
+        assert_eq!(ne, ne2);
+        let nn = tsk_ts.nodes().num_rows();
+        let nn2 = rust_ts.nodes().num_rows();
+        assert_eq!(nn, nn2);
 
-            tskr::tsk_treeseq_free(tsk_ts.as_mut_ptr());
-            tskr::tsk_treeseq_free(rust_ts.as_mut_ptr());
-        }
+        let kc = tsk_ts.kc_distance(&&rust_ts, 0.).unwrap();
+        assert!((kc - 0.).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -192,38 +162,30 @@ mod test {
         let sum_times_buffered: Time = tables_buffered.nodes_.iter().map(|x| x.time).sum();
         assert_eq!(sum_times_sorted, sum_times_buffered);
 
-        let mut tables_sorted_tskit = crate::tskit_tools::convert_to_tskit_minimal(
+        let tables_sorted_tskit = crate::tskit_tools::convert_to_tskit_minimal(
             &tables_sorted,
             &is_sample_sorted,
             crate::tskit_tools::simple_time_reverser(num_generations),
             true,
         );
 
-        let mut tables_buffered_tskit = crate::tskit_tools::convert_to_tskit_minimal(
+        let tables_buffered_tskit = crate::tskit_tools::convert_to_tskit_minimal(
             &tables_buffered,
             &is_sample_buffered,
             crate::tskit_tools::simple_time_reverser(num_generations),
             true,
         );
 
-        let mut sorted_ts = tables_to_treeseq(&mut tables_sorted_tskit);
-        let mut buffered_ts = tables_to_treeseq(&mut tables_buffered_tskit);
-        unsafe {
-            assert_eq!(500, tskr::tsk_treeseq_get_num_samples(sorted_ts.as_ptr()));
-            assert_eq!(500, tskr::tsk_treeseq_get_num_samples(buffered_ts.as_ptr()));
-            let mut kc: f64 = -1.;
-            let kcp: *mut f64 = &mut kc;
-            let rv = tskr::tsk_treeseq_kc_distance(
-                sorted_ts.as_mut_ptr(),
-                buffered_ts.as_mut_ptr(),
-                0.,
-                kcp,
-            );
-            assert_eq!(rv, 0);
-            assert!((kc - 0.).abs() < f64::EPSILON);
-            tskr::tsk_treeseq_free(sorted_ts.as_mut_ptr());
-            tskr::tsk_treeseq_free(buffered_ts.as_mut_ptr());
-        }
+        let sorted_ts = tables_sorted_tskit
+            .tree_sequence(tskit::TreeSequenceFlags::default())
+            .unwrap();
+        let buffered_ts = tables_buffered_tskit
+            .tree_sequence(tskit::TreeSequenceFlags::default())
+            .unwrap();
+        assert_eq!(500, sorted_ts.num_samples());
+        assert_eq!(500, buffered_ts.num_samples());
+        let kc = sorted_ts.kc_distance(&&buffered_ts, 0.).unwrap();
+        assert!((kc - 0.).abs() < f64::EPSILON);
     }
 
     // The KC distance code will barf on trees where samples
@@ -264,31 +226,28 @@ mod test {
         let sum_times_buffered: Time = tables_buffered.nodes_.iter().map(|x| x.time).sum();
         assert_eq!(sum_times_sorted, sum_times_buffered);
 
-        let mut tables_sorted_tskit = crate::tskit_tools::convert_to_tskit_minimal(
+        let tables_sorted_tskit = crate::tskit_tools::convert_to_tskit_minimal(
             &tables_sorted,
             &is_sample_sorted,
             crate::tskit_tools::simple_time_reverser(num_generations),
             true,
         );
 
-        let mut tables_buffered_tskit = crate::tskit_tools::convert_to_tskit_minimal(
+        let tables_buffered_tskit = crate::tskit_tools::convert_to_tskit_minimal(
             &tables_buffered,
             &is_sample_buffered,
             crate::tskit_tools::simple_time_reverser(num_generations),
             true,
         );
 
-        let mut sorted_ts = tables_to_treeseq(&mut tables_sorted_tskit);
-        let mut buffered_ts = tables_to_treeseq(&mut tables_buffered_tskit);
-        unsafe {
-            assert_eq!(500, tskr::tsk_treeseq_get_num_samples(sorted_ts.as_ptr()));
-            assert_eq!(500, tskr::tsk_treeseq_get_num_samples(buffered_ts.as_ptr()));
-            assert_eq!(
-                tskr::tsk_treeseq_get_num_trees(sorted_ts.as_ptr()),
-                tskr::tsk_treeseq_get_num_trees(buffered_ts.as_ptr())
-            );
-            tskr::tsk_treeseq_free(sorted_ts.as_mut_ptr());
-            tskr::tsk_treeseq_free(buffered_ts.as_mut_ptr());
-        }
+        let sorted_ts = tables_sorted_tskit
+            .tree_sequence(tskit::TreeSequenceFlags::default())
+            .unwrap();
+        let buffered_ts = tables_buffered_tskit
+            .tree_sequence(tskit::TreeSequenceFlags::default())
+            .unwrap();
+        assert_eq!(500, sorted_ts.num_samples());
+        assert_eq!(500, buffered_ts.num_samples());
+        assert_eq!(sorted_ts.num_trees(), buffered_ts.num_trees());
     }
 }
