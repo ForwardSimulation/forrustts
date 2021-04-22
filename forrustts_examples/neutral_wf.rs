@@ -125,11 +125,14 @@ fn main() {
         &mut tables,
     );
 
-    if simplify.is_some() {
-        tskit_tables.dump(&outfile, 0).unwrap();
-    } else {
-        tskit_tables
-            .dump(&outfile, tskit::TSK_NO_BUILD_INDEXES)
-            .unwrap();
-    }
+    match simplify.is_some() {
+        true => (),
+        false => {
+            let _ = tskit_tables.build_index().unwrap();
+        }
+    };
+
+    tskit_tables
+        .dump(&outfile, tskit::TableOutputOptions::default())
+        .unwrap();
 }

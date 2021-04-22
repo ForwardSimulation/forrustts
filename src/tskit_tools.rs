@@ -49,6 +49,7 @@ pub fn simple_time_reverser(x: Time) -> Box<dyn Fn(Time) -> f64> {
 /// # Example
 ///
 /// ```
+/// use tskit::TableAccess;
 /// let mut tables = forrustts::TableCollection::new(100).unwrap();
 /// tables.add_node(0, 0).unwrap(); // Add a parent node at time 0
 /// tables.add_node(1, 0).unwrap(); // Add a child node at time 1
@@ -96,7 +97,7 @@ pub fn convert_to_tskit_minimal(
     }
 
     if build_indexes {
-        tsk_tables.build_index(0).unwrap();
+        tsk_tables.build_index().unwrap();
     }
 
     tsk_tables
@@ -138,6 +139,7 @@ fn swap_with_empty<T>(v: &mut Vec<T>) {
 /// # Example
 ///
 /// ```
+/// use tskit::TableAccess;
 /// let mut tables = forrustts::TableCollection::new(100).unwrap();
 /// tables.add_node(0, 0).unwrap(); // Add a parent node at time 0
 /// tables.add_node(1, 0).unwrap(); // Add a child node at time 1
@@ -197,7 +199,7 @@ pub fn convert_to_tskit_and_drain_minimal(
     }
 
     if build_indexes {
-        tsk_tables.build_index(0).unwrap();
+        tsk_tables.build_index().unwrap();
     }
 
     tsk_tables
@@ -207,6 +209,7 @@ pub fn convert_to_tskit_and_drain_minimal(
 mod tests {
 
     use super::*;
+    use tskit::TableAccess;
 
     #[test]
     fn test_convert_to_tskit() {
