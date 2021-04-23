@@ -1,5 +1,22 @@
 # Change log
 
+## 2021-04-23, Version 0.2.0
+
+### Commits
+- [[`d626451f06`](https://github.com/ForwardSimulation/forrustts/commit/d626451f0633ee757f2cbb65bfea2d13cfd9c2cd)] Bump version to 0.2.0 (molpopgen)
+- [[`1a43847b37`](https://github.com/ForwardSimulation/forrustts/commit/1a43847b37d4464cc47792442e52c7d214810e7f)] Refactor and (partially) clean up examples/forward_simulation.rs (#87) (Kevin R. Thornton)
+- [[`f96dd27a23`](https://github.com/ForwardSimulation/forrustts/commit/f96dd27a23c436491f441f81f63bd593b14d5a5d)] Change from GPL3+ to MIT license. Closes #81 (#86) (Kevin R. Thornton)
+- [[`e1af9aa0f9`](https://github.com/ForwardSimulation/forrustts/commit/e1af9aa0f96620cbdf9536776ebc1f0c9e2f731a)] Move forward simulation to examples/.  Closes #83 (#85) (Kevin R. Thornton)
+- [[`c82a7f03de`](https://github.com/ForwardSimulation/forrustts/commit/c82a7f03deed4720e3d642d6c65c047f98d28af0)] Update to latest tskit (rust). Closes #82 (#84) (molpopgen)
+- [[`7702c3965b`](https://github.com/ForwardSimulation/forrustts/commit/7702c3965bb47a729a57e2bdda80bd528594cc24)] Merge pull request #78 from molpopgen/streamline_simplification_code (Kevin R. Thornton)
+- [[`c03215a3f6`](https://github.com/ForwardSimulation/forrustts/commit/c03215a3f656b5ef1ab7ca1fe8b524a5a966dc83)] Remove unecessary variables/fns from SegmentOverlapper. (molpopgen)
+- [[`f52517b93f`](https://github.com/ForwardSimulation/forrustts/commit/f52517b93f6fb3a5de1e0e13f718c66c69166ce0)] Merge pull request #77 from molpopgen/tidy_README (Kevin R. Thornton)
+- [[`ad21f4958d`](https://github.com/ForwardSimulation/forrustts/commit/ad21f4958d247b9376622912cdf4aaa078643687)] Clean up README. (molpopogen)
+- [[`813547ba05`](https://github.com/ForwardSimulation/forrustts/commit/813547ba05c44a1b7ca4a869f5d0771cb1e77451)] Move change log to standalone file. (molpopogen)
+- [[`8495b874ba`](https://github.com/ForwardSimulation/forrustts/commit/8495b874babf74a43e0b1515c5d53a66816fccec)] fix project URL in Cargo.toml (molpopgen)
+- [[`63e11a6ed0`](https://github.com/ForwardSimulation/forrustts/commit/63e11a6ed06a9809de6facb821f25d1e0ee9f54f)] Fix link in docs of TableValidationFlags. (molpopgen)
+- [[`1c281384d1`](https://github.com/ForwardSimulation/forrustts/commit/1c281384d15ff765613de130f4e5a38f487c1fb6)] Fix links in change log to guarge against fork deletion causing (molpopgen)
+
 ## 2021-03-29, Version 0.1.3
 
 ### Commits
