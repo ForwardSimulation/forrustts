@@ -103,8 +103,6 @@ fn crossover_and_record_edges(
 ) {
     let mut pnodes = (parent.node0, parent.node1);
     mendel(&mut pnodes, rng);
-    let mut p0 = parent.node0;
-    let mut p1 = parent.node1;
 
     if let Some(exp) = breakpoint {
         let mut current_pos: Position = 0;
@@ -114,17 +112,17 @@ fn crossover_and_record_edges(
             assert!(next_length > 0);
             if current_pos + next_length < tables.genome_length() {
                 recorder(
-                    p0,
+                    pnodes.0,
                     child,
                     (current_pos, current_pos + next_length),
                     tables,
                     edge_buffer,
                 );
                 current_pos += next_length;
-                std::mem::swap(&mut p0, &mut p1);
+                std::mem::swap(&mut pnodes.0, &mut pnodes.1);
             } else {
                 recorder(
-                    p0,
+                    pnodes.0,
                     child,
                     (current_pos, tables.genome_length()),
                     tables,
@@ -135,7 +133,13 @@ fn crossover_and_record_edges(
             }
         }
     } else {
-        recorder(p0, child, (0, tables.genome_length()), tables, edge_buffer);
+        recorder(
+            pnodes.0,
+            child,
+            (0, tables.genome_length()),
+            tables,
+            edge_buffer,
+        );
     }
 }
 
