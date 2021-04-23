@@ -1,6 +1,6 @@
 [package]
 name = "forrustts"
-version = "0.1.3"
+version = "0.2.0"
 authors = ["molpopgen <krthornt@uci.edu>"]
 edition = "2018"
 description = "Tools for forward simulation with tree sequence recording"
