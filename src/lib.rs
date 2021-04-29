@@ -41,9 +41,9 @@ pub mod nested_forward_list;
 mod segment;
 mod simplification;
 mod tables;
-mod tsdef;
 
 pub use error::ForrusttsError;
+pub use forrustts_definitions as tsdef;
 pub use segment::Segment;
 pub use simplification::simplify_from_edge_buffer;
 pub use simplification::EdgeBuffer;
