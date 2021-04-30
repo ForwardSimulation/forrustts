@@ -1,26 +1,5 @@
-[package]
-name = "forrustts"
-version = "0.2.0"
-authors = ["molpopgen <krthornt@uci.edu>"]
-edition = "2018"
-description = "Tools for forward simulation with tree sequence recording"
-license = "MIT"
-homepage = "https://github.com/ForwardSimulation/forrustts"
-repository = "https://github.com/ForwardSimulation/forrustts"
-keywords = ["simulation", "tree_sequences", "tskit", "population_genetics"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-bitflags = "1.2.1"
-thiserror = "1.0"
-tskit = "=0.2.0"
-forrustts-definitions = "0.1.0"
-
-[dev-dependencies]
-clap = "~2.27.0"
-rand = "0.8.3"
-rand_distr = "0.4.0"
-
-[[example]]
-name = "forward_simulation"
+[workspace]
+members = [
+    "forrustts",
+    "forrustts-definitions",
+]
