@@ -1,0 +1,13 @@
+[package]
+name = "forrustts-definitions"
+version = "0.1.0"
+authors = ["molpopogen <krthornt@uci.edu>"]
+description = "Definitions needed by forrustts and other crates."
+edition = "2018"
+license = "MIT"
+homepage = "https://github.com/ForwardSimulation/forrustts"
+repository = "https://github.com/ForwardSimulation/forrustts"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
