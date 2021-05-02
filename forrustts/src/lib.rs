@@ -37,8 +37,8 @@
 // #![warn(missing_docs)]
 
 mod error;
-mod segment;
-mod simplification;
+pub use forrustts_simplify as simplification;
+use forrustts_simplify::segment;
 use forrustts_tables::tables;
 
 pub use error::ForrusttsError;
