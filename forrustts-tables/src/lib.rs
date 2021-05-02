@@ -1,2 +1,5 @@
-pub mod tables;
+mod tables;
+
+pub use tables::*;
+
 
