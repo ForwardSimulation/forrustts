@@ -1,7 +1,7 @@
 //! Compact representation of multiple forward linked lists.
 //!
-//! This module defines [``NestedForwardList``].  Client
-//! code will typically use this type via [``crate::EdgeBuffer``].
+//! This module defines [``NestedForwardList``].
+//!
 //! See the documentation of that type for details.
 //!
 //! Most of API for this type is used internally, but
@@ -62,7 +62,7 @@ pub type Result<T> = std::result::Result<T, NestedForwardListError>;
 ///
 /// ```
 /// // Our value type will be i32.
-/// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+/// type ListType = forrustts_util::nested_forward_list::NestedForwardList<i32>;
 /// let mut l = ListType::new();
 ///
 /// // Create 4 empty lists
@@ -162,7 +162,7 @@ impl<Value> NestedForwardList<Value> {
     /// Add an element to a list starting at index `k`.
     ///
     /// ```
-    /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+    /// type ListType = forrustts_util::nested_forward_list::NestedForwardList<i32>;
     /// let mut l = ListType::new();
     /// l.extend(0, 1).unwrap();
     /// ```
@@ -207,7 +207,7 @@ impl<Value> NestedForwardList<Value> {
     /// to get an immutable reference.
     ///
     /// ```
-    /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+    /// type ListType = forrustts_util::nested_forward_list::NestedForwardList<i32>;
     /// let mut l = ListType::new();
     /// l.extend(0, 1).unwrap(); // 0
     /// l.extend(1, 7).unwrap(); // 3
@@ -234,7 +234,7 @@ impl<Value> NestedForwardList<Value> {
     /// to get an immutable reference.
     ///
     /// ```
-    /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+    /// type ListType = forrustts_util::nested_forward_list::NestedForwardList<i32>;
     /// let mut l = ListType::new();
     /// l.extend(0, 1).unwrap(); // 0
     /// l.extend(1, 7).unwrap(); // 3
@@ -258,7 +258,7 @@ impl<Value> NestedForwardList<Value> {
     /// beginning at index `at`.
     ///
     /// ```
-    /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+    /// type ListType = forrustts_util::nested_forward_list::NestedForwardList<i32>;
     /// let mut l = ListType::new();
     /// l.extend(0, 1).unwrap(); // 0
     /// l.extend(1, 3).unwrap(); // 1
@@ -278,7 +278,7 @@ impl<Value> NestedForwardList<Value> {
     /// beginning at index `at`.
     ///
     /// ```
-    /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+    /// type ListType = forrustts_util::nested_forward_list::NestedForwardList<i32>;
     /// let mut l = ListType::new();
     /// l.extend(0, 1).unwrap(); // 0
     /// l.extend(1, 3).unwrap(); // 1
@@ -297,7 +297,7 @@ impl<Value> NestedForwardList<Value> {
     /// Get the index of the next data element in a list
     ///
     /// ```
-    /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+    /// type ListType = forrustts_util::nested_forward_list::NestedForwardList<i32>;
     /// let mut l = ListType::new();
     /// l.extend(0, 1).unwrap();
     /// l.extend(1, 3).unwrap();
@@ -332,7 +332,7 @@ impl<Value> NestedForwardList<Value> {
     /// ends, allowing linear searches through the data.
     ///
     /// ```
-    /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+    /// type ListType = forrustts_util::nested_forward_list::NestedForwardList<i32>;
     /// let mut list = ListType::new();
     /// for i in 0..3 {
     ///     list.extend(0, 2 * i).unwrap();
@@ -390,7 +390,7 @@ impl<Value> NestedForwardList<Value> {
     ///    values of [``NestedForwardList::null``].
     ///
     /// ```
-    /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+    /// type ListType = forrustts_util::nested_forward_list::NestedForwardList<i32>;
     /// let mut l = ListType::new();
     /// l.extend(0, 1).unwrap();
     /// l.extend(0, 3).unwrap();
@@ -421,7 +421,7 @@ impl<Value> NestedForwardList<Value> {
     /// Obtain an iterator over the vector of list
     /// heads.
     /// ```
-    /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+    /// type ListType = forrustts_util::nested_forward_list::NestedForwardList<i32>;
     /// let mut l = ListType::new();
     /// l.extend(0, 1).unwrap();
     /// l.extend(0, 3).unwrap();
@@ -448,7 +448,7 @@ impl<Value> NestedForwardList<Value> {
     /// of list heads.
     ///
     /// ```
-    /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+    /// type ListType = forrustts_util::nested_forward_list::NestedForwardList<i32>;
     /// let mut l = ListType::new();
     /// assert_eq!(l.len(), 0);
     /// l.extend(10, 1);
@@ -462,7 +462,7 @@ impl<Value> NestedForwardList<Value> {
     /// vector of list heads is empty.
     ///
     /// ```
-    /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
+    /// type ListType = forrustts_util::nested_forward_list::NestedForwardList<i32>;
     /// let mut l = ListType::new();
     /// assert_eq!(l.is_empty(), true);
     /// l.extend(10, 1);

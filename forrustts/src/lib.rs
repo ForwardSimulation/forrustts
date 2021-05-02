@@ -37,13 +37,13 @@
 // #![warn(missing_docs)]
 
 mod error;
-pub mod nested_forward_list;
 mod segment;
 mod simplification;
 mod tables;
 
 pub use error::ForrusttsError;
 pub use forrustts_definitions as tsdef;
+pub use forrustts_util::nested_forward_list;
 pub use segment::Segment;
 pub use simplification::simplify_from_edge_buffer;
 pub use simplification::EdgeBuffer;

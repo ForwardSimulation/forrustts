@@ -1,5 +1,6 @@
 [workspace]
 members = [
     "forrustts",
+    "forrustts-util",
     "forrustts-definitions",
 ]
