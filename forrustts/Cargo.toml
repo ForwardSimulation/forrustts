@@ -16,6 +16,7 @@ bitflags = "1.2.1"
 thiserror = "1.0"
 tskit = "=0.2.2"
 forrustts-definitions = "0.1.0"
+forrustts-util = {version = "0.1.0", path = "../forrustts-util" }
 
 [dev-dependencies]
 clap = "~2.33.3"
