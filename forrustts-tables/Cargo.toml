@@ -10,3 +10,4 @@ edition = "2018"
 thiserror = "1.0"
 bitflags = "1.2.1"
 forrustts-definitions = { version = "0.1.0", path = "../forrustts-definitions" }
+forrustts-util = { version = "0.1.0", path = "../forrustts-util" }

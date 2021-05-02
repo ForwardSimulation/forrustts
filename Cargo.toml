@@ -4,5 +4,4 @@ members = [
     "forrustts-util",
     "forrustts-definitions",
     "forrustts-tables",
-    "forrustts-simplify",
 ]
