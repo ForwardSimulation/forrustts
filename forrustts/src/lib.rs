@@ -39,7 +39,7 @@
 mod error;
 mod segment;
 mod simplification;
-mod tables;
+use forrustts_tables::tables;
 
 pub use error::ForrusttsError;
 pub use forrustts_definitions as tsdef;

@@ -1,4 +1,4 @@
-use crate::tsdef::{IdType, Position, Time, NULL_ID};
+use forrustts_definitions::{IdType, Position, Time, NULL_ID};
 use bitflags::bitflags;
 use std::cmp::Ordering;
 use thiserror::Error;

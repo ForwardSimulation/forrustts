@@ -17,6 +17,7 @@ thiserror = "1.0"
 tskit = "=0.2.2"
 forrustts-definitions = { version =  "0.1.0", path = "../forrustts-definitions" }
 forrustts-util = {version = "0.1.0", path = "../forrustts-util" }
+forrustts-tables = {version = "0.1.0", path = "../forrustts-tables" }
 
 [dev-dependencies]
 clap = "~2.33.3"
