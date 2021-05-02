@@ -15,7 +15,7 @@ keywords = ["simulation", "tree_sequences", "tskit", "population_genetics"]
 bitflags = "1.2.1"
 thiserror = "1.0"
 tskit = "=0.2.2"
-forrustts-definitions = "0.1.0"
+forrustts-definitions = { version =  "0.1.0", path = "../forrustts-definitions" }
 forrustts-util = {version = "0.1.0", path = "../forrustts-util" }
 
 [dev-dependencies]
