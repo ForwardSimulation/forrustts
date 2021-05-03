@@ -37,14 +37,13 @@
 // #![warn(missing_docs)]
 
 mod error;
-pub use forrustts_simplify as simplification;
-use forrustts_simplify::segment;
 use forrustts_tables::tables;
+use forrustts_tables::simplification;
+use forrustts_tables::segment::Segment;
 
 pub use error::ForrusttsError;
 pub use forrustts_definitions as tsdef;
 pub use forrustts_util::nested_forward_list;
-pub use segment::Segment;
 pub use simplification::simplify_from_edge_buffer;
 pub use simplification::EdgeBuffer;
 pub use simplification::SamplesInfo;

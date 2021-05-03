@@ -1,9 +1,29 @@
 use crate::nested_forward_list::NestedForwardList;
 use crate::tables::*;
 use crate::tsdef::{IdType, Position, Time, NULL_ID};
-use crate::ForrusttsError;
 use crate::Segment;
 use bitflags::bitflags;
+use thiserror::Error;
+
+#[derive(Error, Debug, PartialEq)]
+pub enum SimplificationError {
+    /// An error that occurs during simplification.
+    #[error("{value:?}")]
+    SimplificationError {
+        /// The error message
+        value: String,
+    },
+    #[error("{value:?}")]
+    ListError {
+        #[from]
+        value: crate::nested_forward_list::NestedForwardListError,
+    },
+    #[error("{value:?}")]
+    TablesError {
+        #[from]
+        value: crate::tables::TablesError,
+    },
+}
 
 struct SegmentOverlapper {
     segment_queue: Vec<Segment>,
@@ -131,7 +151,7 @@ fn find_parent_child_segment_overlap(
     u: IdType,
     ancestry: &mut AncestryList,
     overlapper: &mut SegmentOverlapper,
-) -> Result<usize, ForrusttsError> {
+) -> Result<usize, SimplificationError> {
     overlapper.clear_queue();
 
     let mut i = edge_index;
@@ -162,7 +182,7 @@ fn add_ancestry(
     right: Position,
     node: IdType,
     ancestry: &mut AncestryList,
-) -> Result<(), ForrusttsError> {
+) -> Result<(), SimplificationError> {
     let head = ancestry.head(input_id)?;
     if head == AncestryList::null() {
         let seg = Segment { left, right, node };
@@ -170,7 +190,7 @@ fn add_ancestry(
     } else {
         let last_idx = ancestry.tail(input_id)?;
         if last_idx == AncestryList::null() {
-            return Err(ForrusttsError::SimplificationError {
+            return Err(SimplificationError::SimplificationError {
                 value: "last_idx is NULL_ID".to_string(),
             });
         }
@@ -235,7 +255,7 @@ fn merge_ancestors(
     parent_input_id: IdType,
     state: &mut SimplificationBuffers,
     idmap: &mut [IdType],
-) -> Result<(), ForrusttsError> {
+) -> Result<(), SimplificationError> {
     let mut output_id = idmap[parent_input_id as usize];
     let is_sample = output_id != NULL_ID;
 
@@ -332,17 +352,17 @@ fn record_sample_nodes(
     new_nodes: &mut NodeTable,
     ancestry: &mut AncestryList,
     idmap: &mut [IdType],
-) -> Result<(), ForrusttsError> {
+) -> Result<(), SimplificationError> {
     for sample in samples.iter() {
         assert!(*sample >= 0);
         // NOTE: the following can be debug_assert?
         if *sample == NULL_ID {
-            return Err(ForrusttsError::SimplificationError {
+            return Err(SimplificationError::SimplificationError {
                 value: "sample node is NULL_ID".to_string(),
             });
         }
         if idmap[*sample as usize] != NULL_ID {
-            return Err(ForrusttsError::SimplificationError {
+            return Err(SimplificationError::SimplificationError {
                 value: "invalid sample list!".to_string(),
             });
         }
@@ -368,7 +388,7 @@ fn record_sample_nodes(
 fn validate_tables(
     tables: &TableCollection,
     flags: &SimplificationFlags,
-) -> Result<(), ForrusttsError> {
+) -> Result<(), SimplificationError> {
     if flags.contains(SimplificationFlags::VALIDATE_EDGES) {
         validate_edge_table(tables.genome_length(), tables.edges(), tables.nodes())?;
     }
@@ -386,9 +406,9 @@ fn setup_simplification(
     flags: SimplificationFlags,
     state: &mut SimplificationBuffers,
     output: &mut SimplificationOutput,
-) -> Result<(), ForrusttsError> {
+) -> Result<(), SimplificationError> {
     if !tables.sites_.is_empty() || !tables.mutations_.is_empty() {
-        return Err(ForrusttsError::SimplificationError {
+        return Err(SimplificationError::SimplificationError {
             value: "mutation simplification not yet implemented".to_string(),
         });
     }
@@ -416,7 +436,7 @@ fn process_parent(
     tables: &TableCollection,
     state: &mut SimplificationBuffers,
     output: &mut SimplificationOutput,
-) -> Result<usize, ForrusttsError> {
+) -> Result<usize, SimplificationError> {
     let edge_i = find_parent_child_segment_overlap(
         &tables.edges_,
         edge_index,
@@ -458,7 +478,7 @@ fn find_pre_existing_edges(
     tables: &TableCollection,
     edge_buffer_founder_nodes: &[IdType],
     edge_buffer: &EdgeBuffer,
-) -> Result<Vec<ParentLocation>, ForrusttsError> {
+) -> Result<Vec<ParentLocation>, SimplificationError> {
     let mut alive_with_new_edges: Vec<i32> = vec![];
 
     for a in edge_buffer_founder_nodes {
@@ -509,7 +529,7 @@ fn find_pre_existing_edges(
             let t0 = tables.nodes_[rv[i - 1].parent as usize].time;
             let t1 = tables.nodes_[rv[i].parent as usize].time;
             if t0 < t1 {
-                return Err(ForrusttsError::SimplificationError {
+                return Err(SimplificationError::SimplificationError {
                     value: "existing edges not properly sorted by time".to_string(),
                 });
             }
@@ -524,7 +544,7 @@ fn queue_children(
     right: Position,
     ancestry: &mut AncestryList,
     overlapper: &mut SegmentOverlapper,
-) -> Result<(), ForrusttsError> {
+) -> Result<(), SimplificationError> {
     Ok(ancestry.for_each(child, |seg: &Segment| {
         if seg.right > left && right > seg.left {
             overlapper.enqueue(
@@ -541,7 +561,7 @@ fn process_births_from_buffer(
     head: IdType,
     edge_buffer: &EdgeBuffer,
     state: &mut SimplificationBuffers,
-) -> Result<(), ForrusttsError> {
+) -> Result<(), SimplificationError> {
     // Have to take references here to
     // make the borrow checker happy.
     let a = &mut state.ancestry;
@@ -685,7 +705,7 @@ pub fn simplify_tables_without_state(
     flags: SimplificationFlags,
     tables: &mut TableCollection,
     output: &mut SimplificationOutput,
-) -> Result<(), ForrusttsError> {
+) -> Result<(), SimplificationError> {
     let mut state = SimplificationBuffers::new();
     simplify_tables(samples, flags, &mut state, tables, output)
 }
@@ -716,7 +736,7 @@ pub fn simplify_tables(
     state: &mut SimplificationBuffers,
     tables: &mut TableCollection,
     output: &mut SimplificationOutput,
-) -> Result<(), ForrusttsError> {
+) -> Result<(), SimplificationError> {
     setup_simplification(samples, tables, flags, state, output)?;
 
     let mut edge_i = 0;
@@ -831,7 +851,7 @@ pub fn simplify_from_edge_buffer(
     edge_buffer: &mut EdgeBuffer,
     tables: &mut TableCollection,
     output: &mut SimplificationOutput,
-) -> Result<(), ForrusttsError> {
+) -> Result<(), SimplificationError> {
     setup_simplification(samples, tables, flags, state, output)?;
 
     // Process all edges since the last simplification.
@@ -901,7 +921,7 @@ pub fn simplify_from_edge_buffer(
             while edge_i < ex.stop {
                 // TODO: a debug assert or regular assert?
                 if tables.edges_[edge_i].parent != ex.parent {
-                    return Err(ForrusttsError::SimplificationError {
+                    return Err(SimplificationError::SimplificationError {
                         value: "Unexpected parent node".to_string(),
                     });
                 }
@@ -917,7 +937,7 @@ pub fn simplify_from_edge_buffer(
                 edge_i += 1;
             }
             if edge_i < num_edges && tables.edges_[edge_i].parent == ex.parent {
-                return Err(ForrusttsError::SimplificationError {
+                return Err(SimplificationError::SimplificationError {
                     value: "error traversing pre-existing edges for parent".to_string(),
                 });
             }
@@ -1012,10 +1032,10 @@ mod test_simpify_tables {
             &mut output,
         )
         .map_or_else(
-            |x: ForrusttsError| {
+            |x: SimplificationError| {
                 assert_eq!(
                     x,
-                    ForrusttsError::TablesError {
+                    crate::tables::TablesError {
                         value: TablesError::EdgesNotSortedByLeft
                     }
                 )
@@ -1027,7 +1047,9 @@ mod test_simpify_tables {
 
 #[cfg(test)]
 mod test_simpify_table_from_edge_buffer {
-    use super::{process_births_from_buffer, EdgeBuffer, ForrusttsError, SimplificationBuffers};
+    use super::{
+        process_births_from_buffer, EdgeBuffer, SimplificationBuffers, SimplificationError,
+    };
 
     // This shows that the closure error gets propagated
     // as the result type.
@@ -1036,6 +1058,6 @@ mod test_simpify_table_from_edge_buffer {
         let b = EdgeBuffer::new();
         let mut s = SimplificationBuffers::new();
         assert!(process_births_from_buffer(-1, &b, &mut s)
-            .map_or_else(|_: ForrusttsError| true, |_| false));
+            .map_or_else(|_: SimplificationError| true, |_| false));
     }
 }
