@@ -243,10 +243,7 @@ fn mutation_table_add_row(
     Ok((mutations.len() - 1) as IdType)
 }
 
-fn sort_edge_table(nodes: &[Node], edges: &mut EdgeTable) {
-    // NOTE: it may by more idiomatic to
-    // not use a slice here, and instead allow
-    // the range-checking?
+fn sort_edges(nodes: &[Node], edges: &mut [Edge]) {
     edges.sort_by(|a, b| {
         let aindex = a.parent as usize;
         let bindex = b.parent as usize;
@@ -265,7 +262,7 @@ fn sort_edge_table(nodes: &[Node], edges: &mut EdgeTable) {
     });
 }
 
-fn sort_mutation_table(sites: &[Site], mutations: &mut MutationTable) {
+fn sort_mutation_table(sites: &[Site], mutations: &mut [MutationRecord]) {
     mutations.sort_by(|a, b| {
         let pa = sites[a.site].position;
         let pb = sites[b.site].position;
@@ -622,12 +619,12 @@ impl TableCollection {
     }
 
     /// Return immutable reference to the [mutation table](type.MutationTable.html)
-    pub fn mutations(&self) -> &MutationTable {
+    pub fn mutations(&self) -> &[MutationRecord] {
         &self.mutations_
     }
 
     /// Return immutable reference to the [edge table](type.EdgeTable.html)
-    pub fn edges(&self) -> &EdgeTable {
+    pub fn edges(&self) -> &[Edge] {
         &self.edges_
     }
 
@@ -642,7 +639,7 @@ impl TableCollection {
     }
 
     /// Return immutable reference to [node table](type.NodeTable.html)
-    pub fn nodes(&self) -> &NodeTable {
+    pub fn nodes(&self) -> &[Node] {
         &self.nodes_
     }
 
@@ -667,7 +664,7 @@ impl TableCollection {
     }
 
     /// Return immutable reference to [site table](type.SiteTable.html)
-    pub fn sites(&self) -> &SiteTable {
+    pub fn sites(&self) -> &[Site] {
         &self.sites_
     }
 
@@ -700,7 +697,7 @@ impl TableCollection {
     /// Sort all tables for simplification.
     pub fn sort_tables(&mut self, flags: TableSortingFlags) {
         if !flags.contains(TableSortingFlags::SKIP_EDGE_TABLE) {
-            sort_edge_table(&self.nodes_, &mut self.edges_);
+            sort_edges(&self.nodes_, &mut self.edges_);
         }
         sort_mutation_table(&self.sites_, &mut self.mutations_);
     }
