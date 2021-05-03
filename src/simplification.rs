@@ -15,6 +15,12 @@ struct SegmentOverlapper {
     num_overlaps: usize,
 }
 
+struct MutationNodeMapEntry {
+    node: IdType,
+    site: IdType,
+    location: usize,
+}
+
 impl SegmentOverlapper {
     fn set_partition(&mut self) -> Position {
         let mut tright = Position::MAX;
@@ -122,6 +128,74 @@ impl SegmentOverlapper {
 }
 
 type AncestryList = NestedForwardList<Segment>;
+
+fn prep_mutation_map(mutations: &[MutationRecord], mutation_map: &mut Vec<MutationNodeMapEntry>) {
+    for (i, m) in mutations.iter().enumerate() {
+        mutation_map.push(MutationNodeMapEntry {
+            node: m.node,
+            site: m.site as IdType,
+            location: i,
+        });
+    }
+}
+
+fn record_site(sites: &[Site], mutation: &mut MutationRecord, new_site_table: &mut SiteTable) {
+    let position = sites[mutation.site].position;
+    if new_site_table.is_empty() || new_site_table[new_site_table.len() - 1].position != position {
+        new_site_table.push(sites[mutation.site as usize].clone());
+    }
+
+    mutation.site = new_site_table.len() - 1;
+}
+
+fn simplify_mutations(
+    mutation_map: &[MutationNodeMapEntry],
+    ancestry: &AncestryList,
+    tables: &mut TableCollection,
+    new_site_table: &mut SiteTable,
+) {
+    for m in tables.mutations_.iter_mut() {
+        m.node = NULL_ID;
+    }
+
+    let mut map_index: usize = 0;
+
+    while map_index < mutation_map.len() {
+        let n = unsafe { mutation_map.get_unchecked(map_index).node };
+        let mut segment_index = ancestry.head(n).unwrap();
+
+        while map_index < mutation_map.len()
+            && unsafe { mutation_map.get_unchecked(map_index).node } == n
+        {
+            if segment_index == AncestryList::null() {
+                map_index += 1;
+                break;
+            }
+            while segment_index != AncestryList::null()
+                && map_index < mutation_map.len()
+                && unsafe { mutation_map.get_unchecked(map_index).node } == n
+            {
+                let record = unsafe { mutation_map.get_unchecked(map_index) };
+                let seg = ancestry.fetch(segment_index).unwrap();
+                let pos = tables.site(record.site).position;
+                if seg.left < pos && pos < seg.right {
+                    unsafe { tables.mutations_.get_unchecked_mut(record.location).node = seg.node };
+                    map_index += 1;
+                } else if pos >= seg.right {
+                    segment_index = ancestry.next(segment_index).unwrap();
+                } else {
+                    map_index += 1;
+                }
+            }
+        }
+    }
+    tables.mutations_.retain(|m| m.node != NULL_ID);
+
+    for m in tables.mutations_.iter_mut() {
+        record_site(&tables.sites_, m, new_site_table);
+    }
+    std::mem::swap(&mut tables.sites_, new_site_table);
+}
 
 fn find_parent_child_segment_overlap(
     edges: &[Edge],
@@ -387,12 +461,6 @@ fn setup_simplification(
     state: &mut SimplificationBuffers,
     output: &mut SimplificationOutput,
 ) -> Result<(), ForrusttsError> {
-    if !tables.sites_.is_empty() || !tables.mutations_.is_empty() {
-        return Err(ForrusttsError::SimplificationError {
-            value: "mutation simplification not yet implemented".to_string(),
-        });
-    }
-
     validate_tables(tables, &flags)?;
     setup_idmap(&tables.nodes_, &mut output.idmap);
 
@@ -406,6 +474,8 @@ fn setup_simplification(
         &mut state.ancestry,
         &mut output.idmap,
     )?;
+
+    prep_mutation_map(&tables.mutations_, &mut state.mutation_map);
 
     Ok(())
 }
@@ -639,6 +709,8 @@ pub struct SimplificationBuffers {
     new_nodes: NodeTable,
     overlapper: SegmentOverlapper,
     ancestry: AncestryList,
+    mutation_map: Vec<MutationNodeMapEntry>,
+    new_site_table: Vec<Site>,
 }
 
 impl SimplificationBuffers {
@@ -650,6 +722,8 @@ impl SimplificationBuffers {
             new_nodes: NodeTable::new(),
             overlapper: SegmentOverlapper::new(),
             ancestry: AncestryList::new(),
+            mutation_map: vec![],
+            new_site_table: vec![],
         }
     }
 
@@ -658,6 +732,14 @@ impl SimplificationBuffers {
         self.new_edges.clear();
         self.temp_edge_buffer.clear();
         self.new_nodes.clear();
+        self.mutation_map.clear();
+        self.new_site_table.clear();
+    }
+}
+
+impl Default for SimplificationBuffers {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -739,6 +821,13 @@ pub fn simplify_tables(
             assert_eq!(state.new_edges.len(), 0);
         }
     }
+
+    simplify_mutations(
+        &state.mutation_map,
+        &state.ancestry,
+        tables,
+        &mut state.new_site_table,
+    );
 
     tables.edges_.truncate(new_edges_inserted);
     tables.edges_.append(&mut state.new_edges);
@@ -943,6 +1032,13 @@ pub fn simplify_from_edge_buffer(
             output,
         )?;
     }
+
+    simplify_mutations(
+        &state.mutation_map,
+        &state.ancestry,
+        tables,
+        &mut state.new_site_table,
+    );
 
     std::mem::swap(&mut tables.edges_, &mut state.new_edges);
     std::mem::swap(&mut tables.nodes_, &mut state.new_nodes);
