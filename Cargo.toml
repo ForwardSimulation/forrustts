@@ -14,10 +14,10 @@ keywords = ["simulation", "tree_sequences", "tskit", "population_genetics"]
 [dependencies]
 bitflags = "1.2.1"
 thiserror = "1.0"
-tskit = "=0.2.0"
+tskit = "=0.2.2"
 
 [dev-dependencies]
-clap = "~2.27.0"
+clap = "~2.33.3"
 rand = "0.8.3"
 rand_distr = "0.4.0"
 
