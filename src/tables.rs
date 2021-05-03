@@ -73,6 +73,7 @@ pub enum TablesError {
 pub type TablesResult<T> = std::result::Result<T, TablesError>;
 
 /// A Node of a tree sequence
+#[derive(Copy, Clone)]
 pub struct Node {
     /// Birth time
     pub time: Time,
@@ -103,6 +104,7 @@ pub struct Edge {
 
 /// A Site is the location and
 /// ancestral state of a tables::MutationRecord
+#[derive(Clone)]
 pub struct Site {
     /// Position of the mutation
     pub position: Position,
@@ -115,6 +117,7 @@ pub struct Site {
 /// A MutationRecord is the minimal information
 /// needed about a mutation to track it
 /// on a tree sequence.
+#[derive(Clone)]
 pub struct MutationRecord {
     /// The node where the mutation maps
     pub node: IdType,
@@ -409,6 +412,7 @@ pub fn validate_edge_table(len: Position, edges: &[Edge], nodes: &[Node]) -> Tab
 }
 
 /// A collection of node, edge, site, and mutation tables.
+#[derive(Clone)]
 pub struct TableCollection {
     length_: Position, // Not visible outside of this module
 
@@ -868,5 +872,20 @@ mod test_tables {
             Ok(x) => assert_eq!(x, "0".to_string()),
             Err(_) => panic!(),
         }
+    }
+
+    #[test]
+    #[allow(clippy::redundant_clone)]
+    fn test_clone_tables() {
+        let mut tables = TableCollection::new(10).unwrap();
+        tables.add_edge(0, 5, 0, 1).unwrap();
+        let tclone = tables.clone();
+
+        assert_eq!(tclone.edges().len(), 1);
+        let e = tclone.edge(0);
+        assert_eq!(e.left, 0);
+        assert_eq!(e.right, 5);
+        assert_eq!(e.parent, 0);
+        assert_eq!(e.child, 1);
     }
 }
