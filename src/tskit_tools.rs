@@ -157,11 +157,6 @@ fn swap_with_empty<T>(v: &mut Vec<T>) {
 /// // The input tables have no data:
 /// assert_eq!(tables.num_nodes(), 0);
 /// assert_eq!(tables.num_edges(), 0);
-/// // The memory has been returned to the system,
-/// // and the internal containers have no allocated
-/// // capacity:
-/// assert_eq!(tables.nodes().capacity(), 0);
-/// assert_eq!(tables.edges().capacity(), 0);
 /// ```
 pub fn convert_to_tskit_and_drain_minimal(
     is_sample: &[i32],
@@ -201,6 +196,9 @@ pub fn convert_to_tskit_and_drain_minimal(
     if build_indexes {
         tsk_tables.build_index().unwrap();
     }
+
+    assert_eq!(tables.nodes_.capacity(), 0);
+    assert_eq!(tables.edges_.capacity(), 0);
 
     tsk_tables
 }
