@@ -7,11 +7,12 @@ name: CI
 
 jobs:
   build-linux:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     #container:
     #  image: ubuntu:20.10
     strategy:
       matrix:
+        os: [ubuntu-latest, macos-latest]
         rust:
           - stable
           - nightly
@@ -23,7 +24,7 @@ jobs:
 
       - uses: actions/checkout@v2
       - run: sudo apt-get update -y
-      - run: sudo apt-get install -y libgsl0-dev curl build-essential python3
+        if: matrix.os == 'ubuntu-latest'
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.rust }}
@@ -34,34 +35,6 @@ jobs:
       - name: run tests
         run: | 
             cargo test
-            cargo test --examples
-
-  build-osx:
-    runs-on: macos-latest
-    strategy:
-      matrix:
-        rust:
-          - stable
-          - nightly
-    steps:
-      - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.6.0
-        with:
-          access_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - run: brew update
-      - run: brew install gsl
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          override: true
-      - run: cargo check
-      - name: check examples
-        run: cargo check --examples
-      - name: run tests
-        run: |
-            cargo test 
             cargo test --examples
 
   fmt:
