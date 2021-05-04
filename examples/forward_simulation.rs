@@ -8,6 +8,7 @@ use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
 use rand_distr::{Exp, Uniform};
+use tskit::TableAccess;
 
 // Some of the material below seems like a candidate for a public API,
 // but we need to decide here if this package should provide that.
@@ -295,10 +296,17 @@ pub struct PopulationParams {
     pub genome_length: Position,
     pub breakpoint: BreakpointFunction,
     pub psurvival: f64,
+    pub mutrate: f64,
 }
 
 impl PopulationParams {
-    pub fn new(size: u32, genome_length: Position, xovers: f64, psurvival: f64) -> Self {
+    pub fn new(
+        size: u32,
+        genome_length: Position,
+        xovers: f64,
+        psurvival: f64,
+        mutrate: f64,
+    ) -> Self {
         PopulationParams {
             size,
             genome_length,
@@ -310,6 +318,7 @@ impl PopulationParams {
                 None => None,
             },
             psurvival,
+            mutrate,
         }
     }
 }
@@ -356,10 +365,137 @@ impl SimulationParams {
     }
 }
 
+fn mutate_tables(
+    mutrate: f64,
+    tables: &mut forrustts::TableCollection,
+    rng: &mut StdRng,
+) -> Vec<forrustts::Time> {
+    match mutrate.partial_cmp(&0.0) {
+        Some(std::cmp::Ordering::Greater) => (),
+        Some(_) => return vec![],
+        None => panic!("bad mutation rate"),
+    };
+    let mut posmap = std::collections::HashMap::<forrustts::Position, usize>::new();
+    let mut derived_map = std::collections::HashMap::<forrustts::Position, u8>::new();
+
+    let mut origin_times_init: Vec<(forrustts::Time, usize)> = vec![];
+    let num_edges = tables.edges().len();
+    for i in 0..num_edges {
+        let e = *tables.edge(i as IdType);
+        let ptime = tables.node(e.parent).time;
+        let ctime = tables.node(e.child).time;
+        let blen = ctime - ptime;
+        assert!(blen > 0, "{} {} {}", blen, ptime, ctime,);
+        let mutrate_edge = (mutrate * blen as f64) / (e.right - e.left) as f64;
+        let exp = Exp::new(mutrate_edge).unwrap();
+        let mut pos = e.left + (rng.sample(exp) as Position) + 1;
+        let make_time = Uniform::new(ptime, ctime);
+        while pos < e.right {
+            assert!(ctime > ptime);
+            let t = rng.sample(make_time) + 1;
+            assert!(t <= ctime);
+            assert!(t > ptime);
+            match posmap.get(&pos) {
+                Some(x) => {
+                    // Get a new derived state for this site
+                    let dstate = match derived_map.get(&pos) {
+                        Some(y) => y + 1,
+                        None => 1,
+                    };
+                    origin_times_init.push((t, *x));
+                    derived_map.insert(pos, dstate).unwrap();
+                    tables
+                        .add_mutation(
+                            e.child,
+                            origin_times_init.len() - 1,
+                            *x,
+                            Some(vec![dstate]),
+                            true,
+                        )
+                        .unwrap();
+                }
+                None => {
+                    tables.add_site(pos, Some(vec![0])).unwrap();
+                    origin_times_init.push((t, tables.sites().len() - 1));
+                    tables
+                        .add_mutation(
+                            e.child,
+                            origin_times_init.len() - 1,
+                            tables.sites().len() - 1,
+                            Some(vec![1]),
+                            true,
+                        )
+                        .unwrap();
+
+                    if posmap.insert(pos, tables.sites().len() - 1).is_some() {
+                        panic!("hash failure");
+                    }
+                    if derived_map.insert(pos, 1).is_some() {
+                        panic!("derived state hash failure");
+                    }
+                }
+            }
+            pos += (rng.sample(exp) as Position) + 1;
+        }
+    }
+    assert_eq!(origin_times_init.len(), tables.mutations().len());
+    assert!(posmap.len() == derived_map.len());
+    origin_times_init.sort_by(|a, b| {
+        let pa = tables.site(a.1 as IdType).position;
+        let pb = tables.site(b.1 as IdType).position;
+        pa.cmp(&pb)
+    });
+    tables.sort_tables(forrustts::TableSortingFlags::SKIP_EDGE_TABLE);
+    let mut rv = vec![];
+    for (i, _) in origin_times_init {
+        rv.push(i);
+    }
+    rv
+}
+
+fn add_tskit_mutation_site_tables(
+    tables: &forrustts::TableCollection,
+    origin_times: &[forrustts::Time],
+    g: forrustts::Time,
+    tskit_tables: &mut tskit::TableCollection,
+) {
+    for s in tables.sites() {
+        tskit_tables
+            .add_site(
+                s.position as f64,
+                match &s.ancestral_state {
+                    Some(x) => Some(&x),
+                    None => panic!("expected ancestral_state"),
+                },
+            )
+            .unwrap();
+    }
+
+    for (i, m) in tables.enumerate_mutations() {
+        let reverser = forrustts::tskit_tools::simple_time_reverser(g);
+        assert!(match reverser(origin_times[i])
+            .partial_cmp(&tskit_tables.nodes().time(m.node).unwrap())
+        {
+            Some(std::cmp::Ordering::Less) => false,
+            Some(_) => true,
+            None => panic!("bad ordering"),
+        });
+        tskit_tables
+            .add_mutation(
+                m.site as tskit::tsk_id_t,
+                m.node,
+                tskit::TSK_NULL,
+                reverser(origin_times[i]),
+                Some(m.derived_state.as_ref().unwrap()),
+            )
+            .unwrap();
+    }
+}
+
 pub fn neutral_wf(
     pop_params: PopulationParams,
     params: SimulationParams,
-) -> Result<(forrustts::TableCollection, Vec<i32>), ForrusttsError> {
+) -> Result<(forrustts::TableCollection, Vec<i32>, Vec<forrustts::Time>), ForrusttsError> {
     // FIXME: gotta validate input params!
 
     let mut actual_simplification_interval: Time = -1;
@@ -444,7 +580,28 @@ pub fn neutral_wf(
         is_alive[p.node1 as usize] = 1;
     }
 
-    Ok((pop.tables, is_alive))
+    let origin_times = mutate_tables(pop_params.mutrate, &mut pop.tables, &mut rng);
+
+    for s in pop.tables.sites() {
+        match &s.ancestral_state {
+            Some(x) => {
+                assert_eq!(x.len(), 1);
+                assert_eq!(x[0], 0);
+            }
+            None => panic!("ancestral_state is None"),
+        };
+    }
+    for m in pop.tables.mutations() {
+        match &m.derived_state {
+            Some(x) => {
+                assert_eq!(x.len(), 1);
+                assert!(x[0] > 0);
+            }
+            None => panic!("derived_state is None"),
+        };
+    }
+
+    Ok((pop.tables, is_alive, origin_times))
 }
 
 fn main() {
@@ -468,6 +625,13 @@ fn main() {
                 .short("x")
                 .long("xovers")
                 .help("Mean number of crossovers per meiosis.")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("mutrate")
+                .short("m")
+                .long("mutrate")
+                .help("Mean number of mutations per new gamete.")
                 .takes_value(true),
         )
         .arg(
@@ -519,6 +683,7 @@ fn main() {
     let popsize = value_t_or_exit!(matches.value_of("popsize"), u32);
     let g = value_t_or_exit!(matches.value_of("nsteps"), i64);
     let xovers = value_t_or_exit!(matches.value_of("xovers"), f64);
+    let mutrate = value_t_or_exit!(matches.value_of("mutrate"), f64);
     let simplify_input = value_t!(matches.value_of("simplification_interval"), i64).unwrap_or(-1);
     let psurvival = value_t!(matches.value_of("psurvival"), f64).unwrap_or(0.0);
     let seed = value_t_or_exit!(matches.value_of("seed"), u64);
@@ -545,8 +710,8 @@ fn main() {
         simplification_flags |= forrustts::SimplificationFlags::VALIDATE_ALL;
     }
 
-    let (mut tables, is_sample) = neutral_wf(
-        PopulationParams::new(popsize, 10000000, xovers, psurvival),
+    let (mut tables, is_sample, origin_times) = neutral_wf(
+        PopulationParams::new(popsize, 10000000, xovers, psurvival, mutrate),
         SimulationParams {
             simplification_interval: simplify,
             seed,
@@ -571,6 +736,8 @@ fn main() {
         }
     };
 
+    add_tskit_mutation_site_tables(&tables, &origin_times, g, &mut tskit_tables);
+
     tskit_tables
         .dump(&outfile, tskit::TableOutputOptions::default())
         .unwrap();
@@ -594,14 +761,14 @@ mod test {
         assert!(flags.contains(SimulationFlags::BUFFER_EDGES));
     }
 
-    fn run_sim(use_state: bool) -> (forrustts::TableCollection, Vec<i32>) {
+    fn run_sim(use_state: bool) -> (forrustts::TableCollection, Vec<i32>, Vec<forrustts::Time>) {
         let flags = if use_state {
             SimulationFlags::USE_STATE
         } else {
             SimulationFlags::empty()
         };
         neutral_wf(
-            PopulationParams::new(1000, 100000, 5e-3, 0.0),
+            PopulationParams::new(1000, 100000, 5e-3, 0.0, 0.0),
             SimulationParams::new(Some(100), 666, 2000, flags),
         )
         .unwrap()
@@ -609,8 +776,8 @@ mod test {
 
     #[test]
     fn compare_state_to_no_state() {
-        let (tables, _) = run_sim(false);
-        let (tables_state, _) = run_sim(true);
+        let (tables, _, _) = run_sim(false);
+        let (tables_state, _, _) = run_sim(true);
 
         assert_eq!(tables.num_nodes(), tables_state.num_nodes());
         assert_eq!(tables.num_edges(), tables_state.num_edges());
@@ -644,13 +811,14 @@ mod test_simplify_tables {
         num_generations: Time,
         genome_length: Position,
         psurvival: f64,
+        mutrate: f64,
         seed: u64,
         // None here means "never simplify".
         simplification_interval: Option<Time>,
         flags: SimulationFlags,
-    ) -> Result<(TableCollection, Vec<i32>), ForrusttsError> {
+    ) -> Result<(TableCollection, Vec<i32>, Vec<forrustts::Time>), ForrusttsError> {
         neutral_wf(
-            PopulationParams::new(250, genome_length, 5e-3, psurvival),
+            PopulationParams::new(250, genome_length, 5e-3, psurvival, mutrate),
             SimulationParams {
                 simplification_interval,
                 seed,
@@ -672,9 +840,10 @@ mod test_simplify_tables {
         let num_generations = 5000;
         let genome_length = 1000000;
 
-        let (mut tables, mut is_sample) = simulate_data(
+        let (mut tables, mut is_sample, _) = simulate_data(
             num_generations,
             genome_length,
+            0.0,
             0.0,
             42,
             None,
@@ -760,9 +929,10 @@ mod test_simplify_tables {
         let genome_length = 1000000;
 
         let flags = SimulationFlags::USE_STATE;
-        let (tables_sorted, is_sample_sorted) = simulate_data(
+        let (tables_sorted, is_sample_sorted, _) = simulate_data(
             num_generations,
             genome_length,
+            0.0,
             0.0,
             14613641,
             Some(100),
@@ -771,9 +941,10 @@ mod test_simplify_tables {
         .unwrap();
 
         let flags = SimulationFlags::BUFFER_EDGES;
-        let (tables_buffered, is_sample_buffered) = simulate_data(
+        let (tables_buffered, is_sample_buffered, _) = simulate_data(
             num_generations,
             genome_length,
+            0.0,
             0.0,
             14613641,
             Some(100),
@@ -822,10 +993,11 @@ mod test_simplify_tables {
         let genome_length = 1000000;
 
         let flags = SimulationFlags::USE_STATE;
-        let (tables_sorted, is_sample_sorted) = simulate_data(
+        let (tables_sorted, is_sample_sorted, _) = simulate_data(
             num_generations,
             genome_length,
             0.5,
+            0.0,
             14613641,
             Some(100),
             flags,
@@ -833,10 +1005,11 @@ mod test_simplify_tables {
         .unwrap();
 
         let flags = SimulationFlags::BUFFER_EDGES;
-        let (tables_buffered, is_sample_buffered) = simulate_data(
+        let (tables_buffered, is_sample_buffered, _) = simulate_data(
             num_generations,
             genome_length,
             0.5,
+            0.0,
             14613641,
             Some(100),
             flags,
@@ -874,5 +1047,98 @@ mod test_simplify_tables {
         assert_eq!(500, sorted_ts.num_samples());
         assert_eq!(500, buffered_ts.num_samples());
         assert_eq!(sorted_ts.num_trees(), buffered_ts.num_trees());
+    }
+
+    #[test]
+    fn test_mutation_simplification() {
+        let num_generations = 1000;
+        let genome_length = 1000000;
+
+        let (mut tables, is_sample, origin_times) = simulate_data(
+            num_generations,
+            genome_length,
+            0.5,
+            2e-3,
+            518125215,
+            None,
+            SimulationFlags::empty(),
+        )
+        .unwrap();
+        assert!(tables.edges().len() > 0);
+        assert!(tables.mutations().len() > 0);
+        assert!(tables.sites().len() > 0);
+
+        let mut tsk_tables = forrustts::tskit_tools::convert_to_tskit_minimal(
+            &tables,
+            &is_sample,
+            forrustts::tskit_tools::simple_time_reverser(num_generations),
+            // Do not index tables here!
+            // Things are unsorted!
+            false,
+        );
+        add_tskit_mutation_site_tables(&tables, &&origin_times, num_generations, &mut tsk_tables);
+        tables.sort_tables(forrustts::TableSortingFlags::empty());
+        let mut samples = SamplesInfo::new();
+        for (i, n) in tables.nodes().iter().enumerate() {
+            if n.time == num_generations {
+                samples.samples.push(i as IdType);
+            }
+        }
+
+        let mut output = SimplificationOutput::new();
+        simplify_tables_without_state(
+            &samples,
+            SimplificationFlags::empty(),
+            &mut tables,
+            &mut output,
+        )
+        .unwrap();
+
+        tsk_tables
+            .full_sort(tskit::TableSortOptions::default())
+            .unwrap();
+        tsk_tables
+            .simplify(
+                &samples.samples,
+                tskit::SimplificationOptions::FILTER_SITES,
+                false,
+            )
+            .unwrap();
+
+        assert_eq!(tables.sites().len(), tsk_tables.sites().num_rows() as usize);
+        assert_eq!(
+            tables.mutations().len(),
+            tsk_tables.mutations().num_rows() as usize
+        );
+
+        for (i, s) in tables.enumerate_sites() {
+            match tsk_tables
+                .sites()
+                .position(i as tskit::tsk_id_t)
+                .unwrap()
+                .partial_cmp(&(s.position as f64))
+            {
+                None => panic!("bad cmp"),
+                Some(std::cmp::Ordering::Equal) => (),
+                Some(_) => assert!(false),
+            };
+        }
+
+        for (i, m) in tables.enumerate_mutations() {
+            assert_eq!(
+                m.node,
+                tsk_tables.mutations().node(i as tskit::tsk_id_t).unwrap()
+            );
+        }
+
+        for (i, m) in tables.enumerate_mutations() {
+            assert_eq!(
+                tables.site(m.site as IdType).position as f64,
+                tsk_tables
+                    .sites()
+                    .position(tsk_tables.mutations().site(i as tskit::tsk_id_t).unwrap())
+                    .unwrap()
+            );
+        }
     }
 }

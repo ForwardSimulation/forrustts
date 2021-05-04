@@ -262,11 +262,20 @@ fn sort_edges(nodes: &[Node], edges: &mut [Edge]) {
     });
 }
 
+fn record_site(sites: &[Site], mutation: &mut MutationRecord, new_site_table: &mut SiteTable) {
+    let position = sites[mutation.site].position;
+    if new_site_table.is_empty() || new_site_table[new_site_table.len() - 1].position != position {
+        new_site_table.push(sites[mutation.site as usize].clone());
+    }
+
+    mutation.site = new_site_table.len() - 1;
+}
+
 fn sort_mutation_table(sites: &[Site], mutations: &mut [MutationRecord]) {
     mutations.sort_by(|a, b| {
         let pa = sites[a.site].position;
         let pb = sites[b.site].position;
-        pa.cmp(&pb).reverse()
+        pa.cmp(&pb)
     });
 }
 
@@ -700,6 +709,11 @@ impl TableCollection {
             sort_edges(&self.nodes_, &mut self.edges_);
         }
         sort_mutation_table(&self.sites_, &mut self.mutations_);
+        let mut sites: SiteTable = vec![];
+        for m in self.mutations_.iter_mut() {
+            record_site(&self.sites_, m, &mut sites);
+        }
+        std::mem::swap(&mut self.sites_, &mut sites);
     }
 
     /// Run a validation check on the tables.
