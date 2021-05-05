@@ -797,38 +797,38 @@ mod test {
 }
 
 #[cfg(test)]
+fn simulate_data(
+    num_generations: Time,
+    genome_length: Position,
+    psurvival: f64,
+    mutrate: f64,
+    seed: u64,
+    // None here means "never simplify".
+    simplification_interval: Option<Time>,
+    flags: SimulationFlags,
+) -> Result<(forrustts::TableCollection, Vec<i32>, Vec<forrustts::Time>), forrustts::ForrusttsError>
+{
+    neutral_wf(
+        PopulationParams::new(250, genome_length, 5e-3, psurvival, mutrate),
+        SimulationParams {
+            simplification_interval,
+            seed,
+            nsteps: num_generations,
+            flags,
+            simplification_flags: forrustts::SimplificationFlags::VALIDATE_ALL,
+        },
+    )
+}
+
+#[cfg(test)]
 mod test_simplify_tables {
     use super::*;
     use forrustts::simplify_tables_without_state;
-    use forrustts::ForrusttsError;
     use forrustts::SamplesInfo;
     use forrustts::SimplificationFlags;
     use forrustts::SimplificationOutput;
-    use forrustts::TableCollection;
-    use forrustts::{IdType, Position, Time};
+    use forrustts::{IdType, Time};
     use tskit::TableAccess;
-
-    fn simulate_data(
-        num_generations: Time,
-        genome_length: Position,
-        psurvival: f64,
-        mutrate: f64,
-        seed: u64,
-        // None here means "never simplify".
-        simplification_interval: Option<Time>,
-        flags: SimulationFlags,
-    ) -> Result<(TableCollection, Vec<i32>, Vec<forrustts::Time>), ForrusttsError> {
-        neutral_wf(
-            PopulationParams::new(250, genome_length, 5e-3, psurvival, mutrate),
-            SimulationParams {
-                simplification_interval,
-                seed,
-                nsteps: num_generations,
-                flags,
-                simplification_flags: SimplificationFlags::VALIDATE_ALL,
-            },
-        )
-    }
 
     #[test]
     fn test_kc_distance_to_tskit() {
@@ -1064,97 +1064,288 @@ mod test_simplify_tables {
         assert_eq!(500, buffered_ts.num_samples());
         assert_eq!(sorted_ts.num_trees(), buffered_ts.num_trees());
     }
+}
 
-    #[test]
-    fn test_mutation_simplification() {
-        let num_generations = 1000;
-        let genome_length = 1000000;
+// Put new edges in edge table.
+// Never sort or simplify.
+// Simplify with respect to many different sets of nodes.
+#[cfg(test)]
+mod simplification_stress_test_without_edge_buffer {
+    use super::*;
 
-        let (mut tables, is_sample, origin_times) = simulate_data(
-            num_generations,
-            genome_length,
-            0.5,
-            2e-3,
-            518125215,
-            None,
-            SimulationFlags::empty(),
-        )
-        .unwrap();
-        assert!(tables.edges().len() > 0);
-        assert!(tables.mutations().len() > 0);
-        assert!(tables.sites().len() > 0);
+    struct SimulatorIterator {
+        rng: StdRng,
+        make_seed: Uniform<usize>,
+        nreps: i32,
+        rep: i32,
+    }
 
-        let mut tsk_tables = forrustts::tskit_tools::convert_to_tskit_minimal(
-            &tables,
-            &is_sample,
-            forrustts::tskit_tools::simple_time_reverser(num_generations),
-            // Do not index tables here!
-            // Things are unsorted!
-            false,
-        );
-        add_tskit_mutation_site_tables(&tables, &&origin_times, num_generations, &mut tsk_tables);
-        tables.sort_tables(forrustts::TableSortingFlags::empty());
-        let mut samples = SamplesInfo::new();
-        for (i, n) in tables.nodes().iter().enumerate() {
-            if n.time == num_generations {
-                samples.samples.push(i as IdType);
+    struct SimResults {
+        pub tables: forrustts::TableCollection,
+        pub tsk_tables: tskit::TableCollection,
+        pub is_sample: Vec<forrustts::IdType>,
+    }
+
+    impl SimulatorIterator {
+        fn new(seed: u64, nreps: i32) -> Self {
+            Self {
+                rng: StdRng::seed_from_u64(seed),
+                make_seed: Uniform::new(0_usize, u32::MAX as usize),
+                nreps,
+                rep: 0,
+            }
+        }
+    }
+
+    impl Iterator for SimulatorIterator {
+        type Item = SimResults;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.rep < self.nreps {
+                let num_generations = 500;
+                let genome_length = 1000000;
+                let seed = self.rng.sample(self.make_seed);
+                let (mut tables, is_sample, origin_times) = simulate_data(
+                    num_generations,
+                    genome_length,
+                    0.5,
+                    2e-3,
+                    seed as u64,
+                    None,
+                    SimulationFlags::empty(),
+                )
+                .unwrap();
+                tables.sort_tables(forrustts::TableSortingFlags::empty());
+
+                let mut tsk_tables = forrustts::tskit_tools::convert_to_tskit_minimal(
+                    &tables,
+                    &is_sample,
+                    forrustts::tskit_tools::simple_time_reverser(num_generations),
+                    // Do not index tables here!
+                    // Things are unsorted!
+                    false,
+                );
+                add_tskit_mutation_site_tables(
+                    &tables,
+                    &&origin_times,
+                    num_generations,
+                    &mut tsk_tables,
+                );
+                tsk_tables
+                    .full_sort(tskit::TableSortOptions::empty())
+                    .unwrap();
+                self.rep += 1;
+                Some(SimResults {
+                    tables,
+                    tsk_tables,
+                    is_sample,
+                })
+            } else {
+                None
+            }
+        }
+    }
+
+    struct Simulator {
+        current_seed: u64,
+        nreps: i32,
+    }
+
+    impl Simulator {
+        fn new(current_seed: u64, nreps: i32) -> Self {
+            Self {
+                current_seed,
+                nreps,
             }
         }
 
-        let mut output = SimplificationOutput::new();
-        simplify_tables_without_state(
-            &samples,
-            SimplificationFlags::empty(),
-            &mut tables,
-            &mut output,
-        )
-        .unwrap();
+        fn iter(&self) -> SimulatorIterator {
+            SimulatorIterator::new(self.current_seed, self.nreps)
+        }
+    }
 
-        tsk_tables
-            .full_sort(tskit::TableSortOptions::default())
-            .unwrap();
-        tsk_tables
-            .simplify(
-                &samples.samples,
-                tskit::SimplificationOptions::FILTER_SITES,
-                false,
+    fn make_samples(l: &[forrustts::IdType]) -> forrustts::SamplesInfo {
+        let mut rv = forrustts::SamplesInfo::default();
+        for (i, j) in l.iter().enumerate() {
+            if *j == 1 {
+                rv.samples.push(i as forrustts::IdType);
+            }
+        }
+        rv
+    }
+
+    #[test]
+    fn simplify_to_samples() {
+        let sims = Simulator::new(1512512, 10);
+
+        for mut i in sims.iter() {
+            let samples = make_samples(&i.is_sample);
+            assert!(samples.samples.len() > 0);
+            let mut output = forrustts::SimplificationOutput::new();
+            forrustts::simplify_tables_without_state(
+                &samples,
+                forrustts::SimplificationFlags::empty(),
+                &mut i.tables,
+                &mut output,
             )
             .unwrap();
 
-        assert_eq!(tables.sites().len(), tsk_tables.sites().num_rows() as usize);
-        assert_eq!(
-            tables.mutations().len(),
-            tsk_tables.mutations().num_rows() as usize
-        );
+            i.tsk_tables
+                .simplify(
+                    &samples.samples,
+                    tskit::SimplificationOptions::FILTER_SITES,
+                    false,
+                )
+                .unwrap();
 
-        for (i, s) in tables.enumerate_sites() {
-            match tsk_tables
-                .sites()
-                .position(i as tskit::tsk_id_t)
-                .unwrap()
-                .partial_cmp(&(s.position as f64))
-            {
-                None => panic!("bad cmp"),
-                Some(std::cmp::Ordering::Equal) => (),
-                Some(_) => assert!(false),
-            };
-        }
-
-        for (i, m) in tables.enumerate_mutations() {
             assert_eq!(
-                m.node,
-                tsk_tables.mutations().node(i as tskit::tsk_id_t).unwrap()
+                i.tables.edges().len(),
+                i.tsk_tables.edges().num_rows() as usize
             );
-        }
-
-        for (i, m) in tables.enumerate_mutations() {
             assert_eq!(
-                tables.site(m.site as IdType).position as f64,
-                tsk_tables
+                i.tables.nodes().len(),
+                i.tsk_tables.nodes().num_rows() as usize
+            );
+            assert_eq!(
+                i.tables.sites().len(),
+                i.tsk_tables.sites().num_rows() as usize
+            );
+            assert_eq!(
+                i.tables.mutations().len(),
+                i.tsk_tables.mutations().num_rows() as usize
+            );
+            for (idx, s) in i.tables.enumerate_sites() {
+                match i
+                    .tsk_tables
                     .sites()
-                    .position(tsk_tables.mutations().site(i as tskit::tsk_id_t).unwrap())
+                    .position(idx as tskit::tsk_id_t)
                     .unwrap()
-            );
+                    .partial_cmp(&(s.position as f64))
+                {
+                    None => panic!("bad cmp"),
+                    Some(std::cmp::Ordering::Equal) => (),
+                    Some(_) => assert!(false),
+                };
+            }
+
+            for (idx, m) in i.tables.enumerate_mutations() {
+                assert_eq!(
+                    m.node,
+                    i.tsk_tables
+                        .mutations()
+                        .node(idx as tskit::tsk_id_t)
+                        .unwrap()
+                );
+            }
+
+            for (idx, m) in i.tables.enumerate_mutations() {
+                assert_eq!(
+                    i.tables.site(m.site as IdType).position as f64,
+                    i.tsk_tables
+                        .sites()
+                        .position(
+                            i.tsk_tables
+                                .mutations()
+                                .site(idx as tskit::tsk_id_t)
+                                .unwrap()
+                        )
+                        .unwrap()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn simplify_to_arbitrary_nodes() {
+        let sims = Simulator::new(5312851, 25);
+
+        let mut rng = StdRng::seed_from_u64(588512852);
+
+        let subsample_size = 50;
+
+        for i in sims.iter() {
+            for _ in 0..10 {
+                let mut tables = i.tables.clone();
+                let mut tsk_tables = i.tsk_tables.deepcopy().unwrap();
+
+                let mut candidate_sample: Vec<forrustts::IdType> = vec![];
+                for (idx, val) in i.is_sample.iter().enumerate() {
+                    if *val == 1 {
+                        candidate_sample.push(idx as forrustts::IdType);
+                    }
+                }
+                let node_sampler = Uniform::new(0_usize, candidate_sample.len());
+                let mut subsample = vec![0; candidate_sample.len()];
+                for _ in 0..subsample_size {
+                    let mut x = rng.sample(node_sampler);
+                    while subsample[x] == 1 {
+                        x = rng.sample(node_sampler);
+                    }
+                    subsample[x] = 1;
+                }
+                let mut samples_list: Vec<forrustts::IdType> = vec![];
+                for (idx, val) in subsample.iter().enumerate() {
+                    if *val == 1 {
+                        samples_list.push(candidate_sample[idx]);
+                    }
+                }
+                assert_eq!(samples_list.len(), subsample_size as usize);
+                let mut samples = forrustts::SamplesInfo::new();
+                samples.samples = samples_list;
+                let mut output = forrustts::SimplificationOutput::new();
+                forrustts::simplify_tables_without_state(
+                    &samples,
+                    forrustts::SimplificationFlags::empty(),
+                    &mut tables,
+                    &mut output,
+                )
+                .unwrap();
+
+                tsk_tables
+                    .simplify(
+                        &samples.samples,
+                        tskit::SimplificationOptions::FILTER_SITES,
+                        false,
+                    )
+                    .unwrap();
+
+                assert_eq!(tables.edges().len(), tsk_tables.edges().num_rows() as usize);
+                assert_eq!(tables.nodes().len(), tsk_tables.nodes().num_rows() as usize);
+                assert_eq!(tables.sites().len(), tsk_tables.sites().num_rows() as usize);
+                assert_eq!(
+                    tables.mutations().len(),
+                    tsk_tables.mutations().num_rows() as usize
+                );
+                for (i, s) in tables.enumerate_sites() {
+                    match tsk_tables
+                        .sites()
+                        .position(i as tskit::tsk_id_t)
+                        .unwrap()
+                        .partial_cmp(&(s.position as f64))
+                    {
+                        None => panic!("bad cmp"),
+                        Some(std::cmp::Ordering::Equal) => (),
+                        Some(_) => assert!(false),
+                    };
+                }
+
+                for (i, m) in tables.enumerate_mutations() {
+                    assert_eq!(
+                        m.node,
+                        tsk_tables.mutations().node(i as tskit::tsk_id_t).unwrap()
+                    );
+                }
+
+                for (i, m) in tables.enumerate_mutations() {
+                    assert_eq!(
+                        tables.site(m.site as IdType).position as f64,
+                        tsk_tables
+                            .sites()
+                            .position(tsk_tables.mutations().site(i as tskit::tsk_id_t).unwrap())
+                            .unwrap()
+                    );
+                }
+            }
         }
     }
 }
