@@ -303,6 +303,19 @@ fn output_buffered_edges(temp_edge_buffer: &mut EdgeTable, new_edges: &mut EdgeT
     rv
 }
 
+fn record_node(input_nodes: &[Node], id: IdType, is_sample: bool, output_nodes: &mut NodeTable) {
+    let mut flags = input_nodes[id as usize].flags;
+    flags &= !crate::tables::NodeFlags::IS_SAMPLE.bits();
+    if is_sample {
+        flags |= crate::tables::NodeFlags::IS_SAMPLE.bits();
+    }
+    output_nodes.push(Node {
+        time: input_nodes[id as usize].time,
+        deme: input_nodes[id as usize].deme,
+        flags,
+    });
+}
+
 fn merge_ancestors(
     input_nodes: &[Node],
     maxlen: Position,
@@ -337,10 +350,12 @@ fn merge_ancestors(
             }
         } else {
             if output_id == NULL_ID {
-                state.new_nodes.push(Node {
-                    time: input_nodes[parent_input_id as usize].time,
-                    deme: input_nodes[parent_input_id as usize].deme,
-                });
+                record_node(
+                    input_nodes,
+                    parent_input_id,
+                    is_sample,
+                    &mut state.new_nodes,
+                );
                 output_id = (state.new_nodes.len() - 1) as IdType;
                 idmap[parent_input_id as usize] = output_id;
             }
@@ -420,11 +435,7 @@ fn record_sample_nodes(
                 value: "invalid sample list!".to_string(),
             });
         }
-        let n = tables.node(*sample);
-        new_nodes.push(Node {
-            time: n.time,
-            deme: n.deme,
-        });
+        record_node(&tables.nodes_, *sample, true, new_nodes);
 
         add_ancestry(
             *sample,

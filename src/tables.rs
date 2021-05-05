@@ -79,6 +79,8 @@ pub struct Node {
     pub time: Time,
     /// Population (deme) of node
     pub deme: IdType,
+    /// Bit flags
+    pub flags: u32,
 }
 
 /// An Edge is a transmission event
@@ -203,10 +205,15 @@ fn edge_table_add_row(
 }
 
 // NOTE: we allow negative times, in order to support "precapitation".
-fn node_table_add_row(nodes: &mut NodeTable, time: Time, deme: IdType) -> TablesResult<IdType> {
+fn node_table_add_row(
+    nodes: &mut NodeTable,
+    time: Time,
+    deme: IdType,
+    flags: u32,
+) -> TablesResult<IdType> {
     //time_non_negative(time)?;
     deme_non_negative(deme)?;
-    nodes.push(Node { time, deme });
+    nodes.push(Node { time, deme, flags });
 
     Ok((nodes.len() - 1) as IdType)
 }
@@ -277,6 +284,27 @@ fn sort_mutation_table(sites: &[Site], mutations: &mut [MutationRecord]) {
         let pb = sites[b.site].position;
         pa.cmp(&pb)
     });
+}
+
+bitflags! {
+    /// Set properties of a [`Node`].
+    ///
+    /// The first 16 bits are reserved for internal use.
+    /// Client code is free to use the remaining bits
+    /// as needed.
+    #[derive(Default)]
+    pub struct NodeFlags: u32 {
+        /// Default
+        const NONE = 0;
+        /// The node is a sample node.
+        const IS_SAMPLE = 1 << 0;
+        /// The node is alive.
+        /// Usually, this is set along with
+        /// IS_SAMPLE in order to distinguish
+        /// living individuals from, e.g.,
+        /// ancient samples.
+        const IS_ALIVE = 1 << 1;
+    }
 }
 
 bitflags! {
@@ -476,7 +504,43 @@ impl TableCollection {
     /// assert_eq!(id, 0);
     /// ```
     pub fn add_node(&mut self, time: Time, deme: IdType) -> TablesResult<IdType> {
-        node_table_add_row(&mut self.nodes_, time, deme)
+        self.add_node_with_flags(time, deme, NodeFlags::default().bits())
+    }
+
+    /// Add a [``Node``] to the [``NodeTable``] with flags set.
+    ///
+    /// # Parameters
+    ///
+    /// * `time`: a [``Time``] representing the birth time.
+    /// * `deme`: a valid [``IdType``] representing deme where the node is found.
+    /// * `flags`: node flags.  See [`NodeFlags`].
+    ///
+    /// # Returns
+    ///
+    /// An [``IdType``] that is the new node's ``ID``.
+    /// This value is the index of the node in the node table.
+    ///
+    /// # Errors
+    ///
+    /// Will return [``TablesError``] if `deme < 0`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let mut tables = forrustts::TableCollection::new(100).unwrap();
+    /// let id = tables.add_node_with_flags(1, 0,
+    ///     (forrustts::NodeFlags::IS_ALIVE | forrustts::NodeFlags::IS_SAMPLE).bits()).unwrap();
+    /// assert_eq!(id, 0);
+    /// assert!(tables.node(0).flags & forrustts::NodeFlags::IS_ALIVE.bits() > 0);
+    /// assert!(tables.node(0).flags & forrustts::NodeFlags::IS_SAMPLE.bits() > 0);
+    /// ```
+    pub fn add_node_with_flags(
+        &mut self,
+        time: Time,
+        deme: IdType,
+        flags: u32,
+    ) -> TablesResult<IdType> {
+        node_table_add_row(&mut self.nodes_, time, deme, flags)
     }
 
     /// Add an [``Edge``] to the [``EdgeTable``].
@@ -898,5 +962,15 @@ mod test_tables {
         assert_eq!(e.right, 5);
         assert_eq!(e.parent, 0);
         assert_eq!(e.child, 1);
+    }
+
+    #[test]
+    fn test_node_flags() {
+        let mut x = (NodeFlags::IS_ALIVE | NodeFlags::IS_SAMPLE).bits();
+        assert!(x & NodeFlags::IS_ALIVE.bits() > 0);
+        assert!(x & NodeFlags::IS_SAMPLE.bits() > 0);
+        x &= !NodeFlags::IS_SAMPLE.bits();
+        assert!(x & NodeFlags::IS_ALIVE.bits() > 0);
+        assert!(x & NodeFlags::IS_SAMPLE.bits() == 0);
     }
 }

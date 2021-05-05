@@ -273,6 +273,7 @@ fn simplify_and_remap_nodes(
     for p in &mut pop.parents {
         p.node0 = output.idmap[p.node0 as usize];
         p.node1 = output.idmap[p.node1 as usize];
+        assert!(pop.tables.node(p.node0).flags & forrustts::NodeFlags::IS_SAMPLE.bits() > 0);
     }
 
     if flags.contains(SimulationFlags::BUFFER_EDGES) {
@@ -877,6 +878,21 @@ mod test_simplify_tables {
             &mut output,
         )
         .unwrap();
+
+        for i in &samples.samples {
+            assert!(
+                tables.node(output.idmap[*i as usize]).flags
+                    & forrustts::NodeFlags::IS_SAMPLE.bits()
+                    > 0
+            );
+        }
+        let mut num_sample_nodes = 0;
+        for n in tables.nodes() {
+            if n.flags & forrustts::NodeFlags::IS_SAMPLE.bits() > 0 {
+                num_sample_nodes += 1;
+            }
+        }
+        assert_eq!(num_sample_nodes as usize, samples.samples.len());
 
         is_sample = vec![0; tables.num_nodes()];
         for i in is_sample.iter_mut().take(500) {
