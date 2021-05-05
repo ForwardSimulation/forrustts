@@ -881,8 +881,7 @@ pub fn simplify_tables(
 /// # Example
 ///
 /// For a full example of use in simulation,
-/// see the source code for
-/// [``wright_fisher::neutral_wf``](crate::wright_fisher::neutral_wf)
+/// see the source code for `examples/forward_simulation.rs`
 ///
 pub type EdgeBuffer = NestedForwardList<Segment>;
 
