@@ -41,6 +41,7 @@ pub mod nested_forward_list;
 mod segment;
 mod simplification;
 mod tables;
+mod trees;
 mod tsdef;
 
 pub use error::ForrusttsError;
@@ -53,6 +54,7 @@ pub use simplification::SimplificationFlags;
 pub use simplification::SimplificationOutput;
 pub use simplification::{simplify_tables, simplify_tables_without_state};
 pub use tables::*;
+pub use trees::*;
 pub use tsdef::*;
 
 pub mod tskit_tools;
