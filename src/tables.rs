@@ -924,6 +924,66 @@ impl TableCollection {
     pub fn is_indexed(&self) -> bool {
         self.is_indexed
     }
+
+    /// Dump contents of node table.
+    ///
+    /// The `self` object is left with an empty
+    /// node table.
+    pub fn dump_nodes(&mut self) -> NodeTable {
+        let mut rv = vec![];
+        std::mem::swap(&mut self.nodes_, &mut rv);
+        rv
+    }
+
+    /// Set the contents of the node table.
+    pub fn set_node_table(&mut self, nodes: NodeTable) {
+        self.nodes_ = nodes;
+    }
+
+    /// Dump contents of edge table.
+    ///
+    /// The `self` object is left with an empty
+    /// edge table.
+    pub fn dump_edges(&mut self) -> EdgeTable {
+        let mut rv = vec![];
+        std::mem::swap(&mut self.edges_, &mut rv);
+        rv
+    }
+
+    /// Set the contents of the edge table.
+    pub fn set_edge_table(&mut self, edges: EdgeTable) {
+        self.edges_ = edges;
+    }
+
+    /// Dump contents of site table.
+    ///
+    /// The `self` object is left with an empty
+    /// site table.
+    pub fn dump_sites(&mut self) -> SiteTable {
+        let mut rv = vec![];
+        std::mem::swap(&mut self.sites_, &mut rv);
+        rv
+    }
+
+    /// Set the contents of the site table.
+    pub fn set_site_table(&mut self, sites: SiteTable) {
+        self.sites_ = sites;
+    }
+
+    /// Dump contents of mutation table.
+    ///
+    /// The `self` object is left with an empty
+    /// mutation table.
+    pub fn dump_mutations(&mut self) -> MutationTable {
+        let mut rv = vec![];
+        std::mem::swap(&mut self.mutations_, &mut rv);
+        rv
+    }
+
+    /// Set the contents of the mutation table.
+    pub fn set_mutation_table(&mut self, mutations: MutationTable) {
+        self.mutations_ = mutations;
+    }
 }
 
 #[cfg(test)]
