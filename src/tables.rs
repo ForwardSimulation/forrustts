@@ -341,6 +341,18 @@ bitflags! {
     }
 }
 
+bitflags! {
+    /// Modifies behavior of
+    /// [``TableCollection::build_indexes``]
+    #[derive(Default)]
+    pub struct IndexTablesFlags: u32 {
+        /// Default behavior
+        const NONE = 0;
+        /// Do not validate edge table
+        const NO_VALIDATION = 1<<0;
+    }
+}
+
 /// Perform a data integrity check on an [``EdgeTable``].
 ///
 /// This checks, amongst other things, the sorting order
@@ -454,6 +466,9 @@ pub struct TableCollection {
     pub(crate) edges_: EdgeTable,
     pub(crate) sites_: SiteTable,
     pub(crate) mutations_: MutationTable,
+    pub(crate) edge_input_order: Vec<usize>,
+    pub(crate) edge_output_order: Vec<usize>,
+    pub(crate) is_indexed: bool,
 }
 
 impl TableCollection {
@@ -477,6 +492,9 @@ impl TableCollection {
             edges_: EdgeTable::new(),
             sites_: SiteTable::new(),
             mutations_: MutationTable::new(),
+            edge_input_order: vec![],
+            edge_output_order: vec![],
+            is_indexed: false,
         })
     }
 
@@ -491,6 +509,12 @@ impl TableCollection {
     ///
     /// An [``IdType``] that is the new node's ``ID``.
     /// This value is the index of the node in the node table.
+    ///
+    /// # Side effects
+    ///
+    /// Adding a node invalidates current table indexes.
+    /// Therefore, this function results in [`TableCollection::is_indexed`]
+    /// returning false.
     ///
     /// # Errors
     ///
@@ -540,6 +564,7 @@ impl TableCollection {
         deme: IdType,
         flags: u32,
     ) -> TablesResult<IdType> {
+        self.is_indexed = false;
         node_table_add_row(&mut self.nodes_, time, deme, flags)
     }
 
@@ -556,6 +581,12 @@ impl TableCollection {
     ///
     /// An [``IdType``] that is the new edge's ``ID``.
     /// This value is the index of the edge in the edge table.
+    ///
+    /// # Side effects
+    ///
+    /// Adding an edge invalidates current table indexes.
+    /// Therefore, this function results in [`TableCollection::is_indexed`]
+    /// returning false.
     ///
     /// # Errors
     ///
@@ -576,6 +607,7 @@ impl TableCollection {
         parent: IdType,
         child: IdType,
     ) -> TablesResult<IdType> {
+        self.is_indexed = false;
         edge_table_add_row(&mut self.edges_, left, right, parent, child)
     }
 
@@ -787,6 +819,111 @@ impl TableCollection {
         }
         Ok(true)
     }
+
+    // SAFETY: the bounds are guaranteed by build_indexes
+    fn sort_edge_output_order(edges: &[Edge], nodes: &[Node], edge_input_order: &mut Vec<usize>) {
+        edge_input_order.sort_by(|a, b| {
+            let ea = unsafe { edges.get_unchecked(*a) };
+            let eb = unsafe { edges.get_unchecked(*b) };
+            if ea.right == eb.right {
+                let ta = unsafe { *nodes.get_unchecked(ea.parent as usize) }.time;
+                let tb = unsafe { *nodes.get_unchecked(eb.parent as usize) }.time;
+                ta.cmp(&tb)
+            } else {
+                ea.right.cmp(&eb.right)
+            }
+        });
+    }
+
+    // SAFETY: the bounds are guaranteed by build_indexes
+    fn sort_edge_input_order(edges: &[Edge], nodes: &[Node], edge_output_order: &mut Vec<usize>) {
+        edge_output_order.sort_by(|a, b| {
+            let ea = unsafe { edges.get_unchecked(*a) };
+            let eb = unsafe { edges.get_unchecked(*b) };
+            if ea.left == eb.left {
+                let ta = unsafe { *nodes.get_unchecked(ea.parent as usize) }.time;
+                let tb = unsafe { *nodes.get_unchecked(eb.parent as usize) }.time;
+                ta.cmp(&tb).reverse()
+            } else {
+                ea.left.cmp(&eb.left)
+            }
+        });
+    }
+
+    /// Build table indexes
+    ///
+    /// # Parameters
+    ///
+    /// * `flags`, see [`IndexTablesFlags`].
+    ///
+    /// # Errors
+    ///
+    /// [`TablesError`] if the input data are invalid.
+    pub fn build_indexes(&mut self, flags: IndexTablesFlags) -> TablesResult<()> {
+        if self.edges_.is_empty() {
+            self.is_indexed = false;
+            return Ok(());
+        }
+        if !flags.contains(IndexTablesFlags::NO_VALIDATION) {
+            match validate_edge_table(self.genome_length(), &self.edges_, &self.nodes_) {
+                Ok(_) => (),
+                Err(e) => return Err(e),
+            };
+        }
+        self.edge_input_order.clear();
+        self.edge_output_order.clear();
+        for (i, e) in self.edges_.iter().enumerate() {
+            if e.parent == NULL_ID {
+                return Err(TablesError::NullParent);
+            }
+            if e.child == NULL_ID {
+                return Err(TablesError::NullChild);
+            }
+            if e.parent >= self.nodes_.len() as IdType {
+                return Err(TablesError::NodeOutOfBounds);
+            }
+            if e.child >= self.nodes_.len() as IdType {
+                return Err(TablesError::NodeOutOfBounds);
+            }
+            self.edge_input_order.push(i);
+            self.edge_output_order.push(i);
+        }
+        Self::sort_edge_input_order(&self.edges_, &self.nodes_, &mut self.edge_input_order);
+        Self::sort_edge_output_order(&self.edges_, &self.nodes_, &mut self.edge_output_order);
+        self.is_indexed = true;
+        Ok(())
+    }
+
+    /// Get the edge input order.
+    ///
+    /// The input order is generated by [`TableCollection::build_indexes`].
+    ///
+    /// Returns `None` if `self.is_indexed() == false`.
+    pub fn edge_input_order(&self) -> Option<&[usize]> {
+        if self.is_indexed {
+            Some(&self.edge_input_order)
+        } else {
+            None
+        }
+    }
+
+    /// Get the edge output order.
+    ///
+    /// The output order is generated by [`TableCollection::build_indexes`].
+    ///
+    /// Returns `None` if `self.is_indexed() == false`.
+    pub fn edge_output_order(&self) -> Option<&[usize]> {
+        if self.is_indexed {
+            Some(&self.edge_output_order)
+        } else {
+            None
+        }
+    }
+
+    /// Return `true` if tables are indexed, `false` otherwise.
+    pub fn is_indexed(&self) -> bool {
+        self.is_indexed
+    }
 }
 
 #[cfg(test)]
@@ -972,5 +1109,143 @@ mod test_tables {
         x &= !NodeFlags::IS_SAMPLE.bits();
         assert!(x & NodeFlags::IS_ALIVE.bits() > 0);
         assert!(x & NodeFlags::IS_SAMPLE.bits() == 0);
+    }
+}
+
+#[cfg(test)]
+mod test_table_indexing {
+    use super::*;
+
+    #[test]
+    fn test_reverse_sort() {
+        let mut v = vec![3, 2, 1, 0];
+        v.sort_by(|a, b| a.cmp(&b).reverse());
+        for i in 1..v.len() {
+            assert!(v[i] <= v[i - 1]);
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_no_nodes() {
+        let mut t = TableCollection::new(1).unwrap();
+        t.add_edge(0, 1, 0, 1).unwrap();
+        t.add_edge(0, 1, 0, 2).unwrap();
+        t.build_indexes(IndexTablesFlags::default()).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_edge_out_of_range() {
+        let mut t = TableCollection::new(1).unwrap();
+        t.add_node(0, 0).unwrap();
+        t.add_edge(0, 1, 0, 1).unwrap();
+        t.build_indexes(IndexTablesFlags::default()).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_simple_invalid_edge_table() {
+        let mut t = TableCollection::new(1).unwrap();
+        for _ in 0..3 {
+            t.add_node(2, 0).unwrap();
+        }
+        t.add_node(1, 0).unwrap();
+        t.add_node(0, 0).unwrap();
+
+        t.add_edge(0, 1, 4, 3).unwrap();
+        t.add_edge(0, 1, 4, 2).unwrap();
+        t.add_edge(0, 1, 3, 0).unwrap();
+        t.add_edge(0, 1, 3, 1).unwrap();
+
+        assert_eq!(t.nodes().len(), 5);
+
+        validate_edge_table(t.genome_length(), t.edges(), t.nodes()).unwrap();
+        t.build_indexes(IndexTablesFlags::default()).unwrap();
+    }
+
+    #[test]
+    fn test_simple_sort_order() {
+        let mut t = TableCollection::new(1).unwrap();
+        for _ in 0..3 {
+            t.add_node(2, 0).unwrap();
+        }
+        t.add_node(1, 0).unwrap();
+        t.add_node(0, 0).unwrap();
+
+        t.add_edge(0, 1, 4, 3).unwrap();
+        t.add_edge(0, 1, 4, 2).unwrap();
+        t.add_edge(0, 1, 3, 0).unwrap();
+        t.add_edge(0, 1, 3, 1).unwrap();
+
+        assert_eq!(t.nodes().len(), 5);
+
+        t.sort_tables(TableSortingFlags::empty());
+        validate_edge_table(t.genome_length(), t.edges(), t.nodes()).unwrap();
+        t.build_indexes(IndexTablesFlags::default()).unwrap();
+
+        if let Some(edge_input_order) = t.edge_input_order() {
+            assert_eq!(edge_input_order.len(), t.edges().len());
+            for (idx, i) in edge_input_order.iter().enumerate() {
+                if idx > 0 {
+                    let ti = t.node(t.edge(*i as IdType).parent).time;
+                    let tim1 = t
+                        .node(t.edge((edge_input_order[idx] - 1) as IdType).parent)
+                        .time;
+                    assert!(ti <= tim1);
+                    assert!(tim1 >= ti);
+                }
+            }
+        } else {
+            panic!("expected a edge_input_order");
+        }
+
+        if let Some(edge_output_order) = t.edge_output_order() {
+            assert_eq!(edge_output_order.len(), t.edges().len());
+            for (idx, i) in edge_output_order.iter().enumerate() {
+                if idx > 0 {
+                    let ti = t.node(t.edge(*i as IdType).parent).time;
+                    let tim1 = t
+                        .node(t.edge((edge_output_order[idx - 1]) as IdType).parent)
+                        .time;
+                    assert!(ti >= tim1, "{} {}", ti, tim1);
+                }
+            }
+        } else {
+            panic!("expected a edge_output_order");
+        }
+    }
+
+    #[test]
+    fn test_is_indexed() {
+        let mut t = TableCollection::new(1).unwrap();
+        for _ in 0..3 {
+            t.add_node(2, 0).unwrap();
+        }
+        t.add_node(1, 0).unwrap();
+        t.add_node(0, 0).unwrap();
+
+        t.add_edge(0, 1, 4, 3).unwrap();
+        t.add_edge(0, 1, 4, 2).unwrap();
+        t.add_edge(0, 1, 3, 0).unwrap();
+        t.add_edge(0, 1, 3, 1).unwrap();
+
+        t.sort_tables(TableSortingFlags::empty());
+        validate_edge_table(t.genome_length(), t.edges(), t.nodes()).unwrap();
+        t.build_indexes(IndexTablesFlags::default()).unwrap();
+
+        assert!(t.is_indexed());
+
+        t.add_edge(0, 1, 4, 0).unwrap();
+
+        assert!(!t.is_indexed());
+
+        t.sort_tables(TableSortingFlags::empty());
+        validate_edge_table(t.genome_length(), t.edges(), t.nodes()).unwrap();
+        t.build_indexes(IndexTablesFlags::default()).unwrap();
+        assert!(t.is_indexed());
+
+        t.add_node(0, 0).unwrap();
+        assert!(!t.is_indexed());
     }
 }
