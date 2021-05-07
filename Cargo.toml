@@ -13,6 +13,7 @@ keywords = ["simulation", "tree_sequences", "tskit", "population_genetics"]
 
 [dependencies]
 bitflags = "1.2.1"
+streaming-iterator = "0.1.5"
 thiserror = "1.0"
 tskit = "=0.2.2"
 
