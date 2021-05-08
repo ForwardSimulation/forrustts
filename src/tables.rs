@@ -67,6 +67,10 @@ pub enum TablesError {
     #[error("Duplicate edges")]
     /// Can be raised by [``validate_edge_table``]
     DuplicateEdges,
+    /// Can be raised by [`crate::TreeSequence::new`]
+    /// and [`crate::TreeSequence::new_with_samples`]
+    #[error("Tables not indexed")]
+    TablesNotIndexed,
 }
 
 /// Result type for operations on tables
@@ -983,6 +987,56 @@ impl TableCollection {
     /// Set the contents of the mutation table.
     pub fn set_mutation_table(&mut self, mutations: MutationTable) {
         self.mutations_ = mutations;
+    }
+
+    /// Count number of trees in O(E) time, where E
+    /// is length of edge table.
+    ///
+    /// # Errors
+    ///
+    /// [`TablesError::TablesNotIndexed`] if tables are not indexed
+    ///
+    /// # Panics
+    ///
+    /// If the edge table is invalid in any way, a `panic!` may occur.
+    /// To check table validity, call [`TableCollection::validate`].
+    pub fn count_trees(&self) -> TablesResult<i32> {
+        if !self.is_indexed() {
+            Err(TablesError::TablesNotIndexed)
+        } else {
+            let mut num_trees = 0;
+            let mut input_index: usize = 0;
+            let mut output_index: usize = 0;
+            let input = self.edge_input_order.as_slice();
+            let output = self.edge_output_order.as_slice();
+            let edges = self.edges_.as_slice();
+
+            let mut tree_left: Position = 0;
+            while input_index < input.len() && tree_left < self.genome_length() {
+                for idx in output[output_index..].iter() {
+                    if edges[*idx].right != tree_left {
+                        break;
+                    }
+                    output_index += 1;
+                }
+                for idx in input[input_index..].iter() {
+                    if edges[*idx].left != tree_left {
+                        break;
+                    }
+                    input_index += 1;
+                }
+                let mut tree_right = self.genome_length();
+                if input_index < input.len() {
+                    tree_right = std::cmp::min(tree_right, edges[input[input_index]].left);
+                }
+                if output_index < output.len() {
+                    tree_right = std::cmp::min(tree_right, edges[output[output_index]].right);
+                }
+                tree_left = tree_right;
+                num_trees += 1;
+            }
+            Ok(num_trees)
+        }
     }
 }
 

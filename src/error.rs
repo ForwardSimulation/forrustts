@@ -29,6 +29,13 @@ pub enum ForrusttsError {
         #[from]
         value: crate::TablesError,
     },
+    /// A redirection of a [``crate::TreesError``]
+    #[error("{value:?}")]
+    TreesError {
+        /// The redirected error
+        #[from]
+        value: crate::TreesError,
+    },
 }
 
 #[cfg(test)]
