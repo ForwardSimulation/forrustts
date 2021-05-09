@@ -8,4 +8,4 @@ pub type IdVec = Vec<IdType>;
 
 /// Equals -1 (minus one).
 /// Primary use is to indicate a null [Node](struct.Node.html) id.
-pub static NULL_ID: IdType = -1;
+pub const NULL_ID: IdType = -1;

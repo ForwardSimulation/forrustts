@@ -36,6 +36,8 @@
 // stuff that needs documenting:
 // #![warn(missing_docs)]
 
+mod macros;
+
 mod error;
 pub mod nested_forward_list;
 mod segment;
