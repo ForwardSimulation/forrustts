@@ -936,12 +936,14 @@ impl TableCollection {
     pub fn dump_nodes(&mut self) -> NodeTable {
         let mut rv = vec![];
         std::mem::swap(&mut self.nodes_, &mut rv);
+        self.is_indexed = false;
         rv
     }
 
     /// Set the contents of the node table.
     pub fn set_node_table(&mut self, nodes: NodeTable) {
         self.nodes_ = nodes;
+        self.is_indexed = false;
     }
 
     /// Dump contents of edge table.
@@ -951,12 +953,14 @@ impl TableCollection {
     pub fn dump_edges(&mut self) -> EdgeTable {
         let mut rv = vec![];
         std::mem::swap(&mut self.edges_, &mut rv);
+        self.is_indexed = false;
         rv
     }
 
     /// Set the contents of the edge table.
     pub fn set_edge_table(&mut self, edges: EdgeTable) {
         self.edges_ = edges;
+        self.is_indexed = false;
     }
 
     /// Dump contents of site table.
