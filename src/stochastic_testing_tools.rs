@@ -1,9 +1,8 @@
+use crate::ForrusttsError;
+use crate::IdType;
+use crate::Position;
+use crate::Time;
 use bitflags::bitflags;
-use clap::{value_t, value_t_or_exit, App, Arg};
-use forrustts::ForrusttsError;
-use forrustts::IdType;
-use forrustts::Position;
-use forrustts::Time;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
@@ -40,8 +39,8 @@ type VecBirth = Vec<Birth>;
 struct PopulationState {
     pub parents: VecParent,
     pub births: VecBirth,
-    pub edge_buffer: forrustts::EdgeBuffer,
-    pub tables: forrustts::TableCollection,
+    pub edge_buffer: crate::EdgeBuffer,
+    pub tables: crate::TableCollection,
 }
 
 impl PopulationState {
@@ -49,8 +48,8 @@ impl PopulationState {
         PopulationState {
             parents: vec![],
             births: vec![],
-            edge_buffer: forrustts::EdgeBuffer::new(),
-            tables: forrustts::TableCollection::new(genome_length).unwrap(),
+            edge_buffer: crate::EdgeBuffer::new(),
+            tables: crate::TableCollection::new(genome_length).unwrap(),
         }
     }
 }
@@ -76,7 +75,7 @@ fn deaths_and_parents(psurvival: f64, rng: &mut StdRng, pop: &mut PopulationStat
     }
 }
 
-fn mendel(pnodes: &mut (tskit::tsk_id_t, tskit::tsk_id_t), rng: &mut StdRng) {
+fn mendel(pnodes: &mut (IdType, IdType), rng: &mut StdRng) {
     let x: f64 = rng.gen();
     match x.partial_cmp(&0.5) {
         Some(std::cmp::Ordering::Less) => {
@@ -95,12 +94,12 @@ fn crossover_and_record_edges(
         IdType,
         IdType,
         (Position, Position),
-        &mut forrustts::TableCollection,
-        &mut forrustts::EdgeBuffer,
+        &mut crate::TableCollection,
+        &mut crate::EdgeBuffer,
     ),
     rng: &mut StdRng,
-    tables: &mut forrustts::TableCollection,
-    edge_buffer: &mut forrustts::EdgeBuffer,
+    tables: &mut crate::TableCollection,
+    edge_buffer: &mut crate::EdgeBuffer,
 ) {
     let mut pnodes = (parent.node0, parent.node1);
     mendel(&mut pnodes, rng);
@@ -153,8 +152,8 @@ fn generate_births(
         IdType,
         IdType,
         (Position, Position),
-        &mut forrustts::TableCollection,
-        &mut forrustts::EdgeBuffer,
+        &mut crate::TableCollection,
+        &mut crate::EdgeBuffer,
     ),
 ) {
     for b in &pop.births {
@@ -191,11 +190,11 @@ fn buffer_edges(
     parent: IdType,
     child: IdType,
     span: (Position, Position),
-    _: &mut forrustts::TableCollection,
-    buffer: &mut forrustts::EdgeBuffer,
+    _: &mut crate::TableCollection,
+    buffer: &mut crate::EdgeBuffer,
 ) {
     buffer
-        .extend(parent, forrustts::Segment::new(span.0, span.1, child))
+        .extend(parent, crate::Segment::new(span.0, span.1, child))
         .unwrap();
 }
 
@@ -203,13 +202,13 @@ fn record_edges(
     parent: IdType,
     child: IdType,
     span: (Position, Position),
-    tables: &mut forrustts::TableCollection,
-    _: &mut forrustts::EdgeBuffer,
+    tables: &mut crate::TableCollection,
+    _: &mut crate::EdgeBuffer,
 ) {
     tables.add_edge(span.0, span.1, parent, child).unwrap();
 }
 
-fn fill_samples(parents: &[Parent], samples: &mut forrustts::SamplesInfo) {
+fn fill_samples(parents: &[Parent], samples: &mut crate::SamplesInfo) {
     samples.samples.clear();
     for p in parents {
         samples.samples.push(p.node0);
@@ -219,17 +218,16 @@ fn fill_samples(parents: &[Parent], samples: &mut forrustts::SamplesInfo) {
 
 fn sort_and_simplify(
     flags: SimulationFlags,
-    simplification_flags: forrustts::SimplificationFlags,
-    samples: &forrustts::SamplesInfo,
-    state: &mut forrustts::SimplificationBuffers,
+    simplification_flags: crate::SimplificationFlags,
+    samples: &crate::SamplesInfo,
+    state: &mut crate::SimplificationBuffers,
     pop: &mut PopulationState,
-    output: &mut forrustts::SimplificationOutput,
+    output: &mut crate::SimplificationOutput,
 ) {
     if !flags.contains(SimulationFlags::BUFFER_EDGES) {
-        pop.tables
-            .sort_tables(forrustts::TableSortingFlags::empty());
+        pop.tables.sort_tables(crate::TableSortingFlags::empty());
         if flags.contains(SimulationFlags::USE_STATE) {
-            forrustts::simplify_tables(
+            crate::simplify_tables(
                 samples,
                 simplification_flags,
                 state,
@@ -238,7 +236,7 @@ fn sort_and_simplify(
             )
             .unwrap();
         } else {
-            forrustts::simplify_tables_without_state(
+            crate::simplify_tables_without_state(
                 samples,
                 simplification_flags,
                 &mut pop.tables,
@@ -247,7 +245,7 @@ fn sort_and_simplify(
             .unwrap();
         }
     } else {
-        forrustts::simplify_from_edge_buffer(
+        crate::simplify_from_edge_buffer(
             samples,
             simplification_flags,
             state,
@@ -261,11 +259,11 @@ fn sort_and_simplify(
 
 fn simplify_and_remap_nodes(
     flags: SimulationFlags,
-    simplification_flags: forrustts::SimplificationFlags,
-    samples: &mut forrustts::SamplesInfo,
-    state: &mut forrustts::SimplificationBuffers,
+    simplification_flags: crate::SimplificationFlags,
+    samples: &mut crate::SamplesInfo,
+    state: &mut crate::SimplificationBuffers,
     pop: &mut PopulationState,
-    output: &mut forrustts::SimplificationOutput,
+    output: &mut crate::SimplificationOutput,
 ) {
     fill_samples(&pop.parents, samples);
     sort_and_simplify(flags, simplification_flags, samples, state, pop, output);
@@ -273,7 +271,7 @@ fn simplify_and_remap_nodes(
     for p in &mut pop.parents {
         p.node0 = output.idmap[p.node0 as usize];
         p.node1 = output.idmap[p.node1 as usize];
-        assert!(pop.tables.node(p.node0).flags & forrustts::NodeFlags::IS_SAMPLE.bits() > 0);
+        assert!(pop.tables.node(p.node0).flags & crate::NodeFlags::IS_SAMPLE.bits() > 0);
     }
 
     if flags.contains(SimulationFlags::BUFFER_EDGES) {
@@ -290,38 +288,6 @@ fn validate_simplification_interval(x: Time) -> Time {
         panic!("simplification_interval must be None or >= 1");
     }
     x
-}
-
-pub struct PopulationParams {
-    pub size: u32,
-    pub genome_length: Position,
-    pub breakpoint: BreakpointFunction,
-    pub psurvival: f64,
-    pub mutrate: f64,
-}
-
-impl PopulationParams {
-    pub fn new(
-        size: u32,
-        genome_length: Position,
-        xovers: f64,
-        psurvival: f64,
-        mutrate: f64,
-    ) -> Self {
-        PopulationParams {
-            size,
-            genome_length,
-            breakpoint: match xovers.partial_cmp(&0.0) {
-                Some(std::cmp::Ordering::Greater) => {
-                    Some(Exp::new(xovers / genome_length as f64).unwrap())
-                }
-                Some(_) => None,
-                None => None,
-            },
-            psurvival,
-            mutrate,
-        }
-    }
 }
 
 bitflags! {
@@ -341,45 +307,53 @@ bitflags! {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
 pub struct SimulationParams {
+    pub popsize: u32,
+    pub mutrate: f64,
+    pub psurvival: f64,
+    pub xovers: f64,
+    pub genome_length: Position,
+    pub buffer_edges: bool,
     pub simplification_interval: Option<Time>,
     pub seed: u64,
     pub nsteps: Time,
     pub flags: SimulationFlags,
-    pub simplification_flags: forrustts::SimplificationFlags,
+    pub simplification_flags: crate::SimplificationFlags,
 }
 
-impl SimulationParams {
-    pub fn new(
-        simplification_interval: Option<Time>,
-        seed: u64,
-        nsteps: Time,
-        flags: SimulationFlags,
-    ) -> Self {
-        SimulationParams {
-            simplification_interval,
-            seed,
-            nsteps,
-            flags,
-            simplification_flags: forrustts::SimplificationFlags::empty(),
+impl Default for SimulationParams {
+    fn default() -> Self {
+        Self {
+            popsize: 1000,
+            mutrate: 0.0,
+            psurvival: 0.0,
+            xovers: 0.0,
+            genome_length: 1000000,
+            buffer_edges: false,
+            simplification_interval: None,
+            seed: 0,
+            nsteps: 0,
+            flags: SimulationFlags::empty(),
+            simplification_flags: crate::SimplificationFlags::empty(),
         }
     }
 }
 
 fn mutate_tables(
     mutrate: f64,
-    tables: &mut forrustts::TableCollection,
+    tables: &mut crate::TableCollection,
     rng: &mut StdRng,
-) -> Vec<forrustts::Time> {
+) -> Vec<crate::Time> {
     match mutrate.partial_cmp(&0.0) {
         Some(std::cmp::Ordering::Greater) => (),
         Some(_) => return vec![],
         None => panic!("bad mutation rate"),
     };
-    let mut posmap = std::collections::HashMap::<forrustts::Position, usize>::new();
-    let mut derived_map = std::collections::HashMap::<forrustts::Position, u8>::new();
+    let mut posmap = std::collections::HashMap::<crate::Position, usize>::new();
+    let mut derived_map = std::collections::HashMap::<crate::Position, u8>::new();
 
-    let mut origin_times_init: Vec<(forrustts::Time, usize)> = vec![];
+    let mut origin_times_init: Vec<(crate::Time, usize)> = vec![];
     let num_edges = tables.edges().len();
     for i in 0..num_edges {
         let e = *tables.edge(i as IdType);
@@ -446,7 +420,7 @@ fn mutate_tables(
         let pb = tables.site(b.1 as IdType).position;
         pa.cmp(&pb)
     });
-    tables.sort_tables(forrustts::TableSortingFlags::SKIP_EDGE_TABLE);
+    tables.sort_tables(crate::TableSortingFlags::SKIP_EDGE_TABLE);
     let mut rv = vec![];
     for (i, _) in origin_times_init {
         rv.push(i);
@@ -455,9 +429,9 @@ fn mutate_tables(
 }
 
 fn add_tskit_mutation_site_tables(
-    tables: &forrustts::TableCollection,
-    origin_times: &[forrustts::Time],
-    g: forrustts::Time,
+    tables: &crate::TableCollection,
+    origin_times: &[crate::Time],
+    g: crate::Time,
     tskit_tables: &mut tskit::TableCollection,
 ) {
     for s in tables.sites() {
@@ -473,7 +447,7 @@ fn add_tskit_mutation_site_tables(
     }
 
     for (i, m) in tables.enumerate_mutations() {
-        let reverser = forrustts::tskit_tools::simple_time_reverser(g);
+        let reverser = crate::tskit_tools::simple_time_reverser(g);
         assert!(match reverser(origin_times[i])
             .partial_cmp(&tskit_tables.nodes().time(m.node).unwrap())
         {
@@ -494,12 +468,19 @@ fn add_tskit_mutation_site_tables(
 }
 
 pub fn neutral_wf(
-    pop_params: PopulationParams,
     params: SimulationParams,
-) -> Result<(forrustts::TableCollection, Vec<i32>, Vec<forrustts::Time>), ForrusttsError> {
+) -> Result<(crate::TableCollection, Vec<i32>, Vec<crate::Time>), ForrusttsError> {
     // FIXME: gotta validate input params!
 
     let mut actual_simplification_interval: Time = -1;
+
+    let breakpoint: BreakpointFunction = match params.xovers.partial_cmp(&0.0) {
+        Some(std::cmp::Ordering::Greater) => {
+            Some(Exp::new(params.xovers / params.genome_length as f64).unwrap())
+        }
+        Some(_) => None,
+        None => panic!("invalid xovers: {}", params.xovers),
+    };
 
     match params.simplification_interval {
         None => (),
@@ -508,12 +489,12 @@ pub fn neutral_wf(
 
     let mut rng = StdRng::seed_from_u64(params.seed);
 
-    let mut pop = PopulationState::new(pop_params.genome_length);
-    let mut samples: forrustts::SamplesInfo = Default::default();
+    let mut pop = PopulationState::new(params.genome_length);
+    let mut samples: crate::SamplesInfo = Default::default();
 
     // Record nodes for the first generation
     // Nodes will have birth time 0 in deme 0.
-    for index in 0..pop_params.size {
+    for index in 0..params.popsize {
         let node0 = pop.tables.add_node(0, 0).unwrap();
         let node1 = pop.tables.add_node(0, 0).unwrap();
         pop.parents.push(Parent {
@@ -528,9 +509,9 @@ pub fn neutral_wf(
     }
 
     let mut simplified = false;
-    let mut state = forrustts::SimplificationBuffers::new();
+    let mut state = crate::SimplificationBuffers::new();
 
-    let mut output = forrustts::SimplificationOutput::new();
+    let mut output = crate::SimplificationOutput::new();
 
     let new_edge_handler = if params.flags.contains(SimulationFlags::BUFFER_EDGES) {
         buffer_edges
@@ -539,9 +520,9 @@ pub fn neutral_wf(
     };
 
     for birth_time in 1..(params.nsteps + 1) {
-        deaths_and_parents(pop_params.psurvival, &mut rng, &mut pop);
+        deaths_and_parents(params.psurvival, &mut rng, &mut pop);
         generate_births(
-            pop_params.breakpoint,
+            breakpoint,
             birth_time,
             &mut rng,
             &mut pop,
@@ -581,7 +562,7 @@ pub fn neutral_wf(
         is_alive[p.node1 as usize] = 1;
     }
 
-    let origin_times = mutate_tables(pop_params.mutrate, &mut pop.tables, &mut rng);
+    let origin_times = mutate_tables(params.mutrate, &mut pop.tables, &mut rng);
 
     for s in pop.tables.sites() {
         match &s.ancestral_state {
@@ -605,141 +586,89 @@ pub fn neutral_wf(
     Ok((pop.tables, is_alive, origin_times))
 }
 
-fn main() {
-    let matches = App::new("forward_simulation")
-        .arg(
-            Arg::with_name("popsize")
-                .short("N")
-                .long("popsize")
-                .help("Diploid population size")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("nsteps")
-                .short("n")
-                .long("nsteps")
-                .help("number of birth steps to simulate")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("xovers")
-                .short("x")
-                .long("xovers")
-                .help("Mean number of crossovers per meiosis.")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("mutrate")
-                .short("m")
-                .long("mutrate")
-                .help("Mean number of mutations per new gamete.")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("simplification_interval")
-                .short("s")
-                .long("simplify")
-                .help("number of generations between simplifications")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("outfile")
-                .short("o")
-                .long("outfile")
-                .help("Name of output file. The format is a tskit \"trees\" file")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("seed")
-                .short("S")
-                .long("seed")
-                .help("Random number seed")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("buffer_edges")
-                .short("B")
-                .long("buffer_edges")
-                .help("Use edge buffering instead of sorting")
-                .takes_value(false),
-        )
-        .arg(
-            Arg::with_name("psurvival")
-                .short("P")
-                .long("psurvival")
-                .help("Survival probability")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("validate_tables")
-                .short("v")
-                .long("validate_tables")
-                .help("Validate all tables prior to simplification")
-                .takes_value(false),
-        )
-        .get_matches();
+pub struct SimulatorIterator {
+    rng: StdRng,
+    params: SimulationParams,
+    make_seed: Uniform<u64>,
+    nreps: i32,
+    rep: i32,
+}
 
-    // TODO: default params
+pub struct SimResults {
+    pub tables: crate::TableCollection,
+    pub tsk_tables: tskit::TableCollection,
+    pub is_sample: Vec<crate::IdType>,
+}
 
-    let popsize = value_t_or_exit!(matches.value_of("popsize"), u32);
-    let g = value_t_or_exit!(matches.value_of("nsteps"), i64);
-    let xovers = value_t_or_exit!(matches.value_of("xovers"), f64);
-    let mutrate = value_t_or_exit!(matches.value_of("mutrate"), f64);
-    let simplify_input = value_t!(matches.value_of("simplification_interval"), i64).unwrap_or(-1);
-    let psurvival = value_t!(matches.value_of("psurvival"), f64).unwrap_or(0.0);
-    let seed = value_t_or_exit!(matches.value_of("seed"), u64);
-    let outfile = value_t_or_exit!(matches.value_of("outfile"), String);
-    let validate_tables = matches.is_present("validate_tables");
-
-    // TODO: parameter validation..
-
-    let mut simplify: Option<i64> = None;
-
-    if simplify_input > 0 {
-        simplify = Some(simplify_input);
-    }
-
-    let flags = if matches.is_present("buffer_edges") {
-        SimulationFlags::BUFFER_EDGES
-    } else {
-        SimulationFlags::USE_STATE
-    };
-
-    let mut simplification_flags = forrustts::SimplificationFlags::empty();
-
-    if validate_tables {
-        simplification_flags |= forrustts::SimplificationFlags::VALIDATE_ALL;
-    }
-
-    let (mut tables, is_sample, origin_times) = neutral_wf(
-        PopulationParams::new(popsize, 10000000, xovers, psurvival, mutrate),
-        SimulationParams {
-            simplification_interval: simplify,
-            seed,
-            nsteps: g,
-            flags,
-            simplification_flags,
-        },
-    )
-    .unwrap();
-
-    let mut tskit_tables = forrustts::tskit_tools::convert_to_tskit_and_drain_minimal(
-        &is_sample,
-        forrustts::tskit_tools::simple_time_reverser(g),
-        simplify.is_some(),
-        &mut tables,
-    );
-
-    match simplify.is_some() {
-        true => (),
-        false => {
-            let _ = tskit_tables.build_index().unwrap();
+impl SimulatorIterator {
+    fn new(params: SimulationParams, nreps: i32) -> Self {
+        Self {
+            rng: StdRng::seed_from_u64(params.seed),
+            params,
+            make_seed: Uniform::new(0_u64, u32::MAX as u64),
+            nreps,
+            rep: 0,
         }
-    };
+    }
+}
 
-    add_tskit_mutation_site_tables(&tables, &origin_times, g, &mut tskit_tables);
+impl Iterator for SimulatorIterator {
+    type Item = SimResults;
 
-    tskit_tables
-        .dump(&outfile, tskit::TableOutputOptions::default())
-        .unwrap();
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.rep < self.nreps {
+            let seed = self.rng.sample(self.make_seed);
+            let mut params = self.params;
+            params.seed = seed;
+            let (mut tables, is_sample, origin_times) = neutral_wf(params).unwrap();
+
+            tables.sort_tables(crate::TableSortingFlags::empty());
+
+            let mut tsk_tables = crate::tskit_tools::convert_to_tskit_minimal(
+                &tables,
+                &is_sample,
+                crate::tskit_tools::simple_time_reverser(params.nsteps),
+                // Do not index tables here!
+                // Things are unsorted!
+                false,
+            );
+            add_tskit_mutation_site_tables(&tables, &&origin_times, params.nsteps, &mut tsk_tables);
+            tsk_tables
+                .full_sort(tskit::TableSortOptions::empty())
+                .unwrap();
+            self.rep += 1;
+            Some(SimResults {
+                tables,
+                tsk_tables,
+                is_sample,
+            })
+        } else {
+            None
+        }
+    }
+}
+
+pub struct Simulator {
+    params: SimulationParams,
+    nreps: i32,
+}
+
+impl Simulator {
+    pub fn new(params: SimulationParams, nreps: i32) -> Self {
+        Self { params, nreps }
+    }
+
+    pub fn iter(&self) -> SimulatorIterator {
+        SimulatorIterator::new(self.params, self.nreps)
+    }
+}
+
+pub fn make_samples(l: &[crate::IdType]) -> crate::SamplesInfo {
+    let mut rv = crate::SamplesInfo::default();
+    for (i, j) in l.iter().enumerate() {
+        if *j == 1 {
+            rv.samples.push(i as crate::IdType);
+        }
+    }
+    rv
 }

@@ -357,7 +357,7 @@ impl<'treeseq> Tree<'treeseq> {
                     self.topology[rsib as usize].left_sib = root;
                 }
                 self.topology[root as usize].left_sib = lsib;
-                self.topology[root as usize].right_sib = lsib;
+                self.topology[root as usize].right_sib = rsib;
                 self.left_root = root;
             } else {
                 // If we are here, then we encountered a node
@@ -515,6 +515,10 @@ impl<'treeseq> Tree<'treeseq> {
 
     pub fn span(&self) -> Position {
         self.right - self.left
+    }
+
+    pub fn range(&self) -> (Position, Position) {
+        (self.left, self.right)
     }
 
     /// Calculate the total length of the tree via a preorder traversal.
@@ -786,7 +790,7 @@ pub enum TreesError {
 pub struct TreeSequence<'a> {
     tables: &'a crate::TableCollection,
     samples: IdVec,
-    num_trees: i32,
+    num_trees: u32,
 }
 
 /// Result type for operations on trees and tree sequences.
@@ -870,7 +874,7 @@ impl<'a> TreeSequence<'a> {
         self.tables
     }
 
-    pub fn tree_iter(&self, flags: TreeFlags) -> Tree<'_> {
+    pub fn tree_iterator(&self, flags: TreeFlags) -> Tree<'_> {
         Tree::new(self, flags)
     }
 
@@ -878,7 +882,7 @@ impl<'a> TreeSequence<'a> {
         &self.samples
     }
 
-    pub fn num_trees(&self) -> i32 {
+    pub fn num_trees(&self) -> u32 {
         self.num_trees
     }
 
@@ -942,7 +946,7 @@ mod test_trees {
             .unwrap();
 
         let ts = TreeSequence::new(&tables, TreeSequenceFlags::empty()).unwrap();
-        let _ = ts.tree_iter(TreeFlags::empty());
+        let _ = ts.tree_iterator(TreeFlags::empty());
     }
 
     pub fn make_small_table_collection_two_trees() -> crate::TableCollection {
@@ -1002,7 +1006,7 @@ mod test_trees {
         let treeseq = TreeSequence::new(&tables, TreeSequenceFlags::empty()).unwrap();
         assert_eq!(treeseq.samples.len(), 4);
 
-        let mut tree_iter = treeseq.tree_iter(TreeFlags::TRACK_SAMPLES);
+        let mut tree_iter = treeseq.tree_iterator(TreeFlags::TRACK_SAMPLES);
         let mut ntrees = 0;
         while let Some(tree) = tree_iter.next() {
             if ntrees == 0 {
@@ -1146,7 +1150,7 @@ mod test_treeseq_encapsulation {
         let mystruct = MyStruct { tables };
         let treeseq = mystruct.treeseq();
 
-        let mut tree_iter = treeseq.tree_iter(TreeFlags::TRACK_SAMPLES);
+        let mut tree_iter = treeseq.tree_iterator(TreeFlags::TRACK_SAMPLES);
         let mut ntrees = 0;
         while tree_iter.next().is_some() {
             ntrees += 1;
