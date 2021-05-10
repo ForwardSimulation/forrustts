@@ -21,6 +21,9 @@ pub enum NestedForwardListError {
     InvalidIndex,
 }
 
+/// The type used to retrieve data from [`NestedForwardList`].
+pub type IndexType = i32;
+
 /// Result type for [``NestedForwardList``] operations.
 pub type Result<T> = std::result::Result<T, NestedForwardListError>;
 
@@ -116,14 +119,14 @@ pub type Result<T> = std::result::Result<T, NestedForwardListError>;
 /// * [``NestedForwardList::clear``]
 /// * [``NestedForwardList::fetch_mut``]
 pub struct NestedForwardList<Value> {
-    head_: Vec<i32>,
-    tail_: Vec<i32>,
-    next_: Vec<i32>,
+    head_: Vec<IndexType>,
+    tail_: Vec<IndexType>,
+    next_: Vec<IndexType>,
     data_: Vec<Value>,
 }
 
 impl<Value> NestedForwardList<Value> {
-    fn insert_new_record(&mut self, k: i32, v: Value) {
+    fn insert_new_record(&mut self, k: IndexType, v: Value) {
         self.data_.push(v);
         let x = (self.data_.len() - 1) as i32;
         self.head_[k as usize] = x;
@@ -131,7 +134,7 @@ impl<Value> NestedForwardList<Value> {
         self.next_.push(NestedForwardList::<Value>::null());
     }
 
-    fn check_key(&self, k: i32) -> Result<()> {
+    fn check_key(&self, k: IndexType) -> Result<()> {
         if k < 0 {
             Err(NestedForwardListError::InvalidIndex)
         } else {
@@ -152,9 +155,9 @@ impl<Value> NestedForwardList<Value> {
     /// Create a new instance
     pub const fn new() -> NestedForwardList<Value> {
         NestedForwardList {
-            head_: Vec::<i32>::new(),
-            tail_: Vec::<i32>::new(),
-            next_: Vec::<i32>::new(),
+            head_: Vec::<IndexType>::new(),
+            tail_: Vec::<IndexType>::new(),
+            next_: Vec::<IndexType>::new(),
             data_: Vec::<Value>::new(),
         }
     }
@@ -166,7 +169,7 @@ impl<Value> NestedForwardList<Value> {
     /// let mut l = ListType::new();
     /// l.extend(0, 1).unwrap();
     /// ```
-    pub fn extend(&mut self, k: i32, v: Value) -> Result<()> {
+    pub fn extend(&mut self, k: IndexType, v: Value) -> Result<()> {
         self.check_key(k)?;
 
         let idx = k as usize;
@@ -178,7 +181,7 @@ impl<Value> NestedForwardList<Value> {
         }
 
         if self.head_[idx] == NestedForwardList::<Value>::null() {
-            self.insert_new_record(idx as i32, v);
+            self.insert_new_record(idx as IndexType, v);
             return Ok(());
         }
         let t = self.tail_[idx];
@@ -186,7 +189,7 @@ impl<Value> NestedForwardList<Value> {
             return Err(NestedForwardListError::NullTail {});
         }
         self.data_.push(v);
-        self.tail_[idx] = (self.data_.len() - 1) as i32;
+        self.tail_[idx] = (self.data_.len() - 1) as IndexType;
         // NOTE: this differs from fwdpp, to avoid cast,
         // and thus could be failure point?
         self.next_[t as usize] = self.tail_[idx];
@@ -197,7 +200,7 @@ impl<Value> NestedForwardList<Value> {
     /// Return the null value,
     /// which is -1.
     #[inline]
-    pub fn null() -> i32 {
+    pub fn null() -> IndexType {
         -1
     }
 
@@ -222,7 +225,7 @@ impl<Value> NestedForwardList<Value> {
     /// assert_eq!(*l.fetch(i).unwrap(), -33);
     /// ```    
     #[inline]
-    pub fn fetch_mut(&mut self, at: i32) -> Result<&mut Value> {
+    pub fn fetch_mut(&mut self, at: IndexType) -> Result<&mut Value> {
         self.check_key(at)?;
         self.check_key_range(at as usize, self.data_.len())?;
         Ok(&mut self.data_[at as usize])
@@ -248,7 +251,7 @@ impl<Value> NestedForwardList<Value> {
     /// assert_eq!(*l.fetch(i).unwrap(), 11);
     /// ```    
     #[inline]
-    pub fn fetch(&self, at: i32) -> Result<&Value> {
+    pub fn fetch(&self, at: IndexType) -> Result<&Value> {
         self.check_key(at)?;
         self.check_key_range(at as usize, self.data_.len())?;
         Ok(&self.data_[at as usize])
@@ -268,7 +271,7 @@ impl<Value> NestedForwardList<Value> {
     /// assert_eq!(l.head(1).unwrap(), 1);
     /// ```    
     #[inline]
-    pub fn head(&self, at: i32) -> Result<i32> {
+    pub fn head(&self, at: IndexType) -> Result<IndexType> {
         self.check_key(at)?;
         self.check_key_range(at as usize, self.head_.len())?;
         Ok(self.head_[at as usize])
@@ -288,7 +291,7 @@ impl<Value> NestedForwardList<Value> {
     /// assert_eq!(l.tail(1).unwrap(), 3);
     /// ```    
     #[inline]
-    pub fn tail(&self, at: i32) -> Result<i32> {
+    pub fn tail(&self, at: IndexType) -> Result<IndexType> {
         self.check_key(at)?;
         self.check_key_range(at as usize, self.tail_.len())?;
         Ok(self.tail_[at as usize])
@@ -309,7 +312,7 @@ impl<Value> NestedForwardList<Value> {
     /// assert_eq!(i, 3);
     /// ```
     #[inline]
-    pub fn next(&self, at: i32) -> Result<i32> {
+    pub fn next(&self, at: IndexType) -> Result<IndexType> {
         self.check_key(at)?;
         self.check_key_range(at as usize, self.next_.len())?;
         Ok(self.next_[at as usize])
@@ -348,7 +351,7 @@ impl<Value> NestedForwardList<Value> {
     /// .unwrap();
     /// assert_eq!(output, vec![0, 2, 4]);
     /// ```
-    pub fn for_each(&self, at: i32, mut f: impl FnMut(&Value) -> bool) -> Result<()> {
+    pub fn for_each(&self, at: IndexType, mut f: impl FnMut(&Value) -> bool) -> Result<()> {
         let mut itr = self.head(at)?;
         while itr != NestedForwardList::<Value>::null() {
             let val = self.fetch(itr)?;
@@ -373,7 +376,7 @@ impl<Value> NestedForwardList<Value> {
     /// A future release may implement a stack of nullified locations,
     /// allowing their re-use.
     ///
-    pub fn nullify_list(&mut self, at: i32) -> Result<()> {
+    pub fn nullify_list(&mut self, at: IndexType) -> Result<()> {
         self.check_key(at)?;
         self.check_key_range(at as usize, self.head_.len())?;
         self.check_key_range(at as usize, self.tail_.len())?;
@@ -440,7 +443,7 @@ impl<Value> NestedForwardList<Value> {
     /// }
     /// assert_eq!(output, vec![1,3,5,-11]);
     /// ```
-    pub fn head_itr(&self) -> std::slice::Iter<'_, i32> {
+    pub fn head_itr(&self) -> std::slice::Iter<'_, IndexType> {
         self.head_.iter()
     }
 
