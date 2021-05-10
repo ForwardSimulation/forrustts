@@ -6,7 +6,7 @@ on:
 name: CI
 
 jobs:
-  build-linux:
+  build-and-test:
     runs-on: ${{ matrix.os }}
     #container:
     #  image: ubuntu:20.10
@@ -35,6 +35,7 @@ jobs:
       - name: run tests
         run: | 
             cargo test
+            cargo test -- --ignored
             cargo test --examples
 
   fmt:
