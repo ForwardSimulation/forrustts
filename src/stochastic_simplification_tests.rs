@@ -65,6 +65,7 @@ fn compare_edge_table_indexes(
 }
 
 #[test]
+#[ignore]
 fn compare_state_to_no_state() {
     let params = SimulationParams {
         popsize: 1000,
@@ -101,6 +102,7 @@ fn compare_state_to_no_state() {
 }
 
 #[test]
+#[ignore]
 fn compare_buffer_vs_sort_overlapping_gens() {
     let params = SimulationParams {
         popsize: 1000,
@@ -152,6 +154,7 @@ fn compare_buffer_vs_sort_overlapping_gens() {
 }
 
 #[test]
+#[ignore]
 fn simplify_to_samples() {
     let params = SimulationParams {
         popsize: 250,
@@ -307,6 +310,7 @@ fn simplify_to_samples() {
 }
 
 #[test]
+#[ignore]
 fn simplify_to_arbitrary_nodes() {
     let params = SimulationParams {
         popsize: 250,
