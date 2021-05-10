@@ -832,7 +832,15 @@ impl TableCollection {
             if ea.right == eb.right {
                 let ta = unsafe { *nodes.get_unchecked(ea.parent as usize) }.time;
                 let tb = unsafe { *nodes.get_unchecked(eb.parent as usize) }.time;
-                ta.cmp(&tb)
+                match ta.cmp(&tb) {
+                    std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
+                    std::cmp::Ordering::Less => std::cmp::Ordering::Less,
+                    std::cmp::Ordering::Equal => match ea.parent.cmp(&eb.parent).reverse() {
+                        std::cmp::Ordering::Equal => ea.child.cmp(&eb.child).reverse(),
+                        std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
+                        std::cmp::Ordering::Less => std::cmp::Ordering::Less,
+                    },
+                }
             } else {
                 ea.right.cmp(&eb.right)
             }
@@ -847,7 +855,15 @@ impl TableCollection {
             if ea.left == eb.left {
                 let ta = unsafe { *nodes.get_unchecked(ea.parent as usize) }.time;
                 let tb = unsafe { *nodes.get_unchecked(eb.parent as usize) }.time;
-                ta.cmp(&tb).reverse()
+                match ta.cmp(&tb).reverse() {
+                    std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
+                    std::cmp::Ordering::Less => std::cmp::Ordering::Less,
+                    std::cmp::Ordering::Equal => match ea.parent.cmp(&eb.parent) {
+                        std::cmp::Ordering::Equal => ea.child.cmp(&eb.child),
+                        std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
+                        std::cmp::Ordering::Less => std::cmp::Ordering::Less,
+                    },
+                }
             } else {
                 ea.left.cmp(&eb.left)
             }
@@ -1004,7 +1020,7 @@ impl TableCollection {
     ///
     /// If the edge table is invalid in any way, a `panic!` may occur.
     /// To check table validity, call [`TableCollection::validate`].
-    pub fn count_trees(&self) -> TablesResult<i32> {
+    pub fn count_trees(&self) -> TablesResult<u32> {
         if !self.is_indexed() {
             Err(TablesError::TablesNotIndexed)
         } else {
@@ -1016,7 +1032,7 @@ impl TableCollection {
             let edges = self.edges_.as_slice();
 
             let mut tree_left: Position = 0;
-            while input_index < input.len() && tree_left < self.genome_length() {
+            while input_index < input.len() || tree_left < self.genome_length() {
                 for idx in output[output_index..].iter() {
                     if edges[*idx].right != tree_left {
                         break;
