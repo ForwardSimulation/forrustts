@@ -757,9 +757,59 @@ impl TableCollection {
         &self.nodes_[i as usize]
     }
 
+    /// Get a slice of nodes
+    ///
+    /// Returns `None` if the index is out of range.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let mut tables = forrustts::TableCollection::new(100).unwrap();
+    /// tables.add_node(0, 0).unwrap();
+    /// tables.add_node(1, 1).unwrap();
+    ///
+    /// let n = tables.get_nodes(1).unwrap();
+    /// assert_eq!(n.time, 1);
+    /// let n = tables.get_nodes(0..2).unwrap();
+    /// assert_eq!(n.len(), 2);
+    /// assert_eq!(n[0].deme, 0);
+    /// assert_eq!(n[1].deme, 1);
+    /// ```
+    pub fn get_nodes<I>(&self, index: I) -> Option<&<I as std::slice::SliceIndex<[Node]>>::Output>
+    where
+        I: std::slice::SliceIndex<[Node]>,
+    {
+        self.nodes_.get(index)
+    }
+
     /// Return the i-th [``Edge``].
     pub fn edge(&self, i: IdType) -> &Edge {
         &self.edges_[i as usize]
+    }
+
+    /// Get a slice of edges
+    ///
+    /// Returns `None` if the index is out of range.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let mut tables = forrustts::TableCollection::new(100).unwrap();
+    /// tables.add_edge(0, 100, 0, 1).unwrap();
+    /// tables.add_edge(0, 100, 0, 2).unwrap();
+    ///
+    /// let e = tables.get_edges(1).unwrap();
+    /// assert_eq!(e.child, 2);
+    /// let e = tables.get_edges(0..2).unwrap();
+    /// assert_eq!(e.len(), 2);
+    /// assert_eq!(e[0].child, 1);
+    /// assert_eq!(e[1].child, 2);
+    /// ```
+    pub fn get_edges<I>(&self, index: I) -> Option<&<I as std::slice::SliceIndex<[Edge]>>::Output>
+    where
+        I: std::slice::SliceIndex<[Edge]>,
+    {
+        self.edges_.get(index)
     }
 
     /// Return the i-th [``Site``].
@@ -767,9 +817,63 @@ impl TableCollection {
         &self.sites_[i as usize]
     }
 
+    /// Get a slice of sites
+    ///
+    /// Returns `None` if the index is out of range.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let mut tables = forrustts::TableCollection::new(100).unwrap();
+    /// tables.add_site(9, None);
+    /// tables.add_site(4, None);
+    ///
+    /// let s = tables.get_sites(1).unwrap();
+    /// assert_eq!(s.position, 4);
+    /// let s = tables.get_sites(0..2).unwrap();
+    /// assert_eq!(s.len(), 2);
+    /// assert_eq!(s[0].position, 9);
+    /// assert_eq!(s[1].position, 4);
+    /// ```
+    pub fn get_sites<I>(&self, index: I) -> Option<&<I as std::slice::SliceIndex<[Site]>>::Output>
+    where
+        I: std::slice::SliceIndex<[Site]>,
+    {
+        self.sites_.get(index)
+    }
+
     /// Return the i-th [``MutationRecord``].
     pub fn mutation(&self, i: IdType) -> &MutationRecord {
         &self.mutations_[i as usize]
+    }
+
+    /// Get a slice of mutations
+    ///
+    /// Returns `None` if the index is out of range.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let mut tables = forrustts::TableCollection::new(100).unwrap();
+    /// tables.add_mutation(0, 113, 10, None, true);
+    /// tables.add_mutation(58, 114, 55 , None, true);
+    ///
+    /// let s = tables.get_mutations(1).unwrap();
+    /// assert_eq!(s.node, 58);
+    /// assert_eq!(s.site, 55);
+    /// let s = tables.get_mutations(0..2).unwrap();
+    /// assert_eq!(s.len(), 2);
+    /// assert_eq!(s[0].site, 10);
+    /// assert_eq!(s[1].site, 55);
+    /// ```
+    pub fn get_mutations<I>(
+        &self,
+        index: I,
+    ) -> Option<&<I as std::slice::SliceIndex<[MutationRecord]>>::Output>
+    where
+        I: std::slice::SliceIndex<[MutationRecord]>,
+    {
+        self.mutations_.get(index)
     }
 
     /// Return immutable reference to [site table](type.SiteTable.html)
