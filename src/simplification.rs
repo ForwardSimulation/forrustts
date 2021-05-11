@@ -153,6 +153,7 @@ fn simplify_mutations(
     ancestry: &AncestryList,
     tables: &mut TableCollection,
     new_site_table: &mut SiteTable,
+    extinct_mutations: &mut Vec<usize>,
 ) {
     for m in tables.mutations_.iter_mut() {
         m.node = NULL_ID;
@@ -187,6 +188,14 @@ fn simplify_mutations(
                     map_index += 1;
                 }
             }
+        }
+    }
+
+    // NOTE: the following code, through .retain(...)
+    // can be replaced by drain_filter once that is in stable.
+    for (i, m) in tables.mutations_.iter().enumerate() {
+        if m.node == NULL_ID {
+            extinct_mutations.push(i);
         }
     }
     tables.mutations_.retain(|m| m.node != NULL_ID);
@@ -473,7 +482,11 @@ fn setup_simplification(
     output: &mut SimplificationOutput,
 ) -> Result<(), ForrusttsError> {
     validate_tables(tables, &flags)?;
+
+    // TODO: the SimplificationOutput type could use
+    // a "init me" function.
     setup_idmap(&tables.nodes_, &mut output.idmap);
+    output.extinct_mutations.clear();
 
     state.clear();
     state.ancestry.reset(tables.num_nodes());
@@ -690,12 +703,17 @@ pub struct SimplificationOutput {
     /// Values are set to [``NULL_ID``](crate::NULL_ID)
     /// for input nodes that "simplify out".
     pub idmap: Vec<crate::IdType>,
+    /// Indexes of mutations that simplified out
+    pub extinct_mutations: Vec<usize>,
 }
 
 impl SimplificationOutput {
     /// Create a new instance.
     pub fn new() -> Self {
-        SimplificationOutput { idmap: vec![] }
+        SimplificationOutput {
+            idmap: vec![],
+            extinct_mutations: vec![],
+        }
     }
 }
 
@@ -838,6 +856,7 @@ pub fn simplify_tables(
         &state.ancestry,
         tables,
         &mut state.new_site_table,
+        &mut output.extinct_mutations,
     );
 
     tables.edges_.truncate(new_edges_inserted);
@@ -1048,6 +1067,7 @@ pub fn simplify_from_edge_buffer(
         &state.ancestry,
         tables,
         &mut state.new_site_table,
+        &mut output.extinct_mutations,
     );
 
     std::mem::swap(&mut tables.edges_, &mut state.new_edges);
