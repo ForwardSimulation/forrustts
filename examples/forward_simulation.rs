@@ -376,10 +376,10 @@ fn mutate_tables(
         Some(_) => return vec![],
         None => panic!("bad mutation rate"),
     };
-    let mut posmap = std::collections::HashMap::<forrustts::Position, usize>::new();
+    let mut posmap = std::collections::HashMap::<forrustts::Position, forrustts::IdType>::new();
     let mut derived_map = std::collections::HashMap::<forrustts::Position, u8>::new();
 
-    let mut origin_times_init: Vec<(forrustts::Time, usize)> = vec![];
+    let mut origin_times_init: Vec<(forrustts::Time, forrustts::IdType)> = vec![];
     let num_edges = tables.edges().len();
     for i in 0..num_edges {
         let e = *tables.edge(i as IdType);
@@ -417,18 +417,21 @@ fn mutate_tables(
                 }
                 None => {
                     tables.add_site(pos, Some(vec![0])).unwrap();
-                    origin_times_init.push((t, tables.sites().len() - 1));
+                    origin_times_init.push((t, tables.sites().len() as IdType - 1));
                     tables
                         .add_mutation(
                             e.child,
                             origin_times_init.len() - 1,
-                            tables.sites().len() - 1,
+                            tables.sites().len() as IdType - 1,
                             Some(vec![1]),
                             true,
                         )
                         .unwrap();
 
-                    if posmap.insert(pos, tables.sites().len() - 1).is_some() {
+                    if posmap
+                        .insert(pos, tables.sites().len() as IdType - 1)
+                        .is_some()
+                    {
                         panic!("hash failure");
                     }
                     if derived_map.insert(pos, 1).is_some() {
