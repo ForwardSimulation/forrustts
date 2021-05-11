@@ -1,4 +1,3 @@
-use bitflags::bitflags;
 use clap::{value_t, value_t_or_exit, App, Arg};
 use forrustts::ForrusttsError;
 use forrustts::IdType;
@@ -91,13 +90,6 @@ fn crossover_and_record_edges(
     parent: Parent,
     child: IdType,
     breakpoint: BreakpointFunction,
-    recorder: &impl Fn(
-        IdType,
-        IdType,
-        (Position, Position),
-        &mut forrustts::TableCollection,
-        &mut forrustts::EdgeBuffer,
-    ),
     rng: &mut StdRng,
     tables: &mut forrustts::TableCollection,
     edge_buffer: &mut forrustts::EdgeBuffer,
@@ -112,7 +104,7 @@ fn crossover_and_record_edges(
             let next_length = (rng.sample(exp) as Position) + 1;
             assert!(next_length > 0);
             if current_pos + next_length < tables.genome_length() {
-                recorder(
+                buffer_edges(
                     pnodes.0,
                     child,
                     (current_pos, current_pos + next_length),
@@ -122,7 +114,7 @@ fn crossover_and_record_edges(
                 current_pos += next_length;
                 std::mem::swap(&mut pnodes.0, &mut pnodes.1);
             } else {
-                recorder(
+                buffer_edges(
                     pnodes.0,
                     child,
                     (current_pos, tables.genome_length()),
@@ -134,7 +126,7 @@ fn crossover_and_record_edges(
             }
         }
     } else {
-        recorder(
+        buffer_edges(
             pnodes.0,
             child,
             (0, tables.genome_length()),
@@ -149,13 +141,6 @@ fn generate_births(
     birth_time: Time,
     rng: &mut StdRng,
     pop: &mut PopulationState,
-    recorder: &impl Fn(
-        IdType,
-        IdType,
-        (Position, Position),
-        &mut forrustts::TableCollection,
-        &mut forrustts::EdgeBuffer,
-    ),
 ) {
     for b in &pop.births {
         // Record 2 new nodes
@@ -166,7 +151,6 @@ fn generate_births(
             b.parent0,
             new_node_0,
             breakpoint,
-            recorder,
             rng,
             &mut pop.tables,
             &mut pop.edge_buffer,
@@ -175,7 +159,6 @@ fn generate_births(
             b.parent1,
             new_node_1,
             breakpoint,
-            recorder,
             rng,
             &mut pop.tables,
             &mut pop.edge_buffer,
@@ -199,16 +182,6 @@ fn buffer_edges(
         .unwrap();
 }
 
-fn record_edges(
-    parent: IdType,
-    child: IdType,
-    span: (Position, Position),
-    tables: &mut forrustts::TableCollection,
-    _: &mut forrustts::EdgeBuffer,
-) {
-    tables.add_edge(span.0, span.1, parent, child).unwrap();
-}
-
 fn fill_samples(parents: &[Parent], samples: &mut forrustts::SamplesInfo) {
     samples.samples.clear();
     for p in parents {
@@ -217,50 +190,25 @@ fn fill_samples(parents: &[Parent], samples: &mut forrustts::SamplesInfo) {
     }
 }
 
-fn sort_and_simplify(
-    flags: SimulationFlags,
+fn simplify(
     simplification_flags: forrustts::SimplificationFlags,
     samples: &forrustts::SamplesInfo,
     state: &mut forrustts::SimplificationBuffers,
     pop: &mut PopulationState,
     output: &mut forrustts::SimplificationOutput,
 ) {
-    if !flags.contains(SimulationFlags::BUFFER_EDGES) {
-        pop.tables
-            .sort_tables(forrustts::TableSortingFlags::empty());
-        if flags.contains(SimulationFlags::USE_STATE) {
-            forrustts::simplify_tables(
-                samples,
-                simplification_flags,
-                state,
-                &mut pop.tables,
-                output,
-            )
-            .unwrap();
-        } else {
-            forrustts::simplify_tables_without_state(
-                samples,
-                simplification_flags,
-                &mut pop.tables,
-                output,
-            )
-            .unwrap();
-        }
-    } else {
-        forrustts::simplify_from_edge_buffer(
-            samples,
-            simplification_flags,
-            state,
-            &mut pop.edge_buffer,
-            &mut pop.tables,
-            output,
-        )
-        .unwrap();
-    }
+    forrustts::simplify_from_edge_buffer(
+        samples,
+        simplification_flags,
+        state,
+        &mut pop.edge_buffer,
+        &mut pop.tables,
+        output,
+    )
+    .unwrap();
 }
 
 fn simplify_and_remap_nodes(
-    flags: SimulationFlags,
     simplification_flags: forrustts::SimplificationFlags,
     samples: &mut forrustts::SamplesInfo,
     state: &mut forrustts::SimplificationBuffers,
@@ -268,7 +216,7 @@ fn simplify_and_remap_nodes(
     output: &mut forrustts::SimplificationOutput,
 ) {
     fill_samples(&pop.parents, samples);
-    sort_and_simplify(flags, simplification_flags, samples, state, pop, output);
+    simplify(simplification_flags, samples, state, pop, output);
 
     for p in &mut pop.parents {
         p.node0 = output.idmap[p.node0 as usize];
@@ -276,12 +224,10 @@ fn simplify_and_remap_nodes(
         assert!(pop.tables.node(p.node0).flags & forrustts::NodeFlags::IS_SAMPLE.bits() > 0);
     }
 
-    if flags.contains(SimulationFlags::BUFFER_EDGES) {
-        samples.edge_buffer_founder_nodes.clear();
-        for p in &pop.parents {
-            samples.edge_buffer_founder_nodes.push(p.node0);
-            samples.edge_buffer_founder_nodes.push(p.node1);
-        }
+    samples.edge_buffer_founder_nodes.clear();
+    for p in &pop.parents {
+        samples.edge_buffer_founder_nodes.push(p.node0);
+        samples.edge_buffer_founder_nodes.push(p.node1);
     }
 }
 
@@ -324,43 +270,19 @@ impl PopulationParams {
     }
 }
 
-bitflags! {
-    #[derive(Default)]
-    pub struct SimulationFlags: u32
-    {
-        // If set, and BUFFER_EDGES is not set,
-        // then simplification will use a reusable set
-        // of buffers for each call.  Otherwise,
-        // these buffers will be allocated each time
-        // simplification happens.
-        const USE_STATE = 1 << 0;
-        // If set, edge buffering will be used.
-        // If not set, then the standard "record
-        // and sort" method will be used.
-        const BUFFER_EDGES = 1 << 1;
-    }
-}
-
 pub struct SimulationParams {
     pub simplification_interval: Option<Time>,
     pub seed: u64,
     pub nsteps: Time,
-    pub flags: SimulationFlags,
     pub simplification_flags: forrustts::SimplificationFlags,
 }
 
 impl SimulationParams {
-    pub fn new(
-        simplification_interval: Option<Time>,
-        seed: u64,
-        nsteps: Time,
-        flags: SimulationFlags,
-    ) -> Self {
+    pub fn new(simplification_interval: Option<Time>, seed: u64, nsteps: Time) -> Self {
         SimulationParams {
             simplification_interval,
             seed,
             nsteps,
-            flags,
             simplification_flags: forrustts::SimplificationFlags::empty(),
         }
     }
@@ -535,25 +457,12 @@ pub fn neutral_wf(
 
     let mut output = forrustts::SimplificationOutput::new();
 
-    let new_edge_handler = if params.flags.contains(SimulationFlags::BUFFER_EDGES) {
-        buffer_edges
-    } else {
-        record_edges
-    };
-
     for birth_time in 1..(params.nsteps + 1) {
         deaths_and_parents(pop_params.psurvival, &mut rng, &mut pop);
-        generate_births(
-            pop_params.breakpoint,
-            birth_time,
-            &mut rng,
-            &mut pop,
-            &new_edge_handler,
-        );
+        generate_births(pop_params.breakpoint, birth_time, &mut rng, &mut pop);
         if actual_simplification_interval != -1 && birth_time % actual_simplification_interval == 0
         {
             simplify_and_remap_nodes(
-                params.flags,
                 params.simplification_flags,
                 &mut samples,
                 &mut state,
@@ -568,13 +477,46 @@ pub fn neutral_wf(
 
     if !simplified && actual_simplification_interval != -1 {
         simplify_and_remap_nodes(
-            params.flags,
             params.simplification_flags,
             &mut samples,
             &mut state,
             &mut pop,
             &mut output,
         );
+    } else if actual_simplification_interval == -1 {
+        // We've done a big sim, but never simplified.
+        // This, our edges are all "trapped" in the edge buffer.
+        // We need to copy them over, which we will do so
+        // that the output is sorted by birth time.
+        let mut edges = pop.tables.dump_edges();
+        assert!(edges.is_empty());
+        for (i, h) in pop.edge_buffer.head_itr().rev().enumerate() {
+            if *h != forrustts::EdgeBuffer::null() {
+                let head = pop.edge_buffer.len() - i - 1;
+                assert!(
+                    (head as usize) < pop.tables.num_nodes(),
+                    "{} {}",
+                    *h,
+                    pop.tables.num_nodes()
+                );
+                pop.edge_buffer
+                    .for_each(
+                        head as forrustts::nested_forward_list::IndexType,
+                        |x: &forrustts::Segment| {
+                            assert!(x.node < pop.tables.num_nodes() as forrustts::IdType);
+                            edges.push(forrustts::Edge {
+                                left: x.left,
+                                right: x.right,
+                                parent: head as forrustts::IdType,
+                                child: x.node,
+                            });
+                            true
+                        },
+                    )
+                    .unwrap();
+            }
+        }
+        pop.tables.set_edge_table(edges);
     }
 
     let mut is_alive: Vec<i32> = vec![0; pop.tables.num_nodes()];
@@ -702,12 +644,6 @@ fn main() {
         simplify = Some(simplify_input);
     }
 
-    let flags = if matches.is_present("buffer_edges") {
-        SimulationFlags::BUFFER_EDGES
-    } else {
-        SimulationFlags::USE_STATE
-    };
-
     let mut simplification_flags = forrustts::SimplificationFlags::empty();
 
     if validate_tables {
@@ -720,7 +656,6 @@ fn main() {
             simplification_interval: simplify,
             seed,
             nsteps: g,
-            flags,
             simplification_flags,
         },
     )
