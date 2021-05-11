@@ -130,7 +130,7 @@ pub struct MutationRecord {
     /// Reference to mutation metadata.
     pub key: usize,
     /// The index of the corresponding [``Site``].
-    pub site: usize,
+    pub site: IdType,
     /// The derived state.
     /// [``None``] implies client code
     /// will apply a default.
@@ -239,7 +239,7 @@ fn mutation_table_add_row(
     mutations: &mut MutationTable,
     node: IdType,
     key: usize,
-    site: usize,
+    site: IdType,
     derived_state: Option<Vec<u8>>,
     neutral: bool,
 ) -> TablesResult<IdType> {
@@ -274,18 +274,18 @@ fn sort_edges(nodes: &[Node], edges: &mut [Edge]) {
 }
 
 fn record_site(sites: &[Site], mutation: &mut MutationRecord, new_site_table: &mut SiteTable) {
-    let position = sites[mutation.site].position;
+    let position = sites[mutation.site as usize].position;
     if new_site_table.is_empty() || new_site_table[new_site_table.len() - 1].position != position {
         new_site_table.push(sites[mutation.site as usize].clone());
     }
 
-    mutation.site = new_site_table.len() - 1;
+    mutation.site = (new_site_table.len() - 1) as IdType;
 }
 
 fn sort_mutation_table(sites: &[Site], mutations: &mut [MutationRecord]) {
     mutations.sort_by(|a, b| {
-        let pa = sites[a.site].position;
-        let pb = sites[b.site].position;
+        let pa = sites[a.site as usize].position;
+        let pb = sites[b.site as usize].position;
         pa.cmp(&pb)
     });
 }
@@ -708,7 +708,7 @@ impl TableCollection {
         &mut self,
         node: IdType,
         key: usize,
-        site: usize,
+        site: IdType,
         derived_state: Option<Vec<u8>>,
         neutral: bool,
     ) -> TablesResult<IdType> {
