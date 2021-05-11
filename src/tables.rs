@@ -561,6 +561,31 @@ impl TableCollection {
     /// assert_eq!(id, 0);
     /// assert!(tables.node(0).flags & forrustts::NodeFlags::IS_ALIVE.bits() > 0);
     /// assert!(tables.node(0).flags & forrustts::NodeFlags::IS_SAMPLE.bits() > 0);
+    ///
+    /// ```
+    ///
+    /// ## Modifying node flags
+    ///
+    /// To modify flags, we recommend a dump/modify/set work flow,
+    /// illustrated in the next example.
+    ///
+    /// The dump/set operations are constant time, moving the relevant vectors.
+    /// ```
+    /// let mut tables = forrustts::TableCollection::new(100).unwrap();
+    /// let id = tables.add_node_with_flags(1, 0,
+    ///     (forrustts::NodeFlags::IS_ALIVE | forrustts::NodeFlags::IS_SAMPLE).bits()).unwrap();
+    /// assert_eq!(id, 0);
+    /// assert!(tables.node(0).flags & forrustts::NodeFlags::IS_ALIVE.bits() > 0);
+    /// assert!(tables.node(0).flags & forrustts::NodeFlags::IS_SAMPLE.bits() > 0);
+    ///
+    /// let mut nodes = tables.dump_nodes();
+    /// assert_eq!(tables.num_nodes(), 0);
+    /// for n in &mut nodes {
+    ///     n.flags = 0; // reset all the flags
+    /// }
+    /// tables.set_node_table(nodes);
+    /// assert!(tables.node(0).flags & forrustts::NodeFlags::IS_ALIVE.bits() == 0);
+    /// assert!(tables.node(0).flags & forrustts::NodeFlags::IS_SAMPLE.bits() == 0);
     /// ```
     pub fn add_node_with_flags(
         &mut self,
