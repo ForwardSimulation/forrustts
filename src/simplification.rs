@@ -222,7 +222,7 @@ fn find_parent_child_segment_overlap(
     while i < num_edges && edges[i].parent == u {
         let edge = &edges[i];
 
-        ancestry.for_each(edges[i].child, |seg: &Segment| {
+        for seg in ancestry.values_iter(edge.child) {
             if seg.right > edge.left && edge.right > seg.left {
                 overlapper.enqueue(
                     std::cmp::max(seg.left, edge.left),
@@ -230,9 +230,7 @@ fn find_parent_child_segment_overlap(
                     seg.node,
                 );
             }
-            true
-        })?;
-
+        }
         i += 1;
     }
     overlapper.finalize_queue(maxlen);
@@ -619,7 +617,7 @@ fn queue_children(
     ancestry: &mut AncestryList,
     overlapper: &mut SegmentOverlapper,
 ) -> Result<(), ForrusttsError> {
-    Ok(ancestry.for_each(child, |seg: &Segment| {
+    for seg in ancestry.values_iter(child) {
         if seg.right > left && right > seg.left {
             overlapper.enqueue(
                 std::cmp::max(seg.left, left),
@@ -627,8 +625,8 @@ fn queue_children(
                 seg.node,
             );
         }
-        true
-    })?)
+    }
+    Ok(())
 }
 
 fn process_births_from_buffer(
@@ -640,10 +638,10 @@ fn process_births_from_buffer(
     // make the borrow checker happy.
     let a = &mut state.ancestry;
     let o = &mut state.overlapper;
-    Ok(edge_buffer.for_each(head, |seg: &Segment| {
+    for seg in edge_buffer.values_iter(head) {
         queue_children(seg.node, seg.left, seg.right, a, o).unwrap();
-        true
-    })?)
+    }
+    Ok(())
 }
 
 bitflags! {
@@ -957,8 +955,9 @@ pub fn simplify_from_edge_buffer(
     for n in samples.edge_buffer_founder_nodes.iter() {
         max_time = std::cmp::max(max_time, tables.node(*n).time);
     }
-    for (i, _) in edge_buffer.head_itr().rev().enumerate() {
-        let head = (edge_buffer.len() - i - 1) as i32;
+    //for (i, _) in edge_buffer.head_iter().rev().enumerate() {
+    //    let head = (edge_buffer.len() - i - 1) as i32;
+    for head in edge_buffer.index_rev() {
         let ptime = tables.node(head).time;
         if ptime > max_time
         // Then this is a parent who is:
@@ -1148,20 +1147,5 @@ mod test_simpify_tables {
             },
             |_| panic!(),
         );
-    }
-}
-
-#[cfg(test)]
-mod test_simpify_table_from_edge_buffer {
-    use super::{process_births_from_buffer, EdgeBuffer, ForrusttsError, SimplificationBuffers};
-
-    // This shows that the closure error gets propagated
-    // as the result type.
-    #[test]
-    fn test_process_births_from_buffer_closure_error() {
-        let b = EdgeBuffer::new();
-        let mut s = SimplificationBuffers::new();
-        assert!(process_births_from_buffer(-1, &b, &mut s)
-            .map_or_else(|_: ForrusttsError| true, |_| false));
     }
 }
