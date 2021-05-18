@@ -490,7 +490,7 @@ pub fn neutral_wf(
         // that the output is sorted by birth time.
         let mut edges = pop.tables.dump_edges();
         assert!(edges.is_empty());
-        for (i, h) in pop.edge_buffer.head_itr().rev().enumerate() {
+        for (i, h) in pop.edge_buffer.head_iter().rev().enumerate() {
             if *h != forrustts::EdgeBuffer::null() {
                 let head = pop.edge_buffer.len() - i - 1;
                 assert!(
@@ -499,21 +499,18 @@ pub fn neutral_wf(
                     *h,
                     pop.tables.num_nodes()
                 );
-                pop.edge_buffer
-                    .for_each(
-                        head as forrustts::nested_forward_list::IndexType,
-                        |x: &forrustts::Segment| {
-                            assert!(x.node < pop.tables.num_nodes() as forrustts::IdType);
-                            edges.push(forrustts::Edge {
-                                left: x.left,
-                                right: x.right,
-                                parent: head as forrustts::IdType,
-                                child: x.node,
-                            });
-                            true
-                        },
-                    )
-                    .unwrap();
+                for seg in pop
+                    .edge_buffer
+                    .values_iter(head as forrustts::nested_forward_list::IndexType)
+                {
+                    assert!(seg.node < pop.tables.num_nodes() as forrustts::IdType);
+                    edges.push(forrustts::Edge {
+                        left: seg.left,
+                        right: seg.right,
+                        parent: head as forrustts::IdType,
+                        child: seg.node,
+                    });
+                }
             }
         }
         pop.tables.set_edge_table(edges);

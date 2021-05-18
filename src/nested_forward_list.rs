@@ -27,6 +27,24 @@ pub type IndexType = i32;
 /// Result type for [``NestedForwardList``] operations.
 pub type Result<T> = std::result::Result<T, NestedForwardListError>;
 
+struct ValueIterator<'list, Value> {
+    list: &'list NestedForwardList<Value>,
+    current: IndexType,
+}
+
+impl<'list, Value> Iterator for ValueIterator<'list, Value> {
+    type Item = &'list Value;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current != NestedForwardList::<Value>::null() {
+            let rv = self.list.data_.get(self.current as usize);
+            self.current = self.list.next_[self.current as usize];
+            rv
+        } else {
+            None
+        }
+    }
+}
+
 // NOTE: I am unclear how to add a Key
 // to this generic.  Unlike C++, there's
 // no notion of a static_assert.  Gotta Google
@@ -90,11 +108,11 @@ pub type Result<T> = std::result::Result<T, NestedForwardListError>;
 /// }
 /// assert_eq!(output, vec![-1]);
 ///
-/// // 2. Use a closure.  The closure
-/// // returns `true` to keep iterating,
-/// // or `false` to stop, allowing searches.
+/// // 2. Use an iterator
 /// output.clear();
-/// l.for_each(2, |x| {output.push(*x); true});
+/// for val in l.values_iter(2) {
+///     output.push(*val);
+/// }
 /// assert_eq!(output, vec![-1]);
 ///
 /// // We can add data out of order:
@@ -110,7 +128,9 @@ pub type Result<T> = std::result::Result<T, NestedForwardListError>;
 /// // Our existing data are still fine after
 /// // this reallocation:
 /// output.clear();
-/// l.for_each(2, |x| {output.push(*x); true});
+/// for val in l.values_iter(2) {
+///     output.push(*val);
+/// }
 /// assert_eq!(output, vec![-1]);
 /// ```
 ///
@@ -344,13 +364,12 @@ impl<Value> NestedForwardList<Value> {
     ///     list.extend(1, 3 * i).unwrap();
     /// }
     /// let mut output = vec![];
-    /// list.for_each(0, |x: &i32| {
-    ///     output.push(*x);
-    ///     true
-    /// })
-    /// .unwrap();
+    /// for val in list.values_iter(0) {
+    ///     output.push(*val);
+    /// }
     /// assert_eq!(output, vec![0, 2, 4]);
     /// ```
+    #[deprecated(since = "0.3.0", note = "Use .values_iter instead")]
     pub fn for_each(&self, at: IndexType, mut f: impl FnMut(&Value) -> bool) -> Result<()> {
         let mut itr = self.head(at)?;
         while itr != NestedForwardList::<Value>::null() {
@@ -421,8 +440,14 @@ impl<Value> NestedForwardList<Value> {
         self.tail_.iter_mut().for_each(|x| *x = Self::null());
     }
 
+    #[deprecated(since = "0.3.0", note = "Use .head_iter instead")]
+    pub fn head_itr(&self) -> impl DoubleEndedIterator<Item = &IndexType> + '_ {
+        self.head_iter()
+    }
+
     /// Obtain an iterator over the vector of list
     /// heads.
+    ///
     /// ```
     /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
     /// let mut l = ListType::new();
@@ -433,18 +458,47 @@ impl<Value> NestedForwardList<Value> {
     /// // List 0 starts at index 0
     /// // and lines 1 starts at index 3
     /// let heads = vec![0, 3];
-    /// for (i, j) in l.head_itr().enumerate() {
+    /// for (i, j) in l.head_iter().enumerate() {
     ///     assert_eq!(*j, heads[i]);
     /// }
     ///
     /// let mut output = vec![];
-    /// for (i, j) in l.head_itr().enumerate() {
-    ///     l.for_each(i as i32, |x| {output.push(*x); true});
+    /// for i in 0..l.len() {
+    ///     for val in l.values_iter(i as forrustts::nested_forward_list::IndexType) {
+    ///         output.push(*val);
+    ///     }
     /// }
     /// assert_eq!(output, vec![1,3,5,-11]);
     /// ```
-    pub fn head_itr(&self) -> std::slice::Iter<'_, IndexType> {
+    pub fn head_iter(&self) -> impl DoubleEndedIterator<Item = &IndexType> + '_ {
         self.head_.iter()
+    }
+
+    /// Return an [`Iterator`] over the values in a given list.
+    ///
+    /// # Parameters
+    ///
+    /// * `i`: The index of a list.
+    ///        An iterator is returned over the values of the `i-th` list.
+    ///
+    /// # Panics
+    ///
+    /// If `i` is out of range.
+    pub fn values_iter(&self, i: IndexType) -> impl Iterator<Item = &Value> + '_ {
+        ValueIterator {
+            list: self,
+            current: self.head(i).unwrap(),
+        }
+    }
+
+    /// Return an iterator over the head indexes
+    pub fn index(&self) -> std::ops::Range<IndexType> {
+        0..self.len() as IndexType
+    }
+
+    /// Return an iterator over the reversed head indexes
+    pub fn index_rev(&self) -> std::iter::Rev<std::ops::Range<IndexType>> {
+        (0..self.len() as IndexType).rev()
     }
 
     /// Return length of the vector
@@ -570,44 +624,9 @@ mod tests {
         let mut list = make_data_for_testing();
         list.nullify_list(0).unwrap();
         let mut output = Vec::<i32>::new();
-        list.for_each(0, |x: &i32| {
+        for x in list.values_iter(0) {
             output.push(*x);
-            true
-        })
-        .unwrap();
-        assert_eq!(output.len(), 0);
-    }
-
-    #[test]
-    fn test_for_each_data_round_trip() {
-        let list = make_data_for_testing();
-        let mut output = Vec::<i32>::new();
-
-        list.for_each(0, |x: &i32| {
-            output.push(*x);
-            true
-        })
-        .unwrap();
-
-        for (idx, val) in output.iter().enumerate().take(3) {
-            assert_eq!(2 * idx, *val as usize);
         }
-
-        output.clear();
-
-        list.for_each(1, |x: &i32| {
-            output.push(*x);
-            true
-        })
-        .unwrap();
-
-        for (idx, val) in output.iter().enumerate().take(5) {
-            assert_eq!(3 * idx, *val as usize);
-        }
-
-        output.clear();
-        list.for_each(1, |_: &i32| false).unwrap();
-
         assert_eq!(output.len(), 0);
     }
 
@@ -627,14 +646,25 @@ mod tests {
     fn test_head_forward_iteration() {
         let list = make_data_for_testing();
         let mut output = Vec::<i32>::new();
-        for (i, _) in list.head_itr().enumerate() {
-            list.for_each(i as i32, |x: &i32| {
-                output.push(*x);
-                true
-            })
-            .unwrap();
+        for (i, _) in list.head_iter().enumerate() {
+            for j in list.values_iter(i as IndexType) {
+                output.push(*j);
+            }
         }
         assert_eq!(output.len(), 8);
+        for (idx, val) in output.iter().enumerate().take(3) {
+            assert_eq!(2 * idx, *val as usize);
+        }
+        for (idx, val) in output.iter().enumerate().skip(3) {
+            assert_eq!(3 * (idx - 3), *val as usize);
+        }
+
+        output.clear();
+        for i in list.index() {
+            for j in list.values_iter(i as IndexType) {
+                output.push(*j);
+            }
+        }
         for (idx, val) in output.iter().enumerate().take(3) {
             assert_eq!(2 * idx, *val as usize);
         }
@@ -647,12 +677,10 @@ mod tests {
     fn test_head_reverse_iteration() {
         let list = make_data_for_testing();
         let mut output = Vec::<i32>::new();
-        for (i, _) in list.head_itr().rev().enumerate() {
-            list.for_each((list.len() - i - 1) as i32, |x: &i32| {
+        for i in list.index_rev() {
+            for x in list.values_iter(i) {
                 output.push(*x);
-                true
-            })
-            .unwrap();
+            }
         }
         assert_eq!(output.len(), 8);
         for (idx, val) in output.iter().enumerate().take(5) {
