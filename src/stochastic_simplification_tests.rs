@@ -176,6 +176,8 @@ fn simplify_to_samples() {
         let samples = make_samples(&i.is_sample);
         assert!(!samples.samples.is_empty());
         let mut output = SimplificationOutput::new();
+
+        let num_input_mutations = i.tables.mutations().len();
         simplify_tables_without_state(
             &samples,
             SimplificationFlags::empty(),
@@ -183,6 +185,11 @@ fn simplify_to_samples() {
             &mut output,
         )
         .unwrap();
+
+        assert_eq!(
+            output.extinct_mutations.len(),
+            num_input_mutations - i.tables.mutations().len()
+        );
 
         i.tsk_tables
             .simplify(
