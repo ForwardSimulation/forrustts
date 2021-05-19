@@ -274,7 +274,7 @@ fn simplify_to_samples() {
                 for u in tree.parents(*s).unwrap() {
                     p.push(u);
                 }
-                for u in tsk_tree.path_to_root(*s).unwrap() {
+                for u in tsk_tree.parents(*s).unwrap() {
                     tsk_p.push(u);
                 }
                 assert!(p == tsk_p);
