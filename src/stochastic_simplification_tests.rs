@@ -427,3 +427,131 @@ fn simplify_to_arbitrary_nodes() {
         }
     }
 }
+
+#[test]
+#[ignore]
+fn test_retaining_intitial_roots() {
+    let params = SimulationParams {
+        popsize: 250,
+        mutrate: 0.0,
+        psurvival: 0.5,
+        xovers: 5e-3,
+        genome_length: 1000000,
+        buffer_edges: false,
+        simplification_interval: None,
+        seed: 1923523,
+        nsteps: 500,
+        flags: SimulationFlags::empty(),
+        simplification_flags: SimplificationFlags::empty(),
+    };
+
+    let sims = Simulator::new(params, 15);
+
+    for mut i in sims.iter() {
+        let mut pos: Position = 0;
+        let pos_increment = i.tables.genome_length() / 500 - 2;
+        let mut sites = i.tables.dump_sites();
+        let mut mutations = i.tables.dump_mutations();
+        let mut input_roots = vec![];
+        for (idx, node) in i.tables.nodes().iter().enumerate() {
+            if node.time == 0 {
+                input_roots.push(idx);
+                sites.push(crate::Site {
+                    position: pos,
+                    ancestral_state: Some(vec![0]),
+                });
+                mutations.push(crate::MutationRecord {
+                    node: idx as IdType,
+                    key: 0,
+                    site: (sites.len() as IdType) - 1,
+                    derived_state: Some(vec![1]),
+                    neutral: true,
+                });
+                pos += pos_increment;
+            }
+        }
+        i.tables.set_site_table(sites);
+        i.tables.set_mutation_table(mutations);
+        i.tables.sort_tables(crate::TableSortingFlags::empty());
+        crate::tables::validate_edge_table(
+            i.tables.genome_length(),
+            i.tables.edges(),
+            i.tables.nodes(),
+        )
+        .unwrap();
+
+        // Before proceeding, get the mutations into the tskit tables
+        add_tskit_mutation_site_tables(
+            &i.tables,
+            vec![0; i.tables.mutations().len()].as_slice(),
+            500,
+            &mut i.tsk_tables,
+        );
+
+        let samples = make_samples(&i.is_sample);
+        let mut output = SimplificationOutput::new();
+        simplify_tables_without_state(
+            &samples,
+            SimplificationFlags::KEEP_INPUT_ROOTS,
+            &mut i.tables,
+            &mut output,
+        )
+        .unwrap();
+        crate::tables::validate_edge_table(
+            i.tables.genome_length(),
+            i.tables.edges(),
+            i.tables.nodes(),
+        )
+        .unwrap();
+
+        for m in i.tables.mutations().iter() {
+            assert_eq!(0, i.tables.nodes()[m.node as usize].time);
+        }
+
+        // Now, simplify the tskit tables and compare
+        i.tsk_tables
+            .simplify(
+                &samples.samples,
+                tskit::SimplificationOptions::FILTER_SITES
+                    | tskit::SimplificationOptions::KEEP_INPUT_ROOTS,
+                false,
+            )
+            .unwrap();
+        assert_eq!(
+            i.tables.mutations().len(),
+            i.tsk_tables.mutations().num_rows() as usize
+        );
+        assert_eq!(
+            i.tables.sites().len(),
+            i.tsk_tables.sites().num_rows() as usize
+        );
+        assert_eq!(
+            i.tables.edges().len(),
+            i.tsk_tables.edges().num_rows() as usize
+        );
+        assert_eq!(
+            i.tables.nodes().len(),
+            i.tsk_tables.nodes().num_rows() as usize
+        );
+        i.tables.build_indexes(IndexTablesFlags::empty()).unwrap();
+        i.tsk_tables.build_index().unwrap();
+        assert!(compare_edge_table_indexes(&i.tables, &i.tsk_tables));
+        for (idx, m) in i.tables.enumerate_mutations() {
+            let tpos = i
+                .tsk_tables
+                .sites()
+                .position(
+                    i.tsk_tables
+                        .mutations()
+                        .site(idx as tskit::tsk_id_t)
+                        .unwrap(),
+                )
+                .unwrap();
+            match tpos.partial_cmp(&(i.tables.site(m.site as IdType).position as f64)) {
+                Some(std::cmp::Ordering::Equal) => (),
+                Some(_) => panic!("Expected Equal"),
+                None => panic!("Expected Equal"),
+            }
+        }
+    }
+}

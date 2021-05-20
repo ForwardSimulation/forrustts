@@ -724,6 +724,8 @@ bitflags! {
         const VALIDATE_MUTATIONS = 1 << 1;
         /// Validate all tables.
         const VALIDATE_ALL = Self::VALIDATE_EDGES.bits | Self::VALIDATE_MUTATIONS.bits;
+        /// Retain input roots for all trees.
+        const KEEP_INPUT_ROOTS = 1 << 2;
     }
 }
 
@@ -835,6 +837,67 @@ impl Default for SimplificationBuffers {
     }
 }
 
+fn add_input_roots(
+    ancestry: &AncestryList,
+    input_nodes: &[Node],
+    idmap: &mut [IdType],
+    temp_edge_buffer: &mut EdgeTable,
+    output_edges: &mut EdgeTable,
+    output_nodes: &mut NodeTable,
+    mutation_node_map: &mut MutationNodeMap,
+) {
+    temp_edge_buffer.clear();
+    let mut most_recent_root_time = Time::MIN;
+    for input_id in 0..input_nodes.len() as IdType {
+        let head_index = ancestry.head(input_id).unwrap(); // TODO: allow to error?
+
+        if head_index != AncestryList::null() {
+            // input_id has ancestry
+            let mut output_id = idmap[input_id as usize];
+            if output_id == NULL_ID {
+                // input_id is a root, so we add it.
+                record_node(input_nodes, input_id, false, output_nodes, idmap);
+                output_id = idmap[input_id as usize];
+            }
+            most_recent_root_time =
+                std::cmp::max(most_recent_root_time, output_nodes[output_id as usize].time);
+
+            // Add in all edges descending from this root node.
+            for seg in ancestry.values_iter(input_id) {
+                if seg.node != output_id {
+                    temp_edge_buffer.push(Edge {
+                        left: seg.left,
+                        right: seg.right,
+                        parent: output_id,
+                        child: seg.node,
+                    });
+                    map_mutation_output_nodes(
+                        input_id,
+                        output_id,
+                        seg.left,
+                        seg.right,
+                        mutation_node_map,
+                    );
+                }
+            }
+            let _num_output = output_buffered_edges(temp_edge_buffer, output_edges);
+        }
+    }
+    if most_recent_root_time != Time::MIN {
+        // We have added some edges, but they aren't properly sorted.
+        // We need to find the first edge whose parent is more ancient than our youngest root,
+        // and sort from there.
+        let mut start = usize::MAX;
+        for i in 0..output_edges.len() {
+            if output_nodes[output_edges[i].parent as usize].time <= most_recent_root_time {
+                start = i;
+                break;
+            }
+        }
+        crate::tables::sort_edges(output_nodes.as_slice(), &mut output_edges[start..]);
+    }
+}
+
 /// Simplify a [``TableCollection``].
 ///
 /// # Parameters
@@ -912,6 +975,18 @@ pub fn simplify_tables(
             }
             assert_eq!(state.new_edges.len(), 0);
         }
+    }
+
+    if flags.contains(SimplificationFlags::KEEP_INPUT_ROOTS) {
+        add_input_roots(
+            &state.ancestry,
+            &tables.nodes_,
+            &mut output.idmap,
+            &mut state.temp_edge_buffer,
+            &mut state.new_edges,
+            &mut state.new_nodes,
+            &mut state.mutation_node_map,
+        );
     }
 
     tables.edges_.truncate(new_edges_inserted);
@@ -1123,6 +1198,18 @@ pub fn simplify_from_edge_buffer(
             state,
             output,
         )?;
+    }
+
+    if flags.contains(SimplificationFlags::KEEP_INPUT_ROOTS) {
+        add_input_roots(
+            &state.ancestry,
+            &tables.nodes_,
+            &mut output.idmap,
+            &mut state.temp_edge_buffer,
+            &mut state.new_edges,
+            &mut state.new_nodes,
+            &mut state.mutation_node_map,
+        );
     }
 
     std::mem::swap(&mut tables.edges_, &mut state.new_edges);
