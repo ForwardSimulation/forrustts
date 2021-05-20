@@ -525,16 +525,6 @@ fn test_retaining_intitial_roots() {
             i.tables.sites().len(),
             i.tsk_tables.sites().num_rows() as usize
         );
-        assert_eq!(
-            i.tables.edges().len(),
-            i.tsk_tables.edges().num_rows() as usize
-        );
-        assert_eq!(
-            i.tables.nodes().len(),
-            i.tsk_tables.nodes().num_rows() as usize
-        );
-        i.tables.build_indexes(IndexTablesFlags::empty()).unwrap();
-        i.tsk_tables.build_index().unwrap();
         assert!(compare_edge_table_indexes(&i.tables, &i.tsk_tables));
         for (idx, m) in i.tables.enumerate_mutations() {
             let tpos = i
@@ -553,5 +543,16 @@ fn test_retaining_intitial_roots() {
                 None => panic!("Expected Equal"),
             }
         }
+
+        assert_eq!(
+            i.tables.edges().len(),
+            i.tsk_tables.edges().num_rows() as usize
+        );
+        assert_eq!(
+            i.tables.nodes().len(),
+            i.tsk_tables.nodes().num_rows() as usize
+        );
+        i.tables.build_indexes(IndexTablesFlags::empty()).unwrap();
+        i.tsk_tables.build_index().unwrap();
     }
 }
