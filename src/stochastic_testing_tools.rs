@@ -431,7 +431,7 @@ fn mutate_tables(
     rv
 }
 
-pub fn add_tskit_mutation_site_tables(
+pub(crate) fn add_tskit_mutation_site_tables(
     tables: &crate::TableCollection,
     origin_times: &[crate::Time],
     g: crate::Time,
