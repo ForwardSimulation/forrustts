@@ -254,7 +254,7 @@ fn mutation_table_add_row(
     Ok((mutations.len() - 1) as IdType)
 }
 
-fn sort_edges(nodes: &[Node], edges: &mut [Edge]) {
+pub(crate) fn sort_edges(nodes: &[Node], edges: &mut [Edge]) {
     edges.sort_by(|a, b| {
         let aindex = a.parent as usize;
         let bindex = b.parent as usize;
