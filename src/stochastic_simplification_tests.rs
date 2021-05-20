@@ -542,6 +542,13 @@ fn test_retaining_intitial_roots() {
                 Some(_) => panic!("Expected Equal"),
                 None => panic!("Expected Equal"),
             }
+            assert_eq!(
+                m.node,
+                i.tsk_tables
+                    .mutations()
+                    .node(idx as tskit::tsk_id_t)
+                    .unwrap()
+            );
         }
 
         assert_eq!(
