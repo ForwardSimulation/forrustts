@@ -851,7 +851,7 @@ fn add_input_roots(
     for input_id in 0..input_nodes.len() as IdType {
         let head_index = ancestry.head(input_id).unwrap(); // TODO: allow to error?
 
-        if head_index != AncestryList::null() {
+        if head_index != NULL_INDEX {
             // input_id has ancestry
             let mut output_id = idmap[input_id as usize];
             if output_id == NULL_ID {
