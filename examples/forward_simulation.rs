@@ -491,7 +491,7 @@ pub fn neutral_wf(
         let mut edges = pop.tables.dump_edges();
         assert!(edges.is_empty());
         for (i, h) in pop.edge_buffer.head_iter().rev().enumerate() {
-            if *h != forrustts::EdgeBuffer::null() {
+            if *h != forrustts::nested_forward_list::NULL_INDEX {
                 let head = pop.edge_buffer.len() - i - 1;
                 assert!(
                     (head as usize) < pop.tables.num_nodes(),

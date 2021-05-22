@@ -27,6 +27,9 @@ pub type IndexType = i32;
 /// Result type for [``NestedForwardList``] operations.
 pub type Result<T> = std::result::Result<T, NestedForwardListError>;
 
+/// The null value for an index
+pub const NULL_INDEX: IndexType = -1;
+
 struct ValueIterator<'list, Value> {
     list: &'list NestedForwardList<Value>,
     current: IndexType,
@@ -35,7 +38,7 @@ struct ValueIterator<'list, Value> {
 impl<'list, Value> Iterator for ValueIterator<'list, Value> {
     type Item = &'list Value;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current != NestedForwardList::<Value>::null() {
+        if self.current != NULL_INDEX {
             let rv = self.list.data_.get(self.current as usize);
             self.current = self.list.next_[self.current as usize];
             rv
@@ -100,7 +103,7 @@ impl<'list, Value> Iterator for ValueIterator<'list, Value> {
 /// let mut output = vec![];
 /// // Get the head of this list
 /// let mut n = l.head(2).unwrap();
-/// while n != ListType::null() {
+/// while n != forrustts::nested_forward_list::NULL_INDEX {
 ///    // fetch returns an immutable reference.
 ///    output.push(*l.fetch(n).unwrap());
 ///    // proceed to the next element
@@ -151,7 +154,7 @@ impl<Value> NestedForwardList<Value> {
         let x = (self.data_.len() - 1) as i32;
         self.head_[k as usize] = x;
         self.tail_[k as usize] = self.head_[k as usize];
-        self.next_.push(NestedForwardList::<Value>::null());
+        self.next_.push(NULL_INDEX);
     }
 
     fn check_key(&self, k: IndexType) -> Result<()> {
@@ -194,18 +197,16 @@ impl<Value> NestedForwardList<Value> {
 
         let idx = k as usize;
         if idx >= self.head_.len() {
-            self.head_
-                .resize(idx + 1, NestedForwardList::<Value>::null());
-            self.tail_
-                .resize(idx + 1, NestedForwardList::<Value>::null());
+            self.head_.resize(idx + 1, NULL_INDEX);
+            self.tail_.resize(idx + 1, NULL_INDEX);
         }
 
-        if self.head_[idx] == NestedForwardList::<Value>::null() {
+        if self.head_[idx] == NULL_INDEX {
             self.insert_new_record(idx as IndexType, v);
             return Ok(());
         }
         let t = self.tail_[idx];
-        if t == NestedForwardList::<Value>::null() {
+        if t == NULL_INDEX {
             return Err(NestedForwardListError::NullTail {});
         }
         self.data_.push(v);
@@ -213,15 +214,16 @@ impl<Value> NestedForwardList<Value> {
         // NOTE: this differs from fwdpp, to avoid cast,
         // and thus could be failure point?
         self.next_[t as usize] = self.tail_[idx];
-        self.next_.push(NestedForwardList::<Value>::null());
+        self.next_.push(NULL_INDEX);
         Ok(())
     }
 
     /// Return the null value,
     /// which is -1.
     #[inline]
+    #[deprecated(since = "0.3.0", note = "use nested_forward_list::NULL_INDEX instead")]
     pub fn null() -> IndexType {
-        -1
+        NULL_INDEX
     }
 
     /// Get a mutable reference to a `Value`.
@@ -372,7 +374,7 @@ impl<Value> NestedForwardList<Value> {
     #[deprecated(since = "0.3.0", note = "Use .values_iter instead")]
     pub fn for_each(&self, at: IndexType, mut f: impl FnMut(&Value) -> bool) -> Result<()> {
         let mut itr = self.head(at)?;
-        while itr != NestedForwardList::<Value>::null() {
+        while itr != NULL_INDEX {
             let val = self.fetch(itr)?;
             let check = f(val);
             if !check {
@@ -399,8 +401,8 @@ impl<Value> NestedForwardList<Value> {
         self.check_key(at)?;
         self.check_key_range(at as usize, self.head_.len())?;
         self.check_key_range(at as usize, self.tail_.len())?;
-        self.head_[at as usize] = NestedForwardList::<Value>::null();
-        self.tail_[at as usize] = NestedForwardList::<Value>::null();
+        self.head_[at as usize] = NULL_INDEX;
+        self.tail_[at as usize] = NULL_INDEX;
         Ok(())
     }
 
@@ -424,20 +426,18 @@ impl<Value> NestedForwardList<Value> {
     /// l.reset(1);
     /// assert_eq!(l.len(), 1);
     /// // The head of this list is now null
-    /// assert_eq!(l.head(0).unwrap(), ListType::null());
+    /// assert_eq!(l.head(0).unwrap(), forrustts::nested_forward_list::NULL_INDEX);
     /// ```
     pub fn reset(&mut self, newsize: usize) {
         self.clear();
-        self.head_
-            .resize(newsize, NestedForwardList::<Value>::null());
-        self.tail_
-            .resize(newsize, NestedForwardList::<Value>::null());
+        self.head_.resize(newsize, NULL_INDEX);
+        self.tail_.resize(newsize, NULL_INDEX);
         // .fill() is experimental right now...
-        //self.head_.fill(NestedForwardList::<Value>::null());
-        //self.tail_.fill(NestedForwardList::<Value>::null());
+        //self.head_.fill(NULL_INDEX);
+        //self.tail_.fill(NULL_INDEX);
         // ... so we do this lambda mapping instead
-        self.head_.iter_mut().for_each(|x| *x = Self::null());
-        self.tail_.iter_mut().for_each(|x| *x = Self::null());
+        self.head_.iter_mut().for_each(|x| *x = NULL_INDEX);
+        self.tail_.iter_mut().for_each(|x| *x = NULL_INDEX);
     }
 
     #[deprecated(since = "0.3.0", note = "Use .head_iter instead")]
@@ -593,7 +593,7 @@ mod tests {
 
         let mut output = Vec::<i32>::new();
         let mut itr = list.head(0).unwrap();
-        while itr != ListType::null() {
+        while itr != NULL_INDEX {
             let val = list.fetch(itr).unwrap();
             output.push(*val);
             itr = list.next(itr).unwrap();
@@ -607,7 +607,7 @@ mod tests {
         output.clear();
 
         itr = list.head(1).unwrap();
-        while itr != ListType::null() {
+        while itr != NULL_INDEX {
             let val = list.fetch(itr).unwrap();
             output.push(*val);
             itr = list.next(itr).unwrap();
