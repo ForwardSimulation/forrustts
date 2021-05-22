@@ -1,4 +1,5 @@
 use crate::nested_forward_list::NestedForwardList;
+use crate::nested_forward_list::NULL_INDEX;
 use crate::tables::*;
 use crate::tsdef::{IdType, Position, Time, NULL_ID};
 use crate::ForrusttsError;
@@ -235,7 +236,7 @@ fn map_mutation_output_nodes(
     );
     let mut list_head = mutation_node_map.head(input_id).unwrap();
 
-    while list_head != MutationNodeMap::null() {
+    while list_head != NULL_INDEX {
         let value = mutation_node_map.fetch_mut(list_head).unwrap();
         if left <= value.position && value.position < right {
             // We cannot assert that .output_node != NULL_ID here:
@@ -287,12 +288,12 @@ fn add_ancestry(
     ancestry: &mut AncestryList,
 ) -> Result<(), ForrusttsError> {
     let head = ancestry.head(input_id)?;
-    if head == AncestryList::null() {
+    if head == NULL_INDEX {
         let seg = Segment { left, right, node };
         ancestry.extend(input_id, seg)?;
     } else {
         let last_idx = ancestry.tail(input_id)?;
-        if last_idx == AncestryList::null() {
+        if last_idx == NULL_INDEX {
             return Err(ForrusttsError::SimplificationError {
                 value: "last_idx is NULL_ID".to_string(),
             });
@@ -615,7 +616,7 @@ fn find_pre_existing_edges(
     let mut alive_with_new_edges: Vec<i32> = vec![];
 
     for a in edge_buffer_founder_nodes {
-        if edge_buffer.head(*a)? != EdgeBuffer::null() {
+        if edge_buffer.head(*a)? != NULL_INDEX {
             alive_with_new_edges.push(*a);
         }
     }
