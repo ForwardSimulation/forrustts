@@ -48,6 +48,24 @@ impl<'list, Value> Iterator for ValueIterator<'list, Value> {
     }
 }
 
+struct ListIndexIterator<'list, Value> {
+    list: &'list NestedForwardList<Value>,
+    current: IndexType,
+}
+
+impl<'list, Value> Iterator for ListIndexIterator<'list, Value> {
+    type Item = IndexType;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current != NULL_INDEX {
+            let rv = self.current;
+            self.current = self.list.next_[self.current as usize];
+            Some(rv)
+        } else {
+            None
+        }
+    }
+}
+
 // NOTE: I am unclear how to add a Key
 // to this generic.  Unlike C++, there's
 // no notion of a static_assert.  Gotta Google
@@ -218,6 +236,109 @@ impl<Value> NestedForwardList<Value> {
         Ok(())
     }
 
+    // Is index at indeed part of list i?
+    // Complexity: linear in length of list i
+    #[allow(dead_code)]
+    pub(crate) fn validate_presence_in_list(&self, i: IndexType, at: IndexType) -> bool {
+        for idx in self.list_indexes_iter(i) {
+            if idx == at {
+                return true;
+            }
+        }
+        false
+    }
+
+    // Insert v into list i such that it is next after after in data_
+    // Corner case: what if this affects the tail?
+    // NOTE: there is no check that prev and at are indeed in list i.
+    #[allow(dead_code)]
+    pub(crate) fn insert_after(&mut self, i: IndexType, after: IndexType, v: Value) -> Result<()> {
+        self.check_key(after)?;
+        self.check_key_range(after as usize, self.data_.len())?;
+        debug_assert!(self.validate_presence_in_list(i, after));
+
+        let current_next = self.next_[after as usize];
+
+        self.data_.push(v);
+        self.next_[after as usize] = (self.data_.len() as IndexType) - 1;
+        self.next_.push(current_next);
+
+        if self.tail_[i as usize] == after {
+            self.tail_[i as usize] = (self.data_.len() as IndexType) - 1;
+        }
+
+        Ok(())
+    }
+
+    // For list i, insert v before before, updating next[prev]
+    // if prev is NULL_INDEX, before must be head(i)
+    // Complexity: amortized O(1)
+    #[allow(dead_code)]
+    pub(crate) fn insert_before(
+        &mut self,
+        i: IndexType,
+        prev: IndexType,
+        before: IndexType,
+        v: Value,
+    ) -> Result<()> {
+        self.check_key(before)?;
+        self.check_key_range(before as usize, self.data_.len())?;
+        debug_assert!(self.validate_presence_in_list(i, before));
+
+        self.data_.push(v);
+
+        if prev == NULL_INDEX {
+            // Then we are inserting before the head
+            debug_assert_eq!(self.head_[i as usize], before);
+            self.head_[i as usize] = (self.data_.len() as IndexType) - 1;
+        } else {
+            self.check_key(prev)?;
+            self.check_key_range(prev as usize, self.data_.len())?;
+            debug_assert!(self.validate_presence_in_list(i, prev));
+            self.next_[prev as usize] = (self.data_.len() as IndexType) - 1;
+        }
+        self.next_.push(before);
+
+        Ok(())
+    }
+
+    // at must be next[prev]
+    // update data/next so that next[prev] is next[at], thus removing at
+    // from the list
+    // returns the new next from prev
+    // Corner case: what if this affects the tail?
+    // Uh, oh, we don't know how to get the tail!!!
+    // The solution is clunky, requiring multiple bits of info.
+    // NOTE: there is no check that prev and at are indeed in list i.
+    // NOTE: the above note is not true for debug mode :)
+    // An alternate solution is to have a back-index for all data elements
+    // mapping them back to their parent list.
+    #[allow(dead_code)]
+    pub(crate) fn drop_value_from_list_at(
+        &mut self,
+        i: IndexType,
+        prev: IndexType,
+        at: IndexType,
+    ) -> Result<IndexType> {
+        self.check_key(prev)?;
+        self.check_key(at)?;
+        self.check_key_range(prev as usize, self.data_.len())?;
+        self.check_key_range(at as usize, self.data_.len())?;
+        debug_assert!(self.validate_presence_in_list(i, prev));
+        debug_assert!(self.validate_presence_in_list(i, at));
+        assert_eq!(self.next_[prev as usize], at); // TODO: convert to error
+        self.next_[prev as usize] = self.next_[at as usize];
+        self.next_[at as usize] = NULL_INDEX;
+
+        // If we've dropped a tail value,
+        // we need to update
+        if at == self.tail_[i as usize] {
+            self.tail_[i as usize] = prev;
+        }
+
+        Ok(self.next_[prev as usize])
+    }
+
     /// Return the null value,
     /// which is -1.
     #[inline]
@@ -299,8 +420,8 @@ impl<Value> NestedForwardList<Value> {
         Ok(self.head_[at as usize])
     }
 
-    /// Get the index of the tail entry of a list
-    /// beginning at index `at`.
+    /// Get the index of the tail entry
+    /// for the i-th list.
     ///
     /// ```
     /// type ListType = forrustts::nested_forward_list::NestedForwardList<i32>;
@@ -313,10 +434,10 @@ impl<Value> NestedForwardList<Value> {
     /// assert_eq!(l.tail(1).unwrap(), 3);
     /// ```    
     #[inline]
-    pub fn tail(&self, at: IndexType) -> Result<IndexType> {
-        self.check_key(at)?;
-        self.check_key_range(at as usize, self.tail_.len())?;
-        Ok(self.tail_[at as usize])
+    pub fn tail(&self, i: IndexType) -> Result<IndexType> {
+        self.check_key(i)?;
+        self.check_key_range(i as usize, self.tail_.len())?;
+        Ok(self.tail_[i as usize])
     }
 
     /// Get the index of the next data element in a list
@@ -486,6 +607,17 @@ impl<Value> NestedForwardList<Value> {
     /// If `i` is out of range.
     pub fn values_iter(&self, i: IndexType) -> impl Iterator<Item = &Value> + '_ {
         ValueIterator {
+            list: self,
+            current: self.head(i).unwrap(),
+        }
+    }
+
+    /// Return an [`Iterator`] over the indexes of all elements in the i-th list.
+    ///
+    /// The indexes can return the values via [`NestedForwardList::fetch`].
+    /// For direct iteration over values, use [`NestedForwardList::values_iter`].
+    pub fn list_indexes_iter(&self, i: IndexType) -> impl Iterator<Item = IndexType> + '_ {
+        ListIndexIterator {
             list: self,
             current: self.head(i).unwrap(),
         }
@@ -689,5 +821,64 @@ mod tests {
         for (idx, val) in output.iter().enumerate().skip(5) {
             assert_eq!(2 * (idx - 5), *val as usize);
         }
+    }
+
+    #[test]
+    fn test_drop_value_from_list_at() {
+        let mut list = make_data_for_testing();
+        let mut h = list.head(1).unwrap();
+
+        let mut at = h;
+        at = list.next(at).unwrap();
+        let v = *list.fetch(at).unwrap();
+
+        let x = list.drop_value_from_list_at(1, h, at).unwrap();
+        assert_eq!(list.next(h).unwrap(), x);
+        for val in list.values_iter(1) {
+            assert_ne!(*val, v);
+        }
+
+        // Test removing a tail element
+        list = make_data_for_testing();
+        h = list.head(1).unwrap();
+        at = h;
+        let mut prev: IndexType = NULL_INDEX;
+        let mut results = vec![];
+        while at != NULL_INDEX {
+            results.push(*list.fetch(at).unwrap());
+            if at != list.tail(1).unwrap() {
+                prev = at;
+            }
+            at = list.next(at).unwrap();
+        }
+        let mut results_after_remove = vec![];
+        let x = list
+            .drop_value_from_list_at(1, prev, list.tail(1).unwrap())
+            .unwrap();
+        assert_eq!(x, NULL_INDEX);
+        for v in list.values_iter(1) {
+            results_after_remove.push(*v);
+        }
+        assert_eq!(results.len() - 1, results_after_remove.len());
+        assert_eq!(prev, list.tail(1).unwrap());
+    }
+
+    #[test]
+    fn test_insert_after() {
+        let mut list = make_data_for_testing();
+        let h = list.head(1).unwrap();
+        list.insert_after(1, h, 77).unwrap();
+        for val in list.values_iter(1).skip(1).take(1) {
+            assert_eq!(*val, 77);
+        }
+        let t = list.tail(1).unwrap();
+        list.insert_after(1, t, -77).unwrap();
+        let mut v = -1;
+        for val in list.values_iter(1) {
+            v = *val;
+        }
+        assert_eq!(v, -77);
+        let t = list.tail(1).unwrap();
+        assert_eq!(*list.fetch(t).unwrap(), -77);
     }
 }
