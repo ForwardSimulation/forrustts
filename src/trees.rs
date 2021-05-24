@@ -528,7 +528,7 @@ impl<'treeseq> Tree<'treeseq> {
     /// * `by_span`: if `true`, multiply the return value by [`Tree::span`].
     pub fn total_branch_length(&self, by_span: bool) -> Result<Time, TreesError> {
         let nt = self.treeseq.tables.nodes_.as_slice();
-        let mut b = 0;
+        let mut b: Time = 0.;
         for n in self.traverse_nodes(NodeTraversalOrder::Preorder) {
             let p = self.parent(n)?;
             if p != NULL_ID {
@@ -537,7 +537,7 @@ impl<'treeseq> Tree<'treeseq> {
         }
 
         match by_span {
-            true => Ok(b * self.span()),
+            true => Ok(b * (self.span() as f64)),
             false => Ok(b),
         }
     }
@@ -918,9 +918,9 @@ mod test_trees {
     #[test]
     fn test_treeseq_creation_and_table_access() {
         let mut tables = crate::TableCollection::new(100).unwrap();
-        tables.add_node(0, 0).unwrap();
+        tables.add_node(0., 0).unwrap();
         tables
-            .add_node_with_flags(1, 0, crate::NodeFlags::IS_SAMPLE.bits())
+            .add_node_with_flags(1., 0, crate::NodeFlags::IS_SAMPLE.bits())
             .unwrap();
         tables.add_edge(0, 1, 0, 1).unwrap();
         tables
@@ -938,9 +938,9 @@ mod test_trees {
         let mut tables = crate::TableCollection::new(100).unwrap();
         tables.add_edge(0, 1, 0, 1).unwrap();
         tables
-            .add_node_with_flags(0, 0, crate::NodeFlags::IS_SAMPLE.bits())
+            .add_node_with_flags(0., 0, crate::NodeFlags::IS_SAMPLE.bits())
             .unwrap();
-        tables.add_node(1, 0).unwrap();
+        tables.add_node(1., 0).unwrap();
         tables
             .build_indexes(crate::IndexTablesFlags::empty())
             .unwrap();
@@ -964,19 +964,19 @@ mod test_trees {
         // 2 4 5 3
 
         let mut tables = crate::TableCollection::new(1000).unwrap();
-        tables.add_node(0, 0).unwrap();
-        tables.add_node(1, 0).unwrap();
+        tables.add_node(0., 0).unwrap();
+        tables.add_node(1., 0).unwrap();
         tables
-            .add_node_with_flags(2, 0, crate::NodeFlags::IS_SAMPLE.bits())
+            .add_node_with_flags(2., 0, crate::NodeFlags::IS_SAMPLE.bits())
             .unwrap();
         tables
-            .add_node_with_flags(2, 0, crate::NodeFlags::IS_SAMPLE.bits())
+            .add_node_with_flags(2., 0, crate::NodeFlags::IS_SAMPLE.bits())
             .unwrap();
         tables
-            .add_node_with_flags(2, 0, crate::NodeFlags::IS_SAMPLE.bits())
+            .add_node_with_flags(2., 0, crate::NodeFlags::IS_SAMPLE.bits())
             .unwrap();
         tables
-            .add_node_with_flags(2, 0, crate::NodeFlags::IS_SAMPLE.bits())
+            .add_node_with_flags(2., 0, crate::NodeFlags::IS_SAMPLE.bits())
             .unwrap();
         tables.add_edge(500, 1000, 0, 1).unwrap();
         tables.add_edge(0, 500, 0, 2).unwrap();

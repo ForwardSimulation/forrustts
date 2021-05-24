@@ -145,7 +145,7 @@ fn crossover_and_record_edges(
 
 fn generate_births(
     breakpoint: BreakpointFunction,
-    birth_time: Time,
+    birth_time: i64,
     rng: &mut StdRng,
     pop: &mut PopulationState,
     recorder: &impl Fn(
@@ -158,8 +158,8 @@ fn generate_births(
 ) {
     for b in &pop.births {
         // Record 2 new nodes
-        let new_node_0: IdType = pop.tables.add_node(birth_time, 0).unwrap();
-        let new_node_1: IdType = pop.tables.add_node(birth_time, 0).unwrap();
+        let new_node_0: IdType = pop.tables.add_node(birth_time as Time, 0).unwrap();
+        let new_node_1: IdType = pop.tables.add_node(birth_time as Time, 0).unwrap();
 
         crossover_and_record_edges(
             b.parent0,
@@ -283,7 +283,7 @@ fn simplify_and_remap_nodes(
     }
 }
 
-fn validate_simplification_interval(x: Time) -> Time {
+fn validate_simplification_interval(x: i64) -> i64 {
     if x < 1 {
         panic!("simplification_interval must be None or >= 1");
     }
@@ -315,9 +315,9 @@ pub struct SimulationParams {
     pub xovers: f64,
     pub genome_length: Position,
     pub buffer_edges: bool,
-    pub simplification_interval: Option<Time>,
+    pub simplification_interval: Option<i64>,
     pub seed: u64,
-    pub nsteps: Time,
+    pub nsteps: i64,
     pub flags: SimulationFlags,
     pub simplification_flags: crate::SimplificationFlags,
 }
@@ -340,11 +340,7 @@ impl Default for SimulationParams {
     }
 }
 
-fn mutate_tables(
-    mutrate: f64,
-    tables: &mut crate::TableCollection,
-    rng: &mut StdRng,
-) -> Vec<crate::Time> {
+fn mutate_tables(mutrate: f64, tables: &mut crate::TableCollection, rng: &mut StdRng) -> Vec<Time> {
     match mutrate.partial_cmp(&0.0) {
         Some(std::cmp::Ordering::Greater) => (),
         Some(_) => return vec![],
@@ -353,14 +349,14 @@ fn mutate_tables(
     let mut posmap = std::collections::HashMap::<crate::Position, IdType>::new();
     let mut derived_map = std::collections::HashMap::<crate::Position, u8>::new();
 
-    let mut origin_times_init: Vec<(crate::Time, IdType)> = vec![];
+    let mut origin_times_init: Vec<(Time, IdType)> = vec![];
     let num_edges = tables.edges().len();
     for i in 0..num_edges {
         let e = *tables.edge(i as IdType);
-        let ptime = tables.node(e.parent).time;
-        let ctime = tables.node(e.child).time;
+        let ptime = tables.node(e.parent).time as i64;
+        let ctime = tables.node(e.child).time as i64;
         let blen = ctime - ptime;
-        assert!(blen > 0, "{} {} {}", blen, ptime, ctime,);
+        assert!((blen as i64) > 0, "{} {} {}", blen, ptime, ctime,);
         let mutrate_edge = (mutrate * blen as f64) / (e.right - e.left) as f64;
         let exp = Exp::new(mutrate_edge).unwrap();
         let mut pos = e.left + (rng.sample(exp) as Position) + 1;
@@ -377,7 +373,7 @@ fn mutate_tables(
                         Some(y) => y + 1,
                         None => 1,
                     };
-                    origin_times_init.push((t, *x));
+                    origin_times_init.push((t as Time, *x));
                     derived_map.insert(pos, dstate).unwrap();
                     tables
                         .add_mutation(
@@ -391,7 +387,7 @@ fn mutate_tables(
                 }
                 None => {
                     tables.add_site(pos, Some(vec![0])).unwrap();
-                    origin_times_init.push((t, tables.sites().len() as IdType - 1));
+                    origin_times_init.push((t as Time, tables.sites().len() as IdType - 1));
                     tables
                         .add_mutation(
                             e.child,
@@ -472,10 +468,10 @@ fn add_tskit_mutation_site_tables(
 
 pub fn neutral_wf(
     params: SimulationParams,
-) -> Result<(crate::TableCollection, Vec<i32>, Vec<crate::Time>), ForrusttsError> {
+) -> Result<(crate::TableCollection, Vec<i32>, Vec<Time>), ForrusttsError> {
     // FIXME: gotta validate input params!
 
-    let mut actual_simplification_interval: Time = -1;
+    let mut actual_simplification_interval: i64 = -1;
 
     let breakpoint: BreakpointFunction = match params.xovers.partial_cmp(&0.0) {
         Some(std::cmp::Ordering::Greater) => {
@@ -498,8 +494,8 @@ pub fn neutral_wf(
     // Record nodes for the first generation
     // Nodes will have birth time 0 in deme 0.
     for index in 0..params.popsize {
-        let node0 = pop.tables.add_node(0, 0).unwrap();
-        let node1 = pop.tables.add_node(0, 0).unwrap();
+        let node0 = pop.tables.add_node(0., 0).unwrap();
+        let node1 = pop.tables.add_node(0., 0).unwrap();
         pop.parents.push(Parent {
             index: index as usize,
             node0,
@@ -630,12 +626,17 @@ impl Iterator for SimulatorIterator {
             let mut tsk_tables = crate::tskit_tools::convert_to_tskit_minimal(
                 &tables,
                 &is_sample,
-                crate::tskit_tools::simple_time_reverser(params.nsteps),
+                crate::tskit_tools::simple_time_reverser(params.nsteps as Time),
                 // Do not index tables here!
                 // Things are unsorted!
                 false,
             );
-            add_tskit_mutation_site_tables(&tables, &&origin_times, params.nsteps, &mut tsk_tables);
+            add_tskit_mutation_site_tables(
+                &tables,
+                &origin_times,
+                params.nsteps as Time,
+                &mut tsk_tables,
+            );
             tsk_tables
                 .full_sort(tskit::TableSortOptions::empty())
                 .unwrap();

@@ -648,13 +648,17 @@ fn find_pre_existing_edges(
     rv.sort_by(|a, b| {
         let ta = tables.nodes_[a.parent as usize].time;
         let tb = tables.nodes_[b.parent as usize].time;
-        if ta == tb {
-            if a.start == b.start {
-                return a.parent.cmp(&b.parent);
+        match ta.partial_cmp(&tb) {
+            Some(std::cmp::Ordering::Equal) => {
+                if a.start == b.start {
+                    a.parent.cmp(&b.parent)
+                } else {
+                    a.start.cmp(&b.start)
+                }
             }
-            return a.start.cmp(&b.start);
+            Some(x) => x.reverse(),
+            None => panic!("invalid node times"),
         }
-        ta.cmp(&tb).reverse()
     });
 
     // TODO: this could eventually be called in a debug_assert
@@ -1018,7 +1022,12 @@ pub fn simplify_from_edge_buffer(
     // Process all edges since the last simplification.
     let mut max_time = Time::MIN;
     for n in samples.edge_buffer_founder_nodes.iter() {
-        max_time = std::cmp::max(max_time, tables.node(*n).time);
+        let nt = tables.node(*n).time;
+        max_time = match max_time.partial_cmp(&nt) {
+            Some(std::cmp::Ordering::Less) => nt,
+            Some(_) => max_time,
+            None => panic!("invalid time comparsion"),
+        };
     }
 
     for head in edge_buffer.index_rev() {
@@ -1184,8 +1193,8 @@ mod test_simpify_tables {
     fn test_simplify_tables_unsorted_edges() {
         let mut tables = TableCollection::new(1000).unwrap();
 
-        tables.add_node(0, 0).unwrap(); // parent
-        tables.add_node(1, 0).unwrap(); // child
+        tables.add_node(0., 0).unwrap(); // parent
+        tables.add_node(1., 0).unwrap(); // child
         tables.add_edge(100, tables.genome_length(), 0, 1).unwrap();
         tables.add_edge(0, 100, 0, 1).unwrap();
 

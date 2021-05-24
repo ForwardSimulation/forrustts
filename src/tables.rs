@@ -260,16 +260,20 @@ fn sort_edges(nodes: &[Node], edges: &mut [Edge]) {
         let bindex = b.parent as usize;
         let ta = nodes[aindex].time;
         let tb = nodes[bindex].time;
-        if ta == tb {
-            if a.parent == b.parent {
-                if a.child == b.child {
-                    return a.left.cmp(&b.left);
+        match ta.partial_cmp(&tb) {
+            Some(std::cmp::Ordering::Equal) => {
+                if a.parent == b.parent {
+                    if a.child == b.child {
+                        return a.left.cmp(&b.left);
+                    }
+                    a.child.cmp(&b.child)
+                } else {
+                    a.parent.cmp(&b.parent)
                 }
-                return a.child.cmp(&b.child);
             }
-            return a.parent.cmp(&b.parent);
+            Some(x) => x.reverse(),
+            None => panic!("invalid parent times"),
         }
-        ta.cmp(&tb).reverse()
     });
 }
 
@@ -433,24 +437,31 @@ pub fn validate_edge_table(len: Position, edges: &[Edge], nodes: &[Node]) -> Tab
         }
 
         if i > 0 {
-            if nodes[edge.parent as usize].time > nodes[last_parent].time {
-                return Err(TablesError::ParentTimesUnsorted);
-            }
-            if nodes[edge.parent as usize].time == nodes[last_parent].time {
-                if edge.parent as usize == last_parent {
-                    if (edge.child as usize) < last_child {
-                        return Err(TablesError::EdgesNotSortedByChild);
-                    }
-                    if edge.child as usize == last_child {
-                        match edge.left.cmp(&last_left) {
-                            Ordering::Greater => (),
-                            Ordering::Equal => return Err(TablesError::DuplicateEdges),
-                            Ordering::Less => return Err(TablesError::EdgesNotSortedByLeft),
-                        }
-                    }
-                } else {
-                    parent_seen[last_parent] = 1;
+            match nodes[edge.parent as usize]
+                .time
+                .partial_cmp(&nodes[last_parent].time)
+            {
+                Some(std::cmp::Ordering::Greater) => {
+                    return Err(TablesError::ParentTimesUnsorted);
                 }
+                Some(std::cmp::Ordering::Equal) => {
+                    if edge.parent as usize == last_parent {
+                        if (edge.child as usize) < last_child {
+                            return Err(TablesError::EdgesNotSortedByChild);
+                        }
+                        if edge.child as usize == last_child {
+                            match edge.left.cmp(&last_left) {
+                                Ordering::Greater => (),
+                                Ordering::Equal => return Err(TablesError::DuplicateEdges),
+                                Ordering::Less => return Err(TablesError::EdgesNotSortedByLeft),
+                            }
+                        }
+                    } else {
+                        parent_seen[last_parent] = 1;
+                    }
+                }
+                Some(_) => (),
+                None => panic!("invalid node times"),
             }
         }
         last_parent = edge.parent as usize;
@@ -528,7 +539,7 @@ impl TableCollection {
     ///
     /// ```
     /// let mut tables = forrustts::TableCollection::new(100).unwrap();
-    /// let id = tables.add_node(1, 0).unwrap();
+    /// let id = tables.add_node(1. , 0).unwrap();
     /// assert_eq!(id, 0);
     /// ```
     pub fn add_node(&mut self, time: Time, deme: IdType) -> TablesResult<IdType> {
@@ -556,7 +567,7 @@ impl TableCollection {
     ///
     /// ```
     /// let mut tables = forrustts::TableCollection::new(100).unwrap();
-    /// let id = tables.add_node_with_flags(1, 0,
+    /// let id = tables.add_node_with_flags(1., 0,
     ///     (forrustts::NodeFlags::IS_ALIVE | forrustts::NodeFlags::IS_SAMPLE).bits()).unwrap();
     /// assert_eq!(id, 0);
     /// assert!(tables.node(0).flags & forrustts::NodeFlags::IS_ALIVE.bits() > 0);
@@ -572,7 +583,7 @@ impl TableCollection {
     /// The dump/set operations are constant time, moving the relevant vectors.
     /// ```
     /// let mut tables = forrustts::TableCollection::new(100).unwrap();
-    /// let id = tables.add_node_with_flags(1, 0,
+    /// let id = tables.add_node_with_flags(1., 0,
     ///     (forrustts::NodeFlags::IS_ALIVE | forrustts::NodeFlags::IS_SAMPLE).bits()).unwrap();
     /// assert_eq!(id, 0);
     /// assert!(tables.node(0).flags & forrustts::NodeFlags::IS_ALIVE.bits() > 0);
@@ -790,11 +801,11 @@ impl TableCollection {
     ///
     /// ```
     /// let mut tables = forrustts::TableCollection::new(100).unwrap();
-    /// tables.add_node(0, 0).unwrap();
-    /// tables.add_node(1, 1).unwrap();
+    /// tables.add_node(0., 0).unwrap();
+    /// tables.add_node(1., 1).unwrap();
     ///
     /// let n = tables.get_nodes(1).unwrap();
-    /// assert_eq!(n.time, 1);
+    /// assert_eq!(n.time as i32, 1);
     /// let n = tables.get_nodes(0..2).unwrap();
     /// assert_eq!(n.len(), 2);
     /// assert_eq!(n[0].deme, 0);
@@ -961,14 +972,17 @@ impl TableCollection {
             if ea.right == eb.right {
                 let ta = unsafe { *nodes.get_unchecked(ea.parent as usize) }.time;
                 let tb = unsafe { *nodes.get_unchecked(eb.parent as usize) }.time;
-                match ta.cmp(&tb) {
-                    std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
-                    std::cmp::Ordering::Less => std::cmp::Ordering::Less,
-                    std::cmp::Ordering::Equal => match ea.parent.cmp(&eb.parent).reverse() {
-                        std::cmp::Ordering::Equal => ea.child.cmp(&eb.child).reverse(),
+                match ta.partial_cmp(&tb) {
+                    Some(x) => match x {
                         std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
                         std::cmp::Ordering::Less => std::cmp::Ordering::Less,
+                        std::cmp::Ordering::Equal => match ea.parent.cmp(&eb.parent).reverse() {
+                            std::cmp::Ordering::Equal => ea.child.cmp(&eb.child).reverse(),
+                            std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
+                            std::cmp::Ordering::Less => std::cmp::Ordering::Less,
+                        },
                     },
+                    None => panic!("invalid parent times"),
                 }
             } else {
                 ea.right.cmp(&eb.right)
@@ -984,14 +998,17 @@ impl TableCollection {
             if ea.left == eb.left {
                 let ta = unsafe { *nodes.get_unchecked(ea.parent as usize) }.time;
                 let tb = unsafe { *nodes.get_unchecked(eb.parent as usize) }.time;
-                match ta.cmp(&tb).reverse() {
-                    std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
-                    std::cmp::Ordering::Less => std::cmp::Ordering::Less,
-                    std::cmp::Ordering::Equal => match ea.parent.cmp(&eb.parent) {
-                        std::cmp::Ordering::Equal => ea.child.cmp(&eb.child),
+                match ta.partial_cmp(&tb) {
+                    Some(x) => match x.reverse() {
                         std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
                         std::cmp::Ordering::Less => std::cmp::Ordering::Less,
+                        std::cmp::Ordering::Equal => match ea.parent.cmp(&eb.parent) {
+                            std::cmp::Ordering::Equal => ea.child.cmp(&eb.child),
+                            std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
+                            std::cmp::Ordering::Less => std::cmp::Ordering::Less,
+                        },
                     },
+                    None => panic!("invalid parent times"),
                 }
             } else {
                 ea.left.cmp(&eb.left)
@@ -1401,7 +1418,7 @@ mod test_table_indexing {
     #[should_panic]
     fn test_edge_out_of_range() {
         let mut t = TableCollection::new(1).unwrap();
-        t.add_node(0, 0).unwrap();
+        t.add_node(0., 0).unwrap();
         t.add_edge(0, 1, 0, 1).unwrap();
         t.build_indexes(IndexTablesFlags::default()).unwrap();
     }
@@ -1411,10 +1428,10 @@ mod test_table_indexing {
     fn test_simple_invalid_edge_table() {
         let mut t = TableCollection::new(1).unwrap();
         for _ in 0..3 {
-            t.add_node(2, 0).unwrap();
+            t.add_node(2., 0).unwrap();
         }
-        t.add_node(1, 0).unwrap();
-        t.add_node(0, 0).unwrap();
+        t.add_node(1., 0).unwrap();
+        t.add_node(0., 0).unwrap();
 
         t.add_edge(0, 1, 4, 3).unwrap();
         t.add_edge(0, 1, 4, 2).unwrap();
@@ -1431,10 +1448,10 @@ mod test_table_indexing {
     fn test_simple_sort_order() {
         let mut t = TableCollection::new(1).unwrap();
         for _ in 0..3 {
-            t.add_node(2, 0).unwrap();
+            t.add_node(2., 0).unwrap();
         }
-        t.add_node(1, 0).unwrap();
-        t.add_node(0, 0).unwrap();
+        t.add_node(1., 0).unwrap();
+        t.add_node(0., 0).unwrap();
 
         t.add_edge(0, 1, 4, 3).unwrap();
         t.add_edge(0, 1, 4, 2).unwrap();
@@ -1483,10 +1500,10 @@ mod test_table_indexing {
     fn test_is_indexed() {
         let mut t = TableCollection::new(1).unwrap();
         for _ in 0..3 {
-            t.add_node(2, 0).unwrap();
+            t.add_node(2., 0).unwrap();
         }
-        t.add_node(1, 0).unwrap();
-        t.add_node(0, 0).unwrap();
+        t.add_node(1., 0).unwrap();
+        t.add_node(0., 0).unwrap();
 
         t.add_edge(0, 1, 4, 3).unwrap();
         t.add_edge(0, 1, 4, 2).unwrap();
@@ -1508,7 +1525,7 @@ mod test_table_indexing {
         t.build_indexes(IndexTablesFlags::default()).unwrap();
         assert!(t.is_indexed());
 
-        t.add_node(0, 0).unwrap();
+        t.add_node(0., 0).unwrap();
         assert!(!t.is_indexed());
     }
 }
