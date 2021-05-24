@@ -138,14 +138,14 @@ fn crossover_and_record_edges(
 
 fn generate_births(
     breakpoint: BreakpointFunction,
-    birth_time: Time,
+    birth_time: i64,
     rng: &mut StdRng,
     pop: &mut PopulationState,
 ) {
     for b in &pop.births {
         // Record 2 new nodes
-        let new_node_0: IdType = pop.tables.add_node(birth_time, 0).unwrap();
-        let new_node_1: IdType = pop.tables.add_node(birth_time, 0).unwrap();
+        let new_node_0: IdType = pop.tables.add_node(birth_time as Time, 0).unwrap();
+        let new_node_1: IdType = pop.tables.add_node(birth_time as Time, 0).unwrap();
 
         crossover_and_record_edges(
             b.parent0,
@@ -231,7 +231,7 @@ fn simplify_and_remap_nodes(
     }
 }
 
-fn validate_simplification_interval(x: Time) -> Time {
+fn validate_simplification_interval(x: i64) -> i64 {
     if x < 1 {
         panic!("simplification_interval must be None or >= 1");
     }
@@ -271,14 +271,14 @@ impl PopulationParams {
 }
 
 pub struct SimulationParams {
-    pub simplification_interval: Option<Time>,
+    pub simplification_interval: Option<i64>,
     pub seed: u64,
-    pub nsteps: Time,
+    pub nsteps: i64,
     pub simplification_flags: forrustts::SimplificationFlags,
 }
 
 impl SimulationParams {
-    pub fn new(simplification_interval: Option<Time>, seed: u64, nsteps: Time) -> Self {
+    pub fn new(simplification_interval: Option<i64>, seed: u64, nsteps: i64) -> Self {
         SimulationParams {
             simplification_interval,
             seed,
@@ -305,10 +305,10 @@ fn mutate_tables(
     let num_edges = tables.edges().len();
     for i in 0..num_edges {
         let e = *tables.edge(i as IdType);
-        let ptime = tables.node(e.parent).time;
-        let ctime = tables.node(e.child).time;
+        let ptime = tables.node(e.parent).time as i64;
+        let ctime = tables.node(e.child).time as i64;
         let blen = ctime - ptime;
-        assert!(blen > 0, "{} {} {}", blen, ptime, ctime,);
+        assert!((blen as i64) > 0, "{} {} {}", blen, ptime, ctime,);
         let mutrate_edge = (mutrate * blen as f64) / (e.right - e.left) as f64;
         let exp = Exp::new(mutrate_edge).unwrap();
         let mut pos = e.left + (rng.sample(exp) as Position) + 1;
@@ -325,7 +325,7 @@ fn mutate_tables(
                         Some(y) => y + 1,
                         None => 1,
                     };
-                    origin_times_init.push((t, *x));
+                    origin_times_init.push((t as Time, *x));
                     derived_map.insert(pos, dstate).unwrap();
                     tables
                         .add_mutation(
@@ -339,7 +339,7 @@ fn mutate_tables(
                 }
                 None => {
                     tables.add_site(pos, Some(vec![0])).unwrap();
-                    origin_times_init.push((t, tables.sites().len() as IdType - 1));
+                    origin_times_init.push((t as Time, tables.sites().len() as IdType - 1));
                     tables
                         .add_mutation(
                             e.child,
@@ -424,7 +424,7 @@ pub fn neutral_wf(
 ) -> Result<(forrustts::TableCollection, Vec<i32>, Vec<forrustts::Time>), ForrusttsError> {
     // FIXME: gotta validate input params!
 
-    let mut actual_simplification_interval: Time = -1;
+    let mut actual_simplification_interval: i64 = -1;
 
     match params.simplification_interval {
         None => (),
@@ -439,8 +439,8 @@ pub fn neutral_wf(
     // Record nodes for the first generation
     // Nodes will have birth time 0 in deme 0.
     for index in 0..pop_params.size {
-        let node0 = pop.tables.add_node(0, 0).unwrap();
-        let node1 = pop.tables.add_node(0, 0).unwrap();
+        let node0 = pop.tables.add_node(0., 0).unwrap();
+        let node1 = pop.tables.add_node(0., 0).unwrap();
         pop.parents.push(Parent {
             index: index as usize,
             node0,
@@ -660,7 +660,7 @@ fn main() {
 
     let mut tskit_tables = forrustts::tskit_tools::convert_to_tskit_and_drain_minimal(
         &is_sample,
-        forrustts::tskit_tools::simple_time_reverser(g),
+        forrustts::tskit_tools::simple_time_reverser(g as Time),
         simplify.is_some(),
         &mut tables,
     );
@@ -672,7 +672,7 @@ fn main() {
         }
     };
 
-    add_tskit_mutation_site_tables(&tables, &origin_times, g, &mut tskit_tables);
+    add_tskit_mutation_site_tables(&tables, &origin_times, g as Time, &mut tskit_tables);
 
     tskit_tables
         .dump(&outfile, tskit::TableOutputOptions::default())

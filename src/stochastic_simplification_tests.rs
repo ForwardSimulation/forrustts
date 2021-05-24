@@ -90,7 +90,11 @@ fn compare_state_to_no_state() {
     assert_eq!(tables.num_edges(), tables_state.num_edges());
 
     for (i, j) in tables.nodes().iter().zip(tables_state.nodes()) {
-        assert_eq!(i.time, j.time);
+        match i.time.partial_cmp(&j.time) {
+            Some(std::cmp::Ordering::Equal) => (),
+            Some(_) => panic!("expected Equal, got not equal"),
+            None => panic!("expected Equal, got not None"),
+        };
         assert_eq!(i.deme, j.deme);
     }
     for (i, j) in tables.edges().iter().zip(tables_state.edges()) {
@@ -140,10 +144,9 @@ fn compare_buffer_vs_sort_overlapping_gens() {
     for _ in 0..ts.num_trees() {
         if let Some(tree) = ti.next() {
             if let Some(tree_buffer) = ti_buffer.next() {
-                assert_eq!(
-                    tree.total_branch_length(false).unwrap(),
-                    tree_buffer.total_branch_length(false).unwrap()
-                );
+                let time1 = tree.total_branch_length(false).unwrap();
+                let time2 = tree_buffer.total_branch_length(false).unwrap();
+                assert!((time1 - time2).abs() < f64::EPSILON);
             } else {
                 panic!("expected a Tree");
             }
