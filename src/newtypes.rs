@@ -24,4 +24,4 @@ pub struct Position(i64);
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, std::hash::Hash)]
-pub struct Time(i64);
+pub struct Time(f64);
