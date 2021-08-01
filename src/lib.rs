@@ -39,6 +39,7 @@ mod macros;
 
 mod error;
 pub mod nested_forward_list;
+mod newtypes;
 mod segment;
 mod simplification;
 mod tables;

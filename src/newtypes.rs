@@ -25,3 +25,10 @@ pub struct Position(i64);
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug)]
 pub struct Time(f64);
+
+impl_int_id_traits!(NodeId, i32);
+impl_int_id_traits!(DemeId, i32);
+impl_int_id_traits!(EdgeId, i32);
+impl_int_id_traits!(SiteId, i32);
+impl_int_id_traits!(MutationId, i32);
+impl_int_id_traits!(Position, i64);
