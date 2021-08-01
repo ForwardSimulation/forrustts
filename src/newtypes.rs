@@ -2,6 +2,10 @@
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, std::hash::Hash)]
 pub struct NodeId(i32);
 
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, std::hash::Hash)]
+pub struct DemeId(i32);
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, std::hash::Hash)]
 #[repr(transparent)]
 pub struct EdgeId(i32);
