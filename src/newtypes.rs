@@ -23,5 +23,5 @@ pub struct MutationId(i32);
 pub struct Position(i64);
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, std::hash::Hash)]
+#[derive(Copy, Clone, Debug)]
 pub struct Time(f64);
