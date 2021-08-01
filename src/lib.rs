@@ -39,13 +39,15 @@ mod macros;
 
 mod error;
 pub mod nested_forward_list;
+mod newtypes;
 mod segment;
 mod simplification;
 mod tables;
+mod traits;
 mod trees;
-mod tsdef;
 
 pub use error::ForrusttsError;
+pub use newtypes::*;
 pub use segment::Segment;
 pub use simplification::simplify_from_edge_buffer;
 pub use simplification::EdgeBuffer;
@@ -55,8 +57,8 @@ pub use simplification::SimplificationFlags;
 pub use simplification::SimplificationOutput;
 pub use simplification::{simplify_tables, simplify_tables_without_state};
 pub use tables::*;
+pub use traits::*;
 pub use trees::*;
-pub use tsdef::*;
 
 pub mod tskit_tools;
 

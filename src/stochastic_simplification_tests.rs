@@ -1,4 +1,6 @@
+use crate::newtypes::NodeId;
 use crate::stochastic_testing_tools::*;
+use crate::traits::TableTypeIntoRaw;
 use crate::*;
 use rand::rngs::StdRng;
 use rand::Rng;
@@ -7,6 +9,18 @@ use rand_distr::Uniform;
 use streaming_iterator::StreamingIterator;
 use tskit::TableAccess;
 use tskit::TskitTypeAccess;
+
+struct VecTskId(Vec<tskit::tsk_id_t>);
+
+impl From<Vec<NodeId>> for VecTskId {
+    fn from(value: Vec<NodeId>) -> Self {
+        let mut rv: Vec<tskit::tsk_id_t> = vec![];
+        for v in &value {
+            rv.push(v.0);
+        }
+        Self(rv)
+    }
+}
 
 fn compare_edge_table_indexes(
     tables: &TableCollection,
@@ -34,12 +48,12 @@ fn compare_edge_table_indexes(
             tsk_tables.edges().child(tsk_edge_input[idx]).unwrap()
         );
         assert_eq!(
-            tables.edges_[*val].left,
-            tsk_tables.edges().left(tsk_edge_input[idx]).unwrap() as Position
+            tables.edges_[*val].left.into_raw(),
+            tsk_tables.edges().left(tsk_edge_input[idx]).unwrap() as PositionLLType
         );
         assert_eq!(
-            tables.edges_[*val].right,
-            tsk_tables.edges().right(tsk_edge_input[idx]).unwrap() as Position
+            tables.edges_[*val].right.into_raw(),
+            tsk_tables.edges().right(tsk_edge_input[idx]).unwrap() as PositionLLType
         );
     }
 
@@ -53,12 +67,12 @@ fn compare_edge_table_indexes(
             tsk_tables.edges().child(tsk_edge_output[idx]).unwrap()
         );
         assert_eq!(
-            tables.edges_[*val].left,
-            tsk_tables.edges().left(tsk_edge_output[idx]).unwrap() as Position
+            tables.edges_[*val].left.into_raw(),
+            tsk_tables.edges().left(tsk_edge_output[idx]).unwrap() as PositionLLType
         );
         assert_eq!(
-            tables.edges_[*val].right,
-            tsk_tables.edges().right(tsk_edge_output[idx]).unwrap() as Position
+            tables.edges_[*val].right.into_raw(),
+            tsk_tables.edges().right(tsk_edge_output[idx]).unwrap() as PositionLLType
         );
     }
     true
@@ -72,7 +86,7 @@ fn compare_state_to_no_state() {
         mutrate: 0.,
         psurvival: 0.5,
         xovers: 5e-3,
-        genome_length: 1000000,
+        genome_length: 1000000.into(),
         buffer_edges: false,
         simplification_interval: Some(101),
         seed: 666,
@@ -113,7 +127,7 @@ fn compare_buffer_vs_sort_overlapping_gens() {
         mutrate: 0.,
         psurvival: 0.5,
         xovers: 5e-3,
-        genome_length: 1000000,
+        genome_length: 1000000.into(),
         buffer_edges: false,
         simplification_interval: Some(101),
         seed: 666,
@@ -146,7 +160,7 @@ fn compare_buffer_vs_sort_overlapping_gens() {
             if let Some(tree_buffer) = ti_buffer.next() {
                 let time1 = tree.total_branch_length(false).unwrap();
                 let time2 = tree_buffer.total_branch_length(false).unwrap();
-                assert!((time1 - time2).abs() < f64::EPSILON);
+                assert!((f64::from(time1) - f64::from(time2)).abs() < f64::EPSILON);
             } else {
                 panic!("expected a Tree");
             }
@@ -164,7 +178,7 @@ fn simplify_to_samples() {
         mutrate: 2e-3,
         psurvival: 0.5,
         xovers: 5e-3,
-        genome_length: 1000000,
+        genome_length: 1000000.into(),
         buffer_edges: false,
         simplification_interval: None,
         seed: 1512512,
@@ -196,7 +210,7 @@ fn simplify_to_samples() {
 
         i.tsk_tables
             .simplify(
-                &samples.samples,
+                &VecTskId::from(samples.samples).0,
                 tskit::SimplificationOptions::FILTER_SITES,
                 false,
             )
@@ -224,7 +238,7 @@ fn simplify_to_samples() {
                 .sites()
                 .position(idx as tskit::tsk_id_t)
                 .unwrap()
-                .partial_cmp(&(s.position as f64))
+                .partial_cmp(&(s.position.into_raw() as f64))
             {
                 None => panic!("bad cmp"),
                 Some(std::cmp::Ordering::Equal) => (),
@@ -253,7 +267,7 @@ fn simplify_to_samples() {
                         .unwrap(),
                 )
                 .unwrap();
-            match tpos.partial_cmp(&(i.tables.site(m.site as IdType).position as f64)) {
+            match tpos.partial_cmp(&(i.tables.site(m.site).position.into_raw() as f64)) {
                 Some(std::cmp::Ordering::Equal) => (),
                 Some(_) => panic!("Expected Equal"),
                 None => panic!("Expected Equal"),
@@ -284,7 +298,7 @@ fn simplify_to_samples() {
                 for u in tree.parents(*s).unwrap() {
                     p.push(u);
                 }
-                for u in tsk_tree.parents(*s).unwrap() {
+                for u in tsk_tree.parents(tskit::tsk_id_t::from(*s)).unwrap() {
                     tsk_p.push(u);
                 }
                 assert!(p == tsk_p);
@@ -294,7 +308,7 @@ fn simplify_to_samples() {
                     for child in tree.children(*pi).unwrap() {
                         ci.push(child);
                     }
-                    for child in tsk_tree.children(*pi).unwrap() {
+                    for child in tsk_tree.children(tskit::tsk_id_t::from(*pi)).unwrap() {
                         tsk_ci.push(child);
                     }
                     ci.sort_unstable();
@@ -308,7 +322,7 @@ fn simplify_to_samples() {
                 for s in tree.samples(node).unwrap() {
                     samples.push(s);
                 }
-                for s in tsk_tree.samples(node).unwrap() {
+                for s in tsk_tree.samples(node.into()).unwrap() {
                     tsk_samples.push(s);
                 }
                 samples.sort_unstable();
@@ -327,7 +341,7 @@ fn simplify_to_arbitrary_nodes() {
         mutrate: 2e-3,
         psurvival: 0.5,
         xovers: 5e-3,
-        genome_length: 1000000,
+        genome_length: 1000000.into(),
         buffer_edges: false,
         simplification_interval: None,
         seed: 5312851,
@@ -347,10 +361,10 @@ fn simplify_to_arbitrary_nodes() {
             let mut tables = i.tables.clone();
             let mut tsk_tables = i.tsk_tables.deepcopy().unwrap();
 
-            let mut candidate_sample: Vec<IdType> = vec![];
+            let mut candidate_sample: Vec<NodeId> = vec![];
             for (idx, val) in i.is_sample.iter().enumerate() {
                 if *val == 1 {
-                    candidate_sample.push(idx as IdType);
+                    candidate_sample.push(NodeId::from(idx));
                 }
             }
             let node_sampler = Uniform::new(0_usize, candidate_sample.len());
@@ -362,7 +376,7 @@ fn simplify_to_arbitrary_nodes() {
                 }
                 subsample[x] = 1;
             }
-            let mut samples_list: Vec<IdType> = vec![];
+            let mut samples_list: Vec<NodeId> = vec![];
             for (idx, val) in subsample.iter().enumerate() {
                 if *val == 1 {
                     samples_list.push(candidate_sample[idx]);
@@ -382,7 +396,7 @@ fn simplify_to_arbitrary_nodes() {
 
             tsk_tables
                 .simplify(
-                    &samples.samples,
+                    &VecTskId::from(samples.samples).0,
                     tskit::SimplificationOptions::FILTER_SITES,
                     false,
                 )
@@ -400,7 +414,7 @@ fn simplify_to_arbitrary_nodes() {
                     .sites()
                     .position(i as tskit::tsk_id_t)
                     .unwrap()
-                    .partial_cmp(&(s.position as f64))
+                    .partial_cmp(&(PositionLLType::from(s.position) as f64))
                 {
                     None => panic!("bad cmp"),
                     Some(std::cmp::Ordering::Equal) => (),
@@ -420,7 +434,7 @@ fn simplify_to_arbitrary_nodes() {
                     .sites()
                     .position(tsk_tables.mutations().site(i as tskit::tsk_id_t).unwrap())
                     .unwrap()
-                    .partial_cmp(&(tables.site(m.site as IdType).position as f64))
+                    .partial_cmp(&(tables.site(m.site).position.into_raw() as f64))
                 {
                     Some(std::cmp::Ordering::Equal) => (),
                     Some(_) => panic!("Expected Equal"),

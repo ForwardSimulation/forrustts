@@ -1,7 +1,10 @@
 use clap::{value_t, value_t_or_exit, App, Arg};
+use forrustts::EdgeId;
 use forrustts::ForrusttsError;
-use forrustts::IdType;
+use forrustts::NodeId;
 use forrustts::Position;
+use forrustts::SiteId;
+use forrustts::TableTypeIntoRaw;
 use forrustts::Time;
 use rand::rngs::StdRng;
 use rand::Rng;
@@ -23,8 +26,8 @@ type BreakpointFunction = Option<Exp<f64>>;
 #[derive(Copy, Clone)]
 struct Parent {
     index: usize,
-    node0: IdType,
-    node1: IdType,
+    node0: NodeId,
+    node1: NodeId,
 }
 
 struct Birth {
@@ -75,7 +78,7 @@ fn deaths_and_parents(psurvival: f64, rng: &mut StdRng, pop: &mut PopulationStat
     }
 }
 
-fn mendel(pnodes: &mut (tskit::tsk_id_t, tskit::tsk_id_t), rng: &mut StdRng) {
+fn mendel(pnodes: &mut (NodeId, NodeId), rng: &mut StdRng) {
     let x: f64 = rng.gen();
     match x.partial_cmp(&0.5) {
         Some(std::cmp::Ordering::Less) => {
@@ -88,7 +91,7 @@ fn mendel(pnodes: &mut (tskit::tsk_id_t, tskit::tsk_id_t), rng: &mut StdRng) {
 
 fn crossover_and_record_edges(
     parent: Parent,
-    child: IdType,
+    child: NodeId,
     breakpoint: BreakpointFunction,
     rng: &mut StdRng,
     tables: &mut forrustts::TableCollection,
@@ -98,10 +101,10 @@ fn crossover_and_record_edges(
     mendel(&mut pnodes, rng);
 
     if let Some(exp) = breakpoint {
-        let mut current_pos: Position = 0;
+        let mut current_pos: forrustts::PositionLLType = 0;
         loop {
             // TODO: gotta justify the next line...
-            let next_length = (rng.sample(exp) as Position) + 1;
+            let next_length = (rng.sample(exp) as forrustts::PositionLLType) + 1;
             assert!(next_length > 0);
             if current_pos + next_length < tables.genome_length() {
                 buffer_edges(
@@ -144,8 +147,8 @@ fn generate_births(
 ) {
     for b in &pop.births {
         // Record 2 new nodes
-        let new_node_0: IdType = pop.tables.add_node(birth_time as Time, 0).unwrap();
-        let new_node_1: IdType = pop.tables.add_node(birth_time as Time, 0).unwrap();
+        let new_node_0: NodeId = pop.tables.add_node(birth_time, 0).unwrap();
+        let new_node_1: NodeId = pop.tables.add_node(birth_time, 0).unwrap();
 
         crossover_and_record_edges(
             b.parent0,
@@ -170,15 +173,18 @@ fn generate_births(
     }
 }
 
-fn buffer_edges(
-    parent: IdType,
-    child: IdType,
-    span: (Position, Position),
+fn buffer_edges<P: Into<forrustts::Position>, P2: Into<forrustts::Position>>(
+    parent: NodeId,
+    child: NodeId,
+    span: (P, P2),
     _: &mut forrustts::TableCollection,
     buffer: &mut forrustts::EdgeBuffer,
 ) {
     buffer
-        .extend(parent, forrustts::Segment::new(span.0, span.1, child))
+        .extend(
+            parent.into(),
+            forrustts::Segment::new(span.0.into(), span.1.into(), child),
+        )
         .unwrap();
 }
 
@@ -219,8 +225,8 @@ fn simplify_and_remap_nodes(
     simplify(simplification_flags, samples, state, pop, output);
 
     for p in &mut pop.parents {
-        p.node0 = output.idmap[p.node0 as usize];
-        p.node1 = output.idmap[p.node1 as usize];
+        p.node0 = output.idmap[usize::from(p.node0)];
+        p.node1 = output.idmap[usize::from(p.node1)];
         assert!(pop.tables.node(p.node0).flags & forrustts::NodeFlags::IS_SAMPLE.bits() > 0);
     }
 
@@ -259,7 +265,7 @@ impl PopulationParams {
             genome_length,
             breakpoint: match xovers.partial_cmp(&0.0) {
                 Some(std::cmp::Ordering::Greater) => {
-                    Some(Exp::new(xovers / genome_length as f64).unwrap())
+                    Some(Exp::new(xovers / genome_length.into_raw() as f64).unwrap())
                 }
                 Some(_) => None,
                 None => None,
@@ -292,26 +298,27 @@ fn mutate_tables(
     mutrate: f64,
     tables: &mut forrustts::TableCollection,
     rng: &mut StdRng,
-) -> Vec<forrustts::Time> {
+) -> Vec<Time> {
     match mutrate.partial_cmp(&0.0) {
         Some(std::cmp::Ordering::Greater) => (),
         Some(_) => return vec![],
         None => panic!("bad mutation rate"),
     };
-    let mut posmap = std::collections::HashMap::<forrustts::Position, forrustts::IdType>::new();
-    let mut derived_map = std::collections::HashMap::<forrustts::Position, u8>::new();
+    let mut posmap = std::collections::HashMap::<forrustts::PositionLLType, SiteId>::new();
+    let mut derived_map = std::collections::HashMap::<forrustts::PositionLLType, u8>::new();
 
-    let mut origin_times_init: Vec<(forrustts::Time, forrustts::IdType)> = vec![];
+    let mut origin_times_init: Vec<(Time, SiteId)> = vec![];
     let num_edges = tables.edges().len();
     for i in 0..num_edges {
-        let e = *tables.edge(i as IdType);
-        let ptime = tables.node(e.parent).time as i64;
-        let ctime = tables.node(e.child).time as i64;
+        let e = *tables.edge(EdgeId::from(i));
+        let ptime = i64::from(tables.node(e.parent).time);
+        let ctime = i64::from(tables.node(e.child).time);
         let blen = ctime - ptime;
         assert!((blen as i64) > 0, "{} {} {}", blen, ptime, ctime,);
-        let mutrate_edge = (mutrate * blen as f64) / (e.right - e.left) as f64;
+        let mutrate_edge =
+            (mutrate * blen as f64) / (e.right.into_raw() - e.left.into_raw()) as f64;
         let exp = Exp::new(mutrate_edge).unwrap();
-        let mut pos = e.left + (rng.sample(exp) as Position) + 1;
+        let mut pos = e.left.into_raw() + (rng.sample(exp) as forrustts::PositionLLType) + 1;
         let make_time = Uniform::new(ptime, ctime);
         while pos < e.right {
             assert!(ctime > ptime);
@@ -325,7 +332,7 @@ fn mutate_tables(
                         Some(y) => y + 1,
                         None => 1,
                     };
-                    origin_times_init.push((t as Time, *x));
+                    origin_times_init.push((t.into(), *x));
                     derived_map.insert(pos, dstate).unwrap();
                     tables
                         .add_mutation(
@@ -338,22 +345,19 @@ fn mutate_tables(
                         .unwrap();
                 }
                 None => {
-                    tables.add_site(pos, Some(vec![0])).unwrap();
-                    origin_times_init.push((t as Time, tables.sites().len() as IdType - 1));
+                    let site_id = tables.add_site(pos, Some(vec![0])).unwrap();
+                    origin_times_init.push((t.into(), site_id));
                     tables
                         .add_mutation(
                             e.child,
                             origin_times_init.len() - 1,
-                            tables.sites().len() as IdType - 1,
+                            site_id,
                             Some(vec![1]),
                             true,
                         )
                         .unwrap();
 
-                    if posmap
-                        .insert(pos, tables.sites().len() as IdType - 1)
-                        .is_some()
-                    {
+                    if posmap.insert(pos, site_id).is_some() {
                         panic!("hash failure");
                     }
                     if derived_map.insert(pos, 1).is_some() {
@@ -361,14 +365,14 @@ fn mutate_tables(
                     }
                 }
             }
-            pos += (rng.sample(exp) as Position) + 1;
+            pos += (rng.sample(exp) as forrustts::PositionLLType) + 1;
         }
     }
     assert_eq!(origin_times_init.len(), tables.mutations().len());
     assert!(posmap.len() == derived_map.len());
     origin_times_init.sort_by(|a, b| {
-        let pa = tables.site(a.1 as IdType).position;
-        let pb = tables.site(b.1 as IdType).position;
+        let pa = tables.site(a.1).position;
+        let pb = tables.site(b.1).position;
         pa.cmp(&pb)
     });
     tables.sort_tables(forrustts::TableSortingFlags::SKIP_EDGE_TABLE);
@@ -381,14 +385,14 @@ fn mutate_tables(
 
 fn add_tskit_mutation_site_tables(
     tables: &forrustts::TableCollection,
-    origin_times: &[forrustts::Time],
-    g: forrustts::Time,
+    origin_times: &[Time],
+    g: Time,
     tskit_tables: &mut tskit::TableCollection,
 ) {
     for s in tables.sites() {
         tskit_tables
             .add_site(
-                s.position as f64,
+                s.position.into_raw() as f64,
                 match &s.ancestral_state {
                     Some(x) => Some(x),
                     None => panic!("expected ancestral_state"),
@@ -400,7 +404,7 @@ fn add_tskit_mutation_site_tables(
     for (i, m) in tables.enumerate_mutations() {
         let reverser = forrustts::tskit_tools::simple_time_reverser(g);
         assert!(match reverser(origin_times[i])
-            .partial_cmp(&tskit_tables.nodes().time(m.node).unwrap())
+            .partial_cmp(&tskit_tables.nodes().time(m.node.into()).unwrap())
         {
             Some(std::cmp::Ordering::Less) => false,
             Some(_) => true,
@@ -408,8 +412,8 @@ fn add_tskit_mutation_site_tables(
         });
         tskit_tables
             .add_mutation(
-                m.site as tskit::tsk_id_t,
-                m.node,
+                i32::from(m.site) as tskit::tsk_id_t,
+                i32::from(m.node) as tskit::tsk_id_t,
                 tskit::TSK_NULL,
                 reverser(origin_times[i]),
                 Some(m.derived_state.as_ref().unwrap()),
@@ -421,7 +425,7 @@ fn add_tskit_mutation_site_tables(
 pub fn neutral_wf(
     pop_params: PopulationParams,
     params: SimulationParams,
-) -> Result<(forrustts::TableCollection, Vec<i32>, Vec<forrustts::Time>), ForrusttsError> {
+) -> Result<(forrustts::TableCollection, Vec<i32>, Vec<Time>), ForrusttsError> {
     // FIXME: gotta validate input params!
 
     let mut actual_simplification_interval: i64 = -1;
@@ -449,7 +453,7 @@ pub fn neutral_wf(
     }
 
     for i in 0..pop.tables.num_nodes() {
-        samples.edge_buffer_founder_nodes.push(i as IdType);
+        samples.edge_buffer_founder_nodes.push(NodeId::from(i));
     }
 
     let mut simplified = false;
@@ -503,11 +507,11 @@ pub fn neutral_wf(
                     .edge_buffer
                     .values_iter(head as forrustts::nested_forward_list::IndexType)
                 {
-                    assert!(seg.node < pop.tables.num_nodes() as forrustts::IdType);
+                    assert!(usize::from(seg.node) < pop.tables.num_nodes());
                     edges.push(forrustts::Edge {
                         left: seg.left,
                         right: seg.right,
-                        parent: head as forrustts::IdType,
+                        parent: head.into(),
                         child: seg.node,
                     });
                 }
@@ -519,8 +523,8 @@ pub fn neutral_wf(
     let mut is_alive: Vec<i32> = vec![0; pop.tables.num_nodes()];
 
     for p in pop.parents {
-        is_alive[p.node0 as usize] = 1;
-        is_alive[p.node1 as usize] = 1;
+        is_alive[usize::from(p.node0)] = 1;
+        is_alive[usize::from(p.node1)] = 1;
     }
 
     let origin_times = mutate_tables(pop_params.mutrate, &mut pop.tables, &mut rng);
@@ -648,7 +652,7 @@ fn main() {
     }
 
     let (mut tables, is_sample, origin_times) = neutral_wf(
-        PopulationParams::new(popsize, 10000000, xovers, psurvival, mutrate),
+        PopulationParams::new(popsize, 10000000.into(), xovers, psurvival, mutrate),
         SimulationParams {
             simplification_interval: simplify,
             seed,
@@ -660,7 +664,7 @@ fn main() {
 
     let mut tskit_tables = forrustts::tskit_tools::convert_to_tskit_and_drain_minimal(
         &is_sample,
-        forrustts::tskit_tools::simple_time_reverser(g as Time),
+        forrustts::tskit_tools::simple_time_reverser(g.into()),
         simplify.is_some(),
         &mut tables,
     );
@@ -672,7 +676,7 @@ fn main() {
         }
     };
 
-    add_tskit_mutation_site_tables(&tables, &origin_times, g as Time, &mut tskit_tables);
+    add_tskit_mutation_site_tables(&tables, &origin_times, g.into(), &mut tskit_tables);
 
     tskit_tables
         .dump(&outfile, tskit::TableOutputOptions::default())
