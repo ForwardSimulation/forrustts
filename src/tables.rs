@@ -1399,7 +1399,7 @@ mod test_table_indexing {
     #[test]
     fn test_reverse_sort() {
         let mut v = vec![3, 2, 1, 0];
-        v.sort_by(|a, b| a.cmp(&b).reverse());
+        v.sort_by(|a, b| a.cmp(b).reverse());
         for i in 1..v.len() {
             assert!(v[i] <= v[i - 1]);
         }

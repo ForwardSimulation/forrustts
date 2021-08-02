@@ -463,13 +463,12 @@ impl<'treeseq> Tree<'treeseq> {
                     assert!(topo[v as usize].right_sample != NULL_ID);
                     if topo[n as usize].left_sample == NULL_ID {
                         topo[n as usize].left_sample = topo[v as usize].left_sample;
-                        topo[n as usize].right_sample = topo[v as usize].right_sample;
                     } else {
                         let nright = topo[n as usize].right_sample as usize;
                         let vleft = topo[v as usize].left_sample;
                         topo[nright].next_sample = vleft;
-                        topo[n as usize].right_sample = topo[v as usize].right_sample;
                     }
+                    topo[n as usize].right_sample = topo[v as usize].right_sample;
                 }
                 v = topo[v as usize].right_sib;
             }
@@ -509,7 +508,7 @@ impl<'treeseq> Tree<'treeseq> {
         order: NodeTraversalOrder,
     ) -> Box<dyn Iterator<Item = IdType> + '_> {
         match order {
-            NodeTraversalOrder::Preorder => Box::new(PreorderNodeIterator::new(&self)),
+            NodeTraversalOrder::Preorder => Box::new(PreorderNodeIterator::new(self)),
         }
     }
 
@@ -560,7 +559,7 @@ impl<'treeseq> Tree<'treeseq> {
     /// [`TreesError::NodeIdOutOfRange`] if `u` is out of range.
     pub fn children(&self, u: IdType) -> Result<impl Iterator<Item = IdType> + '_, TreesError> {
         self.id_in_range(u)?;
-        Ok(ChildIterator::new(&self, u))
+        Ok(ChildIterator::new(self, u))
     }
 
     /// Return an [`Iterator`] over the roots of the tree.
@@ -585,7 +584,7 @@ impl<'treeseq> Tree<'treeseq> {
     }
 
     pub fn sample_nodes(&self) -> &[IdType] {
-        &self.samples
+        self.samples
     }
 
     /// Return an [`Iterator`] over the sample nodes descending from node `u`.
@@ -712,12 +711,11 @@ impl<'treeseq> streaming_iterator::StreamingIterator for Tree<'treeseq> {
                 if rchild == NULL_ID {
                     self.topology[current_edge.parent as usize].left_child = current_edge.child;
                     self.topology[current_edge.child as usize].left_sib = NULL_ID;
-                    self.topology[current_edge.child as usize].right_sib = NULL_ID;
                 } else {
                     self.topology[rchild as usize].right_sib = current_edge.child;
                     self.topology[current_edge.child as usize].left_sib = rchild;
-                    self.topology[current_edge.child as usize].right_sib = NULL_ID;
                 }
+                self.topology[current_edge.child as usize].right_sib = NULL_ID;
                 self.topology[current_edge.child as usize].parent = current_edge.parent;
                 self.topology[current_edge.parent as usize].right_child = current_edge.child;
 
@@ -763,7 +761,7 @@ impl<'treeseq> streaming_iterator::StreamingIterator for Tree<'treeseq> {
 
     fn get(&self) -> Option<&Self::Item> {
         match self.advanced {
-            true => Some(&self),
+            true => Some(self),
             false => None,
         }
     }

@@ -438,7 +438,7 @@ fn add_tskit_mutation_site_tables(
             .add_site(
                 s.position as f64,
                 match &s.ancestral_state {
-                    Some(x) => Some(&x),
+                    Some(x) => Some(x),
                     None => panic!("expected ancestral_state"),
                 },
             )

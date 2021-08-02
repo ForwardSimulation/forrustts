@@ -78,8 +78,8 @@ impl SegmentOverlapper {
     fn advance(&mut self) -> bool {
         let mut rv = false;
 
+        self.left = self.right;
         if self.qbeg < self.qend {
-            self.left = self.right;
             let mut tright = self.set_partition();
             if self.num_overlaps == 0 {
                 self.left = self.segment_queue[self.qbeg].left;
@@ -103,7 +103,6 @@ impl SegmentOverlapper {
             self.right = std::cmp::min(self.segment_queue[self.qbeg].left, tright);
             rv = true;
         } else {
-            self.left = self.right;
             self.right = Position::MAX;
             let tright = self.set_partition();
             if self.num_overlaps > 0 {
@@ -201,7 +200,7 @@ fn generate_output_site_mutation_tables(
                     if val.output_node != NULL_ID {
                         record_site(
                             val.position,
-                            &input_sites,
+                            input_sites,
                             &mut input_mutations[val.location],
                             output_sites,
                         );
@@ -552,7 +551,7 @@ fn setup_simplification(
 
     record_sample_nodes(
         &samples.samples,
-        &tables,
+        tables,
         &mut state.new_nodes,
         &mut state.ancestry,
         &mut state.mutation_node_map,
@@ -630,10 +629,8 @@ fn find_pre_existing_edges(
     for (i, e) in tables.enumerate_edges() {
         if starts[e.parent as usize] == usize::MAX {
             starts[e.parent as usize] = i;
-            stops[e.parent as usize] = i + 1;
-        } else {
-            stops[e.parent as usize] = i + 1;
         }
+        stops[e.parent as usize] = i + 1;
     }
 
     let mut rv = vec![];
@@ -904,7 +901,7 @@ pub fn simplify_tables(
         edge_i = process_parent(
             tables.edges_[edge_i].parent,
             (edge_i, num_edges),
-            &tables,
+            tables,
             state,
             output,
         )?;
@@ -1053,7 +1050,7 @@ pub fn simplify_from_edge_buffer(
     }
 
     let existing_edges =
-        find_pre_existing_edges(&tables, &samples.edge_buffer_founder_nodes, &edge_buffer)?;
+        find_pre_existing_edges(tables, &samples.edge_buffer_founder_nodes, edge_buffer)?;
 
     let mut edge_i = 0;
     let num_edges = tables.num_edges();
@@ -1066,7 +1063,7 @@ pub fn simplify_from_edge_buffer(
             edge_i = process_parent(
                 tables.edges_[edge_i].parent,
                 (edge_i, num_edges),
-                &tables,
+                tables,
                 state,
                 output,
             )?;
@@ -1079,7 +1076,7 @@ pub fn simplify_from_edge_buffer(
                 edge_i = process_parent(
                     tables.edges_[edge_i].parent,
                     (edge_i, num_edges),
-                    &tables,
+                    tables,
                     state,
                     output,
                 )?;
@@ -1128,7 +1125,7 @@ pub fn simplify_from_edge_buffer(
         edge_i = process_parent(
             tables.edges_[edge_i].parent,
             (edge_i, num_edges),
-            &tables,
+            tables,
             state,
             output,
         )?;
@@ -1168,7 +1165,7 @@ mod test_simplification_output {
     #[test]
     fn test_defaul() {
         let x: SimplificationOutput = Default::default();
-        assert_eq!(x.idmap.is_empty(), true);
+        assert!(x.idmap.is_empty());
     }
 }
 
