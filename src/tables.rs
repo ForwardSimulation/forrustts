@@ -150,7 +150,7 @@ pub type SiteTable = Vec<Site>;
 pub type MutationTable = Vec<MutationRecord>;
 
 fn position_non_negative(x: Position) -> TablesResult<()> {
-    if x < 0 {
+    if x.0 < 0 {
         Err(TablesError::InvalidPosition { found: x })
     } else {
         Ok(())
@@ -1177,7 +1177,7 @@ impl TableCollection {
             let output = self.edge_output_order.as_slice();
             let edges = self.edges_.as_slice();
 
-            let mut tree_left: Position = 0;
+            let mut tree_left = Position(0);
             while input_index < input.len() || tree_left < self.genome_length() {
                 for idx in output[output_index..].iter() {
                     if edges[*idx].right != tree_left {
