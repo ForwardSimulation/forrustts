@@ -36,6 +36,8 @@ pub enum ForrusttsError {
         #[from]
         value: crate::TreesError,
     },
+    #[error("invalid row ID value: {value:?}")]
+    RowIdError { value: String },
 }
 
 #[cfg(test)]
