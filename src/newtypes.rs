@@ -1,30 +1,30 @@
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, std::hash::Hash)]
-pub struct NodeId(i32);
+pub struct NodeId(pub(crate) i32);
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, std::hash::Hash)]
-pub struct DemeId(i32);
+pub struct DemeId(pub(crate) i32);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, std::hash::Hash)]
 #[repr(transparent)]
-pub struct EdgeId(i32);
+pub struct EdgeId(pub(crate) i32);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, std::hash::Hash)]
 #[repr(transparent)]
-pub struct SiteId(i32);
+pub struct SiteId(pub(crate) i32);
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, std::hash::Hash)]
-pub struct MutationId(i32);
+pub struct MutationId(pub(crate) i32);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, std::hash::Hash)]
 #[repr(transparent)]
-pub struct Position(i64);
+pub struct Position(pub(crate) i64);
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Time(f64);
+pub struct Time(pub(crate) f64);
 
 /// "Null" identifier value for [``NodeId``]
 pub const NULL_NODE_ID: NodeId = NodeId(-1);
