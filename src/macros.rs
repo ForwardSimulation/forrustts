@@ -33,25 +33,11 @@ macro_rules! impl_row_id_traits {
                 self.0 == -1
             }
 
+            pub fn value(&self) -> $integer_type {
+                self.0
+            }
+
             pub const NULL: $idtype = $idtype(-1);
-        }
-
-        impl From<$integer_type> for $idtype {
-            fn from(value: $integer_type) -> Self {
-                Self(value)
-            }
-        }
-
-        impl From<$idtype> for usize {
-            fn from(value: $idtype) -> Self {
-                value.0 as usize
-            }
-        }
-
-        impl From<$idtype> for $integer_type {
-            fn from(value: $idtype) -> Self {
-                value.0
-            }
         }
 
         impl PartialEq<$integer_type> for $idtype {
