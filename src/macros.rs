@@ -12,12 +12,14 @@ macro_rules! iterator_for_nodeiterator {
     };
 }
 
-macro_rules! impl_int_id_traits {
-    ($idtype: ty, $integer_type: ty) => {
+macro_rules! impl_row_id_traits {
+    ($idtype: ident, $integer_type: ty) => {
         impl $idtype {
             pub fn is_null(&self) -> bool {
                 self.0 == -1
             }
+
+            pub const NULL: $idtype = $idtype(-1);
         }
 
         impl From<$integer_type> for $idtype {

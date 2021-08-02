@@ -26,15 +26,10 @@ pub struct Position(pub(crate) i64);
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Time(pub(crate) f64);
 
-/// "Null" identifier value for [``NodeId``]
-pub const NULL_NODE_ID: NodeId = NodeId(-1);
-
-impl_int_id_traits!(NodeId, i32);
-impl_int_id_traits!(DemeId, i32);
-impl_int_id_traits!(EdgeId, i32);
-impl_int_id_traits!(SiteId, i32);
-impl_int_id_traits!(MutationId, i32);
-impl_int_id_traits!(Position, i64);
+impl_row_id_traits!(NodeId, i32);
+impl_row_id_traits!(EdgeId, i32);
+impl_row_id_traits!(SiteId, i32);
+impl_row_id_traits!(MutationId, i32);
 
 impl PartialOrd<Time> for Time {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
