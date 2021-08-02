@@ -1,5 +1,6 @@
 use crate::nested_forward_list::NestedForwardList;
 use crate::nested_forward_list::NULL_INDEX;
+use crate::newtypes::NodeId;
 use crate::tables::*;
 use crate::tsdef::{IdType, Position, Time, NULL_ID};
 use crate::ForrusttsError;
@@ -736,7 +737,7 @@ pub struct SamplesInfo {
     /// Can include both "alive" and
     /// "ancient/remembered/preserved" sample
     /// nodes.
-    pub samples: Vec<IdType>,
+    pub samples: Vec<NodeId>,
     /// When using [``EdgeBuffer``](type.EdgeBuffer.html)
     /// to record transmission
     /// events, this list must contain a list of all node IDs
@@ -744,7 +745,7 @@ pub struct SamplesInfo {
     /// "alive" means "could leave more descendants".
     /// At the *start* of a simulation, this  should be filled
     /// with a list of "founder" node IDs.
-    pub edge_buffer_founder_nodes: Vec<IdType>,
+    pub edge_buffer_founder_nodes: Vec<NodeId>,
 }
 
 impl SamplesInfo {
@@ -763,7 +764,7 @@ pub struct SimplificationOutput {
     /// Maps input node ID to output ID.
     /// Values are set to [``NULL_ID``](crate::NULL_ID)
     /// for input nodes that "simplify out".
-    pub idmap: Vec<crate::IdType>,
+    pub idmap: Vec<NodeId>,
     /// Indexes of mutations that simplified out
     pub extinct_mutations: Vec<usize>,
 }

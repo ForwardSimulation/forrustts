@@ -1213,7 +1213,7 @@ mod test_tables {
 
     #[test]
     fn test_bad_genome_length() {
-        let _ = TableCollection::new(0).map_or_else(
+        let _ = TableCollection::new(Position(0)).map_or_else(
             |x: TablesError| assert_eq!(x, TablesError::InvalidGenomeLength),
             |_| panic!(),
         );
