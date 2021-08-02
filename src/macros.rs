@@ -25,10 +25,6 @@ macro_rules! impl_row_id_traits {
                 }
             }
 
-            pub fn new_unchecked(value: $integer_type) -> Self {
-                Self(value)
-            }
-
             pub fn is_null(&self) -> bool {
                 self.0 == -1
             }
