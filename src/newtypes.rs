@@ -26,6 +26,9 @@ pub struct Position(i64);
 #[derive(Copy, Clone, Debug)]
 pub struct Time(f64);
 
+/// "Null" identifier value for [``NodeId``]
+pub const NULL_NODE_ID: NodeId = NodeId(-1);
+
 impl_int_id_traits!(NodeId, i32);
 impl_int_id_traits!(DemeId, i32);
 impl_int_id_traits!(EdgeId, i32);
