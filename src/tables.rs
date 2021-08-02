@@ -692,7 +692,7 @@ impl TableCollection {
         &mut self,
         position: Position,
         ancestral_state: Option<Vec<u8>>,
-    ) -> TablesResult<IdType> {
+    ) -> TablesResult<SiteId> {
         if position >= self.length_ || position.0 < 0 {
             return Err(TablesError::InvalidPosition { found: position });
         }
@@ -879,7 +879,7 @@ impl TableCollection {
     }
 
     /// Return the i-th [``MutationRecord``].
-    pub fn mutation(&self, i: IdType) -> &MutationRecord {
+    pub fn mutation(&self, i: MutationId) -> &MutationRecord {
         &self.mutations_[i.0 as usize]
     }
 
