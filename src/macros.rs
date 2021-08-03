@@ -36,6 +36,10 @@ macro_rules! impl_row_id_traits {
             pub const NULL: $idtype = $idtype(-1);
         }
 
+        impl $crate::traits::RowId for $idtype {
+            type LLType = $idtype;
+        }
+
         impl PartialEq<$integer_type> for $idtype {
             fn eq(&self, other: &$integer_type) -> bool {
                 self.0 == *other

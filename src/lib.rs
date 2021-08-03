@@ -43,6 +43,7 @@ mod newtypes;
 mod segment;
 mod simplification;
 mod tables;
+mod traits;
 mod trees;
 mod tsdef;
 
