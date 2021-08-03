@@ -1,12 +1,15 @@
+use crate::newtypes::IdType;
+use crate::newtypes::NodeId;
+use crate::newtypes::Position;
+use crate::newtypes::Time;
 use crate::ForrusttsError;
-use crate::IdType;
-use crate::Position;
-use crate::Time;
 use bitflags::bitflags;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
 use rand_distr::{Exp, Uniform};
+use std::convert::TryInto;
+use std::convert::TryFrom;
 use tskit::TableAccess;
 
 // Some of the material below seems like a candidate for a public API,
@@ -23,8 +26,8 @@ type BreakpointFunction = Option<Exp<f64>>;
 #[derive(Copy, Clone)]
 struct Parent {
     index: usize,
-    node0: IdType,
-    node1: IdType,
+    node0: NodeId,
+    node1: NodeId,
 }
 
 struct Birth {
@@ -269,8 +272,8 @@ fn simplify_and_remap_nodes(
     sort_and_simplify(flags, simplification_flags, samples, state, pop, output);
 
     for p in &mut pop.parents {
-        p.node0 = output.idmap[p.node0 as usize];
-        p.node1 = output.idmap[p.node1 as usize];
+        p.node0 = output.idmap[usize::try_from(p.node0).unwrap()];
+        p.node1 = output.idmap[usize::try_from(p.node1).unwrap()];
         assert!(pop.tables.node(p.node0).flags & crate::NodeFlags::IS_SAMPLE.bits() > 0);
     }
 
@@ -494,8 +497,8 @@ pub fn neutral_wf(
     // Record nodes for the first generation
     // Nodes will have birth time 0 in deme 0.
     for index in 0..params.popsize {
-        let node0 = pop.tables.add_node(0., 0).unwrap();
-        let node1 = pop.tables.add_node(0., 0).unwrap();
+        let node0 = pop.tables.add_node(0_f64.into(), 0.into()).unwrap();
+        let node1 = pop.tables.add_node(0_f64.into(), 0.into()).unwrap();
         pop.parents.push(Parent {
             index: index as usize,
             node0,
@@ -504,7 +507,9 @@ pub fn neutral_wf(
     }
 
     for i in 0..pop.tables.num_nodes() {
-        samples.edge_buffer_founder_nodes.push(i as IdType);
+        samples
+            .edge_buffer_founder_nodes
+            .push(i.try_into().unwrap());
     }
 
     let mut simplified = false;
@@ -626,15 +631,15 @@ impl Iterator for SimulatorIterator {
             let mut tsk_tables = crate::tskit_tools::convert_to_tskit_minimal(
                 &tables,
                 &is_sample,
-                crate::tskit_tools::simple_time_reverser(params.nsteps as Time),
+                crate::tskit_tools::simple_time_reverser(params.nsteps.into()),
                 // Do not index tables here!
                 // Things are unsorted!
                 false,
             );
             add_tskit_mutation_site_tables(
                 &tables,
-                &origin_times,
-                params.nsteps as Time,
+                &origin_times.into(),
+                params.nsteps.into(),
                 &mut tsk_tables,
             );
             tsk_tables
