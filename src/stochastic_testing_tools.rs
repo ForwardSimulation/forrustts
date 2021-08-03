@@ -432,14 +432,14 @@ fn mutate_tables(mutrate: f64, tables: &mut crate::TableCollection, rng: &mut St
 
 fn add_tskit_mutation_site_tables(
     tables: &crate::TableCollection,
-    origin_times: &[crate::Time],
-    g: crate::Time,
+    origin_times: &[Time],
+    g: Time,
     tskit_tables: &mut tskit::TableCollection,
 ) {
     for s in tables.sites() {
         tskit_tables
             .add_site(
-                s.position as f64,
+                s.position.value() as f64,
                 match &s.ancestral_state {
                     Some(x) => Some(x),
                     None => panic!("expected ancestral_state"),
@@ -451,7 +451,7 @@ fn add_tskit_mutation_site_tables(
     for (i, m) in tables.enumerate_mutations() {
         let reverser = crate::tskit_tools::simple_time_reverser(g);
         assert!(match reverser(origin_times[i])
-            .partial_cmp(&tskit_tables.nodes().time(m.node).unwrap())
+            .partial_cmp(&tskit_tables.nodes().time(m.node.value()).unwrap())
         {
             Some(std::cmp::Ordering::Less) => false,
             Some(_) => true,
@@ -459,8 +459,8 @@ fn add_tskit_mutation_site_tables(
         });
         tskit_tables
             .add_mutation(
-                m.site as tskit::tsk_id_t,
-                m.node,
+                m.site.value() as tskit::tsk_id_t,
+                m.node.value() as tskit::tsk_id_t,
                 tskit::TSK_NULL,
                 reverser(origin_times[i]),
                 Some(m.derived_state.as_ref().unwrap()),
@@ -478,7 +478,7 @@ pub fn neutral_wf(
 
     let breakpoint: BreakpointFunction = match params.xovers.partial_cmp(&0.0) {
         Some(std::cmp::Ordering::Greater) => {
-            Some(Exp::new(params.xovers / params.genome_length as f64).unwrap())
+            Some(Exp::new(params.xovers / params.genome_length.value() as f64).unwrap())
         }
         Some(_) => None,
         None => panic!("invalid xovers: {}", params.xovers),
@@ -562,8 +562,8 @@ pub fn neutral_wf(
     let mut is_alive: Vec<i32> = vec![0; pop.tables.num_nodes()];
 
     for p in pop.parents {
-        is_alive[p.node0.try_into().unwrap()] = 1;
-        is_alive[p.node1.try_into().unwrap()] = 1;
+        is_alive[usize::try_from(p.node0).unwrap()] = 1;
+        is_alive[usize::try_from(p.node1).unwrap()] = 1;
     }
 
     let origin_times = mutate_tables(params.mutrate, &mut pop.tables, &mut rng);
@@ -639,7 +639,7 @@ impl Iterator for SimulatorIterator {
             add_tskit_mutation_site_tables(
                 &tables,
                 &origin_times,
-                params.nsteps.value(),
+                params.nsteps.into(),
                 &mut tsk_tables,
             );
             tsk_tables
@@ -672,11 +672,11 @@ impl Simulator {
     }
 }
 
-pub fn make_samples(l: &[crate::IdType]) -> crate::SamplesInfo {
+pub fn make_samples(l: &[NodeId]) -> crate::SamplesInfo {
     let mut rv = crate::SamplesInfo::default();
     for (i, j) in l.iter().enumerate() {
         if *j == 1 {
-            rv.samples.push(i as crate::IdType);
+            rv.samples.push(i.try_into().unwrap());
         }
     }
     rv
