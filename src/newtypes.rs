@@ -43,6 +43,18 @@ impl Time {
     pub const MAX: Time = Time(f64::MAX);
 }
 
+impl From<i64> for Position {
+    fn from(value: i64) -> Self {
+        Self(value)
+    }
+}
+
+impl From<f64> for Time {
+    fn from(value: f64) -> Self {
+        Self(value)
+    }
+}
+
 impl PartialOrd<Time> for Time {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         match self.0.partial_cmp(&other.0) {
