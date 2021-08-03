@@ -39,10 +39,18 @@ pub enum ForrusttsError {
 }
 
 #[derive(Error, Debug, PartialEq)]
-pub enum RowIdError<T> where T: crate::traits::RowId {
+pub enum RowIdError<T>
+where
+    T: crate::traits::RowId,
+{
     #[error("{value:?}")]
     InvalidValue { value: T::LLType },
 }
+
+type NodeIdError = RowIdError<crate::newtypes::NodeId>;
+type SiteIdError = RowIdError<crate::newtypes::SiteId>;
+type MutationIdError = RowIdError<crate::newtypes::MutationId>;
+type EdgeIdError = RowIdError<crate::newtypes::EdgeId>;
 
 #[cfg(test)]
 mod test {
