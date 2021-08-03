@@ -15,9 +15,9 @@ macro_rules! iterator_for_nodeiterator {
 macro_rules! impl_row_id_traits {
     ($idtype: ident, $integer_type: ty) => {
         impl $idtype {
-            pub fn new(value: $integer_type) -> Result<Self, $crate::error::RowIdError> {
+            pub fn new(value: $integer_type) -> Result<Self, $crate::error::RowIdError<$idtype>> {
                 if value < Self::NULL {
-                    Err($crate::error::RowIdError::InvalidValue { value: value })
+                    Err($crate::error::RowIdError::<$idtype>::InvalidValue { value: value })
                 } else {
                     Ok(Self(value))
                 }
@@ -35,7 +35,14 @@ macro_rules! impl_row_id_traits {
         }
 
         impl $crate::traits::RowId for $idtype {
-            type LLType = $idtype;
+            type LLType = $integer_type;
+        }
+
+        impl std::convert::TryFrom<$integer_type> for $idtype {
+            type Error = $crate::error::RowIdError<$idtype>;
+            fn try_from(value: $integer_type) -> Result<Self, Self::Error> {
+                Self::new(value)
+            }
         }
 
         impl PartialEq<$integer_type> for $idtype {

@@ -39,9 +39,9 @@ pub enum ForrusttsError {
 }
 
 #[derive(Error, Debug, PartialEq)]
-pub enum RowIdError {
+pub enum RowIdError<T> where T: crate::traits::RowId {
     #[error("{value:?}")]
-    InvalidValue { value: i32 },
+    InvalidValue { value: T::LLType },
 }
 
 #[cfg(test)]
