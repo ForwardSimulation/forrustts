@@ -17,7 +17,7 @@ macro_rules! impl_row_id_traits {
         impl $idtype {
             pub fn new(value: $integer_type) -> Result<Self, $crate::error::RowIdError<$idtype>> {
                 if value < Self::NULL {
-                    Err($crate::error::RowIdError::<$idtype>::InvalidValue { value: value })
+                    Err($crate::error::RowIdError::<$idtype>::InvalidValue { value })
                 } else {
                     Ok(Self(value))
                 }
