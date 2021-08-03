@@ -38,6 +38,11 @@ impl Position {
     pub const MAX: Position = Position(i64::MAX);
 }
 
+impl Time {
+    pub const MIN: Time = Time(f64::MIN);
+    pub const MAX: Time = Time(f64::MAX);
+}
+
 impl PartialOrd<Time> for Time {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         match self.0.partial_cmp(&other.0) {
