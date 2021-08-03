@@ -16,10 +16,10 @@ pub struct SiteId(pub(crate) IdType);
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, std::hash::Hash)]
 pub struct MutationId(pub(crate) IdType);
 
-impl_row_id_traits!(NodeId, IdType);
-impl_row_id_traits!(EdgeId, IdType);
-impl_row_id_traits!(SiteId, IdType);
-impl_row_id_traits!(MutationId, IdType);
+impl_row_id_traits!(NodeId, IdType, -1);
+impl_row_id_traits!(EdgeId, IdType, -1);
+impl_row_id_traits!(SiteId, IdType, -1);
+impl_row_id_traits!(MutationId, IdType, -1);
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, std::hash::Hash)]
@@ -55,6 +55,10 @@ impl DemeId {
             Ok(Self(value))
         }
     }
+}
+
+impl crate::traits::NullableAncestryType for NodeId {
+    const NULL: NodeId = NodeId(-1);
 }
 
 impl From<i64> for Position {

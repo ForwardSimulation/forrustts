@@ -1,4 +1,5 @@
 use crate::newtypes::{DemeId, EdgeId, IdType, MutationId, NodeId, Position, SiteId, Time};
+use crate::traits::NullableAncestryType;
 use bitflags::bitflags;
 use std::cmp::Ordering;
 use thiserror::Error;

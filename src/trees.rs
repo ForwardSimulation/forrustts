@@ -1,4 +1,5 @@
 use crate::newtypes::{IdType, NodeId, Position, Time};
+use crate::traits::NullableAncestryType;
 use bitflags::bitflags;
 
 bitflags! {
