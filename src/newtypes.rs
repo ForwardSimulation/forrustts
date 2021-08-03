@@ -47,6 +47,16 @@ impl Time {
     pub const MAX: Time = Time(f64::MAX);
 }
 
+impl DemeId {
+    pub fn new(value: i32) -> Result<Self, crate::error::RowIdError<DemeId>> {
+        if value < 0 {
+            Err(crate::error::RowIdError::<DemeId>::InvalidValue { value })
+        } else {
+            Ok(Self(value))
+        }
+    }
+}
+
 impl From<i64> for Position {
     fn from(value: i64) -> Self {
         Self(value)
@@ -71,9 +81,14 @@ impl From<i32> for Time {
     }
 }
 
-impl From<i32> for DemeId {
-    fn from(value: i32) -> Self {
-        Self(value as i32)
+impl crate::traits::RowId for DemeId {
+    type LLType = i32;
+}
+
+impl std::convert::TryFrom<i32> for DemeId {
+    type Error = crate::error::RowIdError<DemeId>;
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        Self::new(value as i32)
     }
 }
 
