@@ -674,13 +674,13 @@ fn find_pre_existing_edges(
 }
 
 fn queue_children(
-    child: IdType,
+    child: NodeId,
     left: Position,
     right: Position,
     ancestry: &mut AncestryList,
     overlapper: &mut SegmentOverlapper,
 ) -> Result<(), ForrusttsError> {
-    for seg in ancestry.values_iter(child) {
+    for seg in ancestry.values_iter(child.0) {
         if seg.right > left && right > seg.left {
             overlapper.enqueue(
                 std::cmp::max(seg.left, left),
@@ -693,7 +693,7 @@ fn queue_children(
 }
 
 fn process_births_from_buffer(
-    head: IdType,
+    head: NodeId,
     edge_buffer: &EdgeBuffer,
     state: &mut SimplificationBuffers,
 ) -> Result<(), ForrusttsError> {
@@ -701,7 +701,7 @@ fn process_births_from_buffer(
     // make the borrow checker happy.
     let a = &mut state.ancestry;
     let o = &mut state.overlapper;
-    for seg in edge_buffer.values_iter(head) {
+    for seg in edge_buffer.values_iter(head.0) {
         queue_children(seg.node, seg.left, seg.right, a, o).unwrap();
     }
     Ok(())
@@ -1028,19 +1028,19 @@ pub fn simplify_from_edge_buffer(
     }
 
     for head in edge_buffer.index_rev() {
-        let ptime = tables.node(head).time;
+        let ptime = tables.node(NodeId(head)).time;
         if ptime > max_time
         // Then this is a parent who is:
         // 1. Born since the last simplification.
         // 2. Left offspring
         {
             state.overlapper.clear_queue();
-            process_births_from_buffer(head, edge_buffer, state)?;
+            process_births_from_buffer(NodeId(head), edge_buffer, state)?;
             state.overlapper.finalize_queue(tables.genome_length());
             merge_ancestors(
                 &tables.nodes_,
                 tables.genome_length(),
-                head,
+                NodeId(head),
                 state,
                 &mut output.idmap,
             )?;
@@ -1057,8 +1057,8 @@ pub fn simplify_from_edge_buffer(
 
     for ex in existing_edges {
         while edge_i < num_edges
-            && tables.nodes_[tables.edges_[edge_i].parent as usize].time
-                > tables.nodes_[ex.parent as usize].time
+            && tables.nodes_[tables.edges_[edge_i].parent.0 as usize].time
+                > tables.nodes_[ex.parent.0 as usize].time
         {
             edge_i = process_parent(
                 tables.edges_[edge_i].parent,
@@ -1070,8 +1070,8 @@ pub fn simplify_from_edge_buffer(
         }
         if ex.start != usize::MAX {
             while (edge_i as usize) < ex.start
-                && tables.nodes_[tables.edges_[edge_i].parent as usize].time
-                    >= tables.nodes_[ex.parent as usize].time
+                && tables.nodes_[tables.edges_[edge_i].parent.0 as usize].time
+                    >= tables.nodes_[ex.parent.0 as usize].time
             {
                 edge_i = process_parent(
                     tables.edges_[edge_i].parent,

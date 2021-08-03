@@ -557,7 +557,7 @@ impl<'treeseq> Tree<'treeseq> {
     /// # Errors
     ///
     /// [`TreesError::NodeIdOutOfRange`] if `u` is out of range.
-    pub fn children(&self, u: IdType) -> Result<impl Iterator<Item = IdType> + '_, TreesError> {
+    pub fn children(&self, u: NodeId) -> Result<impl Iterator<Item = NodeId> + '_, TreesError> {
         self.id_in_range(u)?;
         Ok(ChildIterator::new(self, u))
     }
