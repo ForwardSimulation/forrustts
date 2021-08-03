@@ -390,13 +390,13 @@ fn mutate_tables(mutrate: f64, tables: &mut crate::TableCollection, rng: &mut St
                         .unwrap();
                 }
                 None => {
-                    tables.add_site(pos, Some(vec![0])).unwrap();
+                    let site_id = tables.add_site(pos, Some(vec![0])).unwrap();
                     origin_times_init.push((t as Time, tables.sites().len() as IdType - 1));
                     tables
                         .add_mutation(
                             e.child,
                             origin_times_init.len() - 1,
-                            tables.sites().len() as IdType - 1,
+                            site_id,
                             Some(vec![1]),
                             true,
                         )
@@ -498,8 +498,14 @@ pub fn neutral_wf(
     // Record nodes for the first generation
     // Nodes will have birth time 0 in deme 0.
     for index in 0..params.popsize {
-        let node0 = pop.tables.add_node(0_f64.into(), 0.into()).unwrap();
-        let node1 = pop.tables.add_node(0_f64.into(), 0.into()).unwrap();
+        let node0 = pop
+            .tables
+            .add_node(0_f64.into(), 0.try_into().unwrap())
+            .unwrap();
+        let node1 = pop
+            .tables
+            .add_node(0_f64.into(), 0.try_into().unwrap())
+            .unwrap();
         pop.parents.push(Parent {
             index: index as usize,
             node0,
