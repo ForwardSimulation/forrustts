@@ -45,6 +45,8 @@ where
 {
     #[error("{value:?}")]
     InvalidValue { value: T::LLType },
+    #[error("{value:?}")]
+    ValueOverflow { value: String },
 }
 
 type NodeIdError = RowIdError<crate::newtypes::NodeId>;

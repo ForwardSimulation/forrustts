@@ -45,6 +45,32 @@ macro_rules! impl_row_id_traits {
             }
         }
 
+        impl std::convert::TryFrom<usize> for $idtype {
+            type Error = $crate::error::RowIdError<$idtype>;
+            fn try_from(value: usize) -> Result<Self, Self::Error> {
+                if value > (<$integer_type>::MAX as usize) {
+                    Err(Self::Error::ValueOverflow {
+                        value: value.to_string(),
+                    })
+                } else {
+                    Self::new(value as $integer_type)
+                }
+            }
+        }
+
+        impl std::convert::TryFrom<i64> for $idtype {
+            type Error = $crate::error::RowIdError<$idtype>;
+            fn try_from(value: i64) -> Result<Self, Self::Error> {
+                if value > (<$integer_type>::MAX as i64) {
+                    Err(Self::Error::ValueOverflow {
+                        value: value.to_string(),
+                    })
+                } else {
+                    Self::new(value as $integer_type)
+                }
+            }
+        }
+
         impl PartialEq<$integer_type> for $idtype {
             fn eq(&self, other: &$integer_type) -> bool {
                 self.0 == *other
