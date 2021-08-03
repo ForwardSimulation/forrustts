@@ -55,6 +55,18 @@ impl From<f64> for Time {
     }
 }
 
+impl From<i64> for Time {
+    fn from(value: i64) -> Self {
+        Self(value as f64)
+    }
+}
+
+impl From<i32> for Time {
+    fn from(value: i32) -> Self {
+        Self(value as f64)
+    }
+}
+
 impl PartialOrd<Time> for Time {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         match self.0.partial_cmp(&other.0) {
