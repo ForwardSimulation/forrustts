@@ -27,15 +27,15 @@ macro_rules! impl_row_id_traits {
                 self.0 == -1
             }
 
-            pub fn value(&self) -> $integer_type {
-                self.0
-            }
-
             pub const NULL: $idtype = $idtype(-1);
         }
 
-        impl $crate::traits::RowId for $idtype {
+        impl $crate::traits::AncestryType for $idtype {
             type LLType = $integer_type;
+
+            fn value(&self) -> Self::LLType {
+                self.0
+            }
         }
 
         impl std::convert::TryFrom<$integer_type> for $idtype {

@@ -81,8 +81,11 @@ impl From<i32> for Time {
     }
 }
 
-impl crate::traits::RowId for DemeId {
+impl crate::traits::AncestryType for DemeId {
     type LLType = i32;
+    fn value(&self) -> Self::LLType {
+        self.0
+    }
 }
 
 impl std::convert::TryFrom<i32> for DemeId {

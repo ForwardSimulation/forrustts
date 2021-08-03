@@ -41,7 +41,7 @@ pub enum ForrusttsError {
 #[derive(Error, Debug, PartialEq)]
 pub enum RowIdError<T>
 where
-    T: crate::traits::RowId,
+    T: crate::traits::AncestryType,
 {
     #[error("{value:?}")]
     InvalidValue { value: T::LLType },
