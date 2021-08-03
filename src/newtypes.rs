@@ -36,6 +36,10 @@ pub struct Time(pub(crate) f64);
 impl Position {
     pub const MIN: Position = Position(i64::MIN);
     pub const MAX: Position = Position(i64::MAX);
+
+    pub fn value(&self) -> i64 {
+        self.0
+    }
 }
 
 impl Time {
@@ -64,6 +68,12 @@ impl From<i64> for Time {
 impl From<i32> for Time {
     fn from(value: i32) -> Self {
         Self(value as f64)
+    }
+}
+
+impl From<i32> for DemeId {
+    fn from(value: i32) -> Self {
+        Self(value as i32)
     }
 }
 
