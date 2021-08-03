@@ -12,7 +12,7 @@ macro_rules! iterator_for_nodeiterator {
     };
 }
 
-macro_rules! impl_row_id_traits {
+macro_rules! impl_integer_ancestry_type {
     ($idtype: ident, $integer_type: ty, $minval: expr) => {
         impl $idtype {
             pub fn new(value: $integer_type) -> Result<Self, $crate::error::RowIdError<$idtype>> {
@@ -98,6 +98,14 @@ macro_rules! impl_row_id_traits {
             fn partial_cmp(&self, other: &$idtype) -> Option<std::cmp::Ordering> {
                 self.partial_cmp(&other.0)
             }
+        }
+    };
+}
+
+macro_rules! impl_nullable_integer_ancestry_type {
+    ($idtype: ident) => {
+        impl $crate::traits::NullableAncestryType for $idtype {
+            const NULL: $idtype = Self(-1);
         }
     };
 }

@@ -2,6 +2,8 @@ use crate::newtypes::IdType;
 use crate::newtypes::NodeId;
 use crate::newtypes::Position;
 use crate::newtypes::Time;
+use crate::traits::AncestryType;
+use crate::traits::NullableAncestryType;
 use crate::ForrusttsError;
 use bitflags::bitflags;
 use rand::rngs::StdRng;
@@ -11,7 +13,6 @@ use rand_distr::{Exp, Uniform};
 use std::convert::TryFrom;
 use std::convert::TryInto;
 use tskit::TableAccess;
-
 // Some of the material below seems like a candidate for a public API,
 // but we need to decide here if this package should provide that.
 // If so, then many of these types should not be here, as they have nothing

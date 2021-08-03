@@ -16,10 +16,16 @@ pub struct SiteId(pub(crate) IdType);
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, std::hash::Hash)]
 pub struct MutationId(pub(crate) IdType);
 
-impl_row_id_traits!(NodeId, IdType, -1);
-impl_row_id_traits!(EdgeId, IdType, -1);
-impl_row_id_traits!(SiteId, IdType, -1);
-impl_row_id_traits!(MutationId, IdType, -1);
+impl_integer_ancestry_type!(NodeId, IdType, -1);
+impl_integer_ancestry_type!(EdgeId, IdType, -1);
+impl_integer_ancestry_type!(SiteId, IdType, -1);
+impl_integer_ancestry_type!(MutationId, IdType, -1);
+impl_integer_ancestry_type!(DemeId, IdType, 0);
+
+impl_nullable_integer_ancestry_type!(NodeId);
+impl_nullable_integer_ancestry_type!(EdgeId);
+impl_nullable_integer_ancestry_type!(SiteId);
+impl_nullable_integer_ancestry_type!(MutationId);
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, std::hash::Hash)]
@@ -47,20 +53,6 @@ impl Time {
     pub const MAX: Time = Time(f64::MAX);
 }
 
-impl DemeId {
-    pub fn new(value: i32) -> Result<Self, crate::error::RowIdError<DemeId>> {
-        if value < 0 {
-            Err(crate::error::RowIdError::<DemeId>::InvalidValue { value })
-        } else {
-            Ok(Self(value))
-        }
-    }
-}
-
-impl crate::traits::NullableAncestryType for NodeId {
-    const NULL: NodeId = NodeId(-1);
-}
-
 impl From<i64> for Position {
     fn from(value: i64) -> Self {
         Self(value)
@@ -82,20 +74,6 @@ impl From<i64> for Time {
 impl From<i32> for Time {
     fn from(value: i32) -> Self {
         Self(value as f64)
-    }
-}
-
-impl crate::traits::AncestryType for DemeId {
-    type LLType = i32;
-    fn value(&self) -> Self::LLType {
-        self.0
-    }
-}
-
-impl std::convert::TryFrom<i32> for DemeId {
-    type Error = crate::error::RowIdError<DemeId>;
-    fn try_from(value: i32) -> Result<Self, Self::Error> {
-        Self::new(value as i32)
     }
 }
 
