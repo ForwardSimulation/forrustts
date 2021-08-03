@@ -36,8 +36,12 @@ pub enum ForrusttsError {
         #[from]
         value: crate::TreesError,
     },
-    #[error("invalid row ID value: {value:?}")]
-    RowIdError { value: String },
+}
+
+#[derive(Error, Debug, PartialEq)]
+pub enum RowIdError {
+    #[error("{value:?}")]
+    InvalidValue { value: i32 },
 }
 
 #[cfg(test)]

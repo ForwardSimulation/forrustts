@@ -15,11 +15,9 @@ macro_rules! iterator_for_nodeiterator {
 macro_rules! impl_row_id_traits {
     ($idtype: ident, $integer_type: ty) => {
         impl $idtype {
-            pub fn new(value: $integer_type) -> Result<Self, $crate::ForrusttsError> {
+            pub fn new(value: $integer_type) -> Result<Self, $crate::error::RowIdError> {
                 if value < Self::NULL {
-                    Err($crate::ForrusttsError::RowIdError {
-                        value: value.to_string(),
-                    })
+                    Err($crate::error::RowIdError::InvalidValue { value: value })
                 } else {
                     Ok(Self(value))
                 }
