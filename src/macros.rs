@@ -58,6 +58,17 @@ macro_rules! impl_row_id_traits {
             }
         }
 
+        impl std::convert::TryFrom<$idtype> for usize {
+            type Error = $crate::error::RowIdError<$idtype>;
+            fn try_from(value: $idtype) -> Result<Self, Self::Error> {
+                if value < 0 {
+                    Err(Self::Error::InvalidValue { value: value.0 })
+                } else {
+                    Ok(value.0 as usize)
+                }
+            }
+        }
+
         impl std::convert::TryFrom<i64> for $idtype {
             type Error = $crate::error::RowIdError<$idtype>;
             fn try_from(value: i64) -> Result<Self, Self::Error> {
