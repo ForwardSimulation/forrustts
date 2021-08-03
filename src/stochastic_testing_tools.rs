@@ -333,7 +333,7 @@ impl Default for SimulationParams {
             mutrate: 0.0,
             psurvival: 0.0,
             xovers: 0.0,
-            genome_length: 1000000,
+            genome_length: 1000000.into(),
             buffer_edges: false,
             simplification_interval: None,
             seed: 0,
@@ -357,8 +357,8 @@ fn mutate_tables(mutrate: f64, tables: &mut crate::TableCollection, rng: &mut St
     let num_edges = tables.edges().len();
     for i in 0..num_edges {
         let e = *tables.edge(i as IdType);
-        let ptime = tables.node(e.parent).time as i64;
-        let ctime = tables.node(e.child).time as i64;
+        let ptime = tables.node(e.parent).time.value() as i64;
+        let ctime = tables.node(e.child).time.value() as i64;
         let blen = ctime - ptime;
         assert!((blen as i64) > 0, "{} {} {}", blen, ptime, ctime,);
         let mutrate_edge = (mutrate * blen as f64) / (e.right.value() - e.left.value()) as f64;
@@ -419,8 +419,8 @@ fn mutate_tables(mutrate: f64, tables: &mut crate::TableCollection, rng: &mut St
     assert_eq!(origin_times_init.len(), tables.mutations().len());
     assert!(posmap.len() == derived_map.len());
     origin_times_init.sort_by(|a, b| {
-        let pa = tables.site(a.1.into()).position;
-        let pb = tables.site(b.1.into()).position;
+        let pa = tables.site(a.1.try_into().unwrap()).position;
+        let pb = tables.site(b.1.try_into().unwrap()).position;
         pa.cmp(&pb)
     });
     tables.sort_tables(crate::TableSortingFlags::SKIP_EDGE_TABLE);
