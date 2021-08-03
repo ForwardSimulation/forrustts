@@ -8,8 +8,8 @@ use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
 use rand_distr::{Exp, Uniform};
-use std::convert::TryInto;
 use std::convert::TryFrom;
+use std::convert::TryInto;
 use tskit::TableAccess;
 
 // Some of the material below seems like a candidate for a public API,
@@ -360,7 +360,7 @@ fn mutate_tables(mutrate: f64, tables: &mut crate::TableCollection, rng: &mut St
         let ctime = tables.node(e.child).time as i64;
         let blen = ctime - ptime;
         assert!((blen as i64) > 0, "{} {} {}", blen, ptime, ctime,);
-        let mutrate_edge = (mutrate * blen as f64) / (e.right - e.left) as f64;
+        let mutrate_edge = (mutrate * blen as f64) / (e.right.value() - e.left.value()) as f64;
         let exp = Exp::new(mutrate_edge).unwrap();
         let mut pos = e.left + (rng.sample(exp) as Position) + 1;
         let make_time = Uniform::new(ptime, ctime);
@@ -418,8 +418,8 @@ fn mutate_tables(mutrate: f64, tables: &mut crate::TableCollection, rng: &mut St
     assert_eq!(origin_times_init.len(), tables.mutations().len());
     assert!(posmap.len() == derived_map.len());
     origin_times_init.sort_by(|a, b| {
-        let pa = tables.site(a.1 as IdType).position;
-        let pb = tables.site(b.1 as IdType).position;
+        let pa = tables.site(a.1.into()).position;
+        let pb = tables.site(b.1.into()).position;
         pa.cmp(&pb)
     });
     tables.sort_tables(crate::TableSortingFlags::SKIP_EDGE_TABLE);
@@ -562,8 +562,8 @@ pub fn neutral_wf(
     let mut is_alive: Vec<i32> = vec![0; pop.tables.num_nodes()];
 
     for p in pop.parents {
-        is_alive[p.node0 as usize] = 1;
-        is_alive[p.node1 as usize] = 1;
+        is_alive[p.node0.try_into().unwrap()] = 1;
+        is_alive[p.node1.try_into().unwrap()] = 1;
     }
 
     let origin_times = mutate_tables(params.mutrate, &mut pop.tables, &mut rng);
@@ -638,8 +638,8 @@ impl Iterator for SimulatorIterator {
             );
             add_tskit_mutation_site_tables(
                 &tables,
-                &origin_times.into(),
-                params.nsteps.into(),
+                &origin_times,
+                params.nsteps.value(),
                 &mut tsk_tables,
             );
             tsk_tables
