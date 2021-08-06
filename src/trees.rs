@@ -476,8 +476,9 @@ impl<'treeseq> Tree<'treeseq> {
         }
     }
 
-    fn id_in_range(&self, u: NodeId) -> TreesResult<()> {
-        if u < 0 || (u.0 as usize) >= self.num_nodes() {
+    fn id_in_range<N: Into<NodeId>>(&self, u: N) -> TreesResult<()> {
+        let n = u.into();
+        if n < 0 || (n.0 as usize) >= self.num_nodes() {
             Err(TreesError::NodeIdOutOfRange)
         } else {
             Ok(())
@@ -547,9 +548,12 @@ impl<'treeseq> Tree<'treeseq> {
     /// # Errors
     ///
     /// [`TreesError::NodeIdOutOfRange`] if `u` is out of range.
-    pub fn parents(&self, u: NodeId) -> Result<impl Iterator<Item = NodeId> + '_, TreesError> {
+    pub fn parents<N: Into<NodeId> + Copy>(
+        &self,
+        u: N,
+    ) -> Result<impl Iterator<Item = NodeId> + '_, TreesError> {
         self.id_in_range(u)?;
-        Ok(ParentsIterator::new(self, u))
+        Ok(ParentsIterator::new(self, u.into()))
     }
 
     /// Return an [`Iterator`] over the children of node `u`.
@@ -557,9 +561,12 @@ impl<'treeseq> Tree<'treeseq> {
     /// # Errors
     ///
     /// [`TreesError::NodeIdOutOfRange`] if `u` is out of range.
-    pub fn children(&self, u: NodeId) -> Result<impl Iterator<Item = NodeId> + '_, TreesError> {
+    pub fn children<N: Into<NodeId> + Copy>(
+        &self,
+        u: N,
+    ) -> Result<impl Iterator<Item = NodeId> + '_, TreesError> {
         self.id_in_range(u)?;
-        Ok(ChildIterator::new(self, u))
+        Ok(ChildIterator::new(self, u.into()))
     }
 
     /// Return an [`Iterator`] over the roots of the tree.
@@ -600,11 +607,14 @@ impl<'treeseq> Tree<'treeseq> {
     ///
     /// [`TreesError::NotTrackingSamples`] if [`TreeFlags::TRACK_SAMPLES`] was not used
     /// to initialize `self`.
-    pub fn samples(&self, u: NodeId) -> Result<impl Iterator<Item = NodeId> + '_, TreesError> {
+    pub fn samples<N: Into<NodeId> + Copy>(
+        &self,
+        u: N,
+    ) -> Result<impl Iterator<Item = NodeId> + '_, TreesError> {
         if !self.flags.contains(TreeFlags::TRACK_SAMPLES) {
             Err(TreesError::NotTrackingSamples)
         } else {
-            Ok(SamplesIterator::new(self, u))
+            Ok(SamplesIterator::new(self, u.into()))
         }
     }
 
@@ -613,46 +623,46 @@ impl<'treeseq> Tree<'treeseq> {
         self.treeseq.tables.num_nodes()
     }
 
-    pub fn parent(&self, u: NodeId) -> TreesResult<NodeId> {
+    pub fn parent<N: Into<NodeId> + Copy>(&self, u: N) -> TreesResult<NodeId> {
         self.id_in_range(u)?;
         // SAFETY: just checked the range.
-        Ok(unsafe { self.topology.get_unchecked(u.0 as usize) }.parent)
+        Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.parent)
     }
 
-    pub fn left_child(&self, u: NodeId) -> TreesResult<NodeId> {
+    pub fn left_child<N: Into<NodeId> + Copy>(&self, u: N) -> TreesResult<NodeId> {
         self.id_in_range(u)?;
         // SAFETY: just checked the range.
-        Ok(unsafe { self.topology.get_unchecked(u.0 as usize) }.left_child)
+        Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.left_child)
     }
 
-    pub fn right_child(&self, u: NodeId) -> TreesResult<NodeId> {
+    pub fn right_child<N: Into<NodeId> + Copy>(&self, u: N) -> TreesResult<NodeId> {
         self.id_in_range(u)?;
         // SAFETY: just checked the range.
-        Ok(unsafe { self.topology.get_unchecked(u.0 as usize) }.right_child)
+        Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.right_child)
     }
 
-    pub fn left_sib(&self, u: NodeId) -> TreesResult<NodeId> {
+    pub fn left_sib<N: Into<NodeId> + Copy>(&self, u: N) -> TreesResult<NodeId> {
         self.id_in_range(u)?;
         // SAFETY: just checked the range.
-        Ok(unsafe { self.topology.get_unchecked(u.0 as usize) }.left_sib)
+        Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.left_sib)
     }
 
-    pub fn right_sib(&self, u: NodeId) -> TreesResult<NodeId> {
+    pub fn right_sib<N: Into<NodeId> + Copy>(&self, u: N) -> TreesResult<NodeId> {
         self.id_in_range(u)?;
         // SAFETY: just checked the range.
-        Ok(unsafe { self.topology.get_unchecked(u.0 as usize) }.right_sib)
+        Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.right_sib)
     }
 
-    pub fn left_sample(&self, u: NodeId) -> TreesResult<NodeId> {
+    pub fn left_sample<N: Into<NodeId> + Copy>(&self, u: N) -> TreesResult<NodeId> {
         self.id_in_range(u)?;
         // SAFETY: just checked the range.
-        Ok(unsafe { self.topology.get_unchecked(u.0 as usize) }.left_sample)
+        Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.left_sample)
     }
 
-    pub fn right_sample(&self, u: NodeId) -> TreesResult<NodeId> {
+    pub fn right_sample<N: Into<NodeId> + Copy>(&self, u: N) -> TreesResult<NodeId> {
         self.id_in_range(u)?;
         // SAFETY: just checked the range.
-        Ok(unsafe { self.topology.get_unchecked(u.0 as usize) }.right_sample)
+        Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.right_sample)
     }
 }
 
@@ -912,10 +922,11 @@ impl<'a> TreeSequence<'a> {
 #[cfg(test)]
 mod test_trees {
     use super::*;
+    use std::convert::TryFrom;
 
     #[test]
     fn test_treeseq_creation_and_table_access() {
-        let mut tables = crate::TableCollection::new(100).unwrap();
+        let mut tables = crate::TableCollection::new(100.into()).unwrap();
         tables.add_node(0., 0).unwrap();
         tables
             .add_node_with_flags(1., 0, crate::NodeFlags::IS_SAMPLE.bits())
@@ -933,7 +944,7 @@ mod test_trees {
 
     #[test]
     fn test_treeseq_creation_and_tree_creation() {
-        let mut tables = crate::TableCollection::new(100).unwrap();
+        let mut tables = crate::TableCollection::new(100.into()).unwrap();
         tables.add_edge(0, 1, 0, 1).unwrap();
         tables
             .add_node_with_flags(0., 0, crate::NodeFlags::IS_SAMPLE.bits())
@@ -961,7 +972,7 @@ mod test_trees {
         // +-+-+ |
         // 2 4 5 3
 
-        let mut tables = crate::TableCollection::new(1000).unwrap();
+        let mut tables = crate::TableCollection::new(1000.into()).unwrap();
         tables.add_node(0., 0).unwrap();
         tables.add_node(1., 0).unwrap();
         tables
@@ -1010,7 +1021,7 @@ mod test_trees {
             if ntrees == 0 {
                 let mut nodes = vec![0; tree.num_nodes()];
                 for c in tree.children(0).unwrap() {
-                    nodes[c as usize] = 1;
+                    nodes[usize::try_from(c).unwrap()] = 1;
                 }
                 assert_eq!(nodes[2], 1);
                 assert_eq!(nodes[3], 1);
@@ -1018,13 +1029,13 @@ mod test_trees {
                     *x = 0;
                 }
                 for c in tree.children(1).unwrap() {
-                    nodes[c as usize] = 1;
+                    nodes[usize::try_from(c).unwrap()] = 1;
                 }
                 assert_eq!(nodes[4], 1);
                 assert_eq!(nodes[5], 1);
 
                 for p in tree.parents(2).unwrap() {
-                    nodes[p as usize] = 1;
+                    nodes[usize::try_from(p).unwrap()] = 1;
                 }
                 assert_eq!(nodes[0], 1);
                 for x in &mut nodes {
@@ -1040,7 +1051,7 @@ mod test_trees {
                 let roots = tree.roots_to_vec();
                 assert_eq!(roots.len(), 2);
                 for r in &roots {
-                    nodes[r.0 as usize] = 1;
+                    nodes[usize::try_from(r.0).unwrap()] = 1;
                 }
                 for i in &[0, 1] {
                     assert_eq!(nodes[*i as usize], 1);
@@ -1050,7 +1061,7 @@ mod test_trees {
                     *x = 0;
                 }
                 for s in tree.samples(0).unwrap() {
-                    nodes[s as usize] = 1;
+                    nodes[usize::try_from(s).unwrap()] = 1;
                 }
                 for i in &[2, 3] {
                     assert_eq!(nodes[*i as usize], 1);
@@ -1059,7 +1070,7 @@ mod test_trees {
                     *x = 0;
                 }
                 for s in tree.samples(1).unwrap() {
-                    nodes[s as usize] = 1;
+                    nodes[usize::try_from(s).unwrap()] = 1;
                 }
                 for i in &[4, 5] {
                     assert_eq!(nodes[*i as usize], 1);
@@ -1070,7 +1081,7 @@ mod test_trees {
             } else if ntrees == 1 {
                 let mut nodes = vec![0; tree.num_nodes()];
                 for c in tree.children(0).unwrap() {
-                    nodes[c as usize] = 1;
+                    nodes[usize::try_from(c).unwrap()] = 1;
                 }
                 assert_eq!(nodes[1], 1);
                 assert_eq!(nodes[3], 1);
@@ -1078,7 +1089,7 @@ mod test_trees {
                     *x = 0;
                 }
                 for c in tree.children(1).unwrap() {
-                    nodes[c as usize] = 1;
+                    nodes[usize::try_from(c).unwrap()] = 1;
                 }
                 assert_eq!(nodes[2], 1);
                 assert_eq!(nodes[4], 1);
@@ -1089,28 +1100,28 @@ mod test_trees {
                 let roots = tree.roots_to_vec();
                 assert_eq!(roots.len(), 1);
                 for r in &roots {
-                    nodes[r.0 as usize] = 1;
+                    nodes[usize::try_from(r.0).unwrap()] = 1;
                 }
                 for i in &[0] {
-                    assert_eq!(nodes[*i as usize], 1);
+                    assert_eq!(nodes[usize::try_from(*i).unwrap()], 1);
                 }
                 for x in &mut nodes {
                     *x = 0;
                 }
                 for s in tree.samples(0).unwrap() {
-                    nodes[s as usize] = 1;
+                    nodes[usize::try_from(s).unwrap()] = 1;
                 }
                 for s in tree.sample_nodes() {
-                    assert_eq!(nodes[*s as usize], 1);
+                    assert_eq!(nodes[usize::try_from(*s).unwrap()], 1);
                 }
                 for x in &mut nodes {
                     *x = 0;
                 }
                 for s in tree.samples(1).unwrap() {
-                    nodes[s as usize] = 1;
+                    nodes[usize::try_from(s).unwrap()] = 1;
                 }
                 for s in &[2, 4, 5] {
-                    assert_eq!(nodes[*s as usize], 1);
+                    assert_eq!(nodes[usize::try_from(*s).unwrap()], 1);
                 }
             }
 
