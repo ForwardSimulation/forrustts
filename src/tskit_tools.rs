@@ -211,7 +211,7 @@ mod tests {
 
     #[test]
     fn test_convert_to_tskit() {
-        let mut tables = TableCollection::new(100.into()).unwrap();
+        let mut tables = TableCollection::new(100).unwrap();
         tables.add_node(0., 0).unwrap(); // Add a parent node at time 0
         tables.add_node(1., 0).unwrap(); // Add a child node at time 1
         tables.add_edge(0, 100, 0, 1).unwrap(); // Add an edge
@@ -231,7 +231,7 @@ mod tests {
 
     #[test]
     fn test_convert_to_tskit_and_drain() {
-        let mut tables = TableCollection::new(100.into()).unwrap();
+        let mut tables = TableCollection::new(100).unwrap();
         tables.add_node(0., 0).unwrap(); // Add a parent node at time 0
         tables.add_node(1., 0).unwrap(); // Add a child node at time 1
         tables.add_edge(0, 100, 0, 1).unwrap(); // Add an edge

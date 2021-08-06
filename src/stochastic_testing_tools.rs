@@ -417,8 +417,8 @@ fn mutate_tables(mutrate: f64, tables: &mut crate::TableCollection, rng: &mut St
     assert_eq!(origin_times_init.len(), tables.mutations().len());
     assert!(posmap.len() == derived_map.len());
     origin_times_init.sort_by(|a, b| {
-        let pa = tables.site(a.1.try_into().unwrap()).position;
-        let pb = tables.site(b.1.try_into().unwrap()).position;
+        let pa = tables.site(a.1).position;
+        let pb = tables.site(b.1).position;
         pa.cmp(&pb)
     });
     tables.sort_tables(crate::TableSortingFlags::SKIP_EDGE_TABLE);

@@ -16,7 +16,7 @@ struct VecTskId(Vec<tskit::tsk_id_t>);
 
 impl From<Vec<NodeId>> for VecTskId {
     fn from(value: Vec<NodeId>) -> Self {
-        let rv: Vec<tskit::tsk_id_t> = vec![];
+        let mut rv: Vec<tskit::tsk_id_t> = vec![];
         for v in &value {
             rv.push(v.0);
         }

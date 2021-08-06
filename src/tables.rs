@@ -520,13 +520,14 @@ impl TableCollection {
     /// # Errors
     ///
     /// Will return [``TablesError``] if `genome_length < 1`.
-    pub const fn new(genome_length: Position) -> TablesResult<TableCollection> {
-        if genome_length.0 < 1 {
+    pub fn new<P: Into<Position>>(genome_length: P) -> TablesResult<TableCollection> {
+        let p = genome_length.into();
+        if p.0 < 1 {
             return Err(TablesError::InvalidGenomeLength);
         }
 
         Ok(TableCollection {
-            length_: genome_length,
+            length_: p,
             nodes_: NodeTable::new(),
             edges_: EdgeTable::new(),
             sites_: SiteTable::new(),
@@ -824,8 +825,8 @@ impl TableCollection {
     }
 
     /// Return the i-th [``Node``].
-    pub fn node(&self, i: NodeId) -> &Node {
-        &self.nodes_[i.0 as usize]
+    pub fn node<N: Into<NodeId>>(&self, i: N) -> &Node {
+        &self.nodes_[i.into().0 as usize]
     }
 
     /// Get a slice of nodes
@@ -854,8 +855,8 @@ impl TableCollection {
     }
 
     /// Return the i-th [``Edge``].
-    pub fn edge(&self, i: EdgeId) -> &Edge {
-        &self.edges_[i.0 as usize]
+    pub fn edge<E: Into<EdgeId>>(&self, i: E) -> &Edge {
+        &self.edges_[i.into().0 as usize]
     }
 
     /// Get a slice of edges
@@ -884,8 +885,8 @@ impl TableCollection {
     }
 
     /// Return the i-th [``Site``].
-    pub fn site(&self, i: SiteId) -> &Site {
-        &self.sites_[i.0 as usize]
+    pub fn site<S: Into<SiteId>>(&self, i: S) -> &Site {
+        &self.sites_[i.into().0 as usize]
     }
 
     /// Get a slice of sites
@@ -914,8 +915,8 @@ impl TableCollection {
     }
 
     /// Return the i-th [``MutationRecord``].
-    pub fn mutation(&self, i: MutationId) -> &MutationRecord {
-        &self.mutations_[i.0 as usize]
+    pub fn mutation<M: Into<MutationId>>(&self, i: M) -> &MutationRecord {
+        &self.mutations_[i.into().0 as usize]
     }
 
     /// Get a slice of mutations
@@ -1276,12 +1277,26 @@ mod test_tables {
         let mut tables = TableCollection::new(10).unwrap();
 
         let _ = tables.add_edge(-1, 1, 1, 2).map_or_else(
-            |x: TablesError| assert_eq!(x, TablesError::InvalidPosition { found: -1 }),
+            |x: TablesError| {
+                assert_eq!(
+                    x,
+                    TablesError::InvalidPosition {
+                        found: Position(-1)
+                    }
+                )
+            },
             |_| panic!(),
         );
 
         let _ = tables.add_edge(1, -1, 1, 2).map_or_else(
-            |x: TablesError| assert_eq!(x, TablesError::InvalidLeftRight { found: (1, -1) }),
+            |x: TablesError| {
+                assert_eq!(
+                    x,
+                    TablesError::InvalidLeftRight {
+                        found: (Position(1), Position(-1))
+                    }
+                )
+            },
             |_| panic!(),
         );
     }
@@ -1291,12 +1306,12 @@ mod test_tables {
         let mut tables = TableCollection::new(10).unwrap();
 
         let _ = tables.add_edge(0, 1, -1, 2).map_or_else(
-            |x: TablesError| assert_eq!(x, TablesError::InvalidNodeValue { found: -1 }),
+            |x: TablesError| assert_eq!(x, TablesError::InvalidNodeValue { found: NodeId(-1) }),
             |_| panic!(),
         );
 
         let _ = tables.add_edge(0, 1, 1, -2).map_or_else(
-            |x: TablesError| assert_eq!(x, TablesError::InvalidNodeValue { found: -2 }),
+            |x: TablesError| assert_eq!(x, TablesError::InvalidNodeValue { found: NodeId(-2) }),
             |_| panic!(),
         );
     }
@@ -1430,6 +1445,8 @@ mod test_tables {
 #[cfg(test)]
 mod test_table_indexing {
     use super::*;
+    use crate::traits::AncestryType;
+    use std::convert::TryFrom;
 
     #[test]
     fn test_reverse_sort() {
@@ -1503,9 +1520,12 @@ mod test_table_indexing {
             assert_eq!(edge_input_order.len(), t.edges().len());
             for (idx, i) in edge_input_order.iter().enumerate() {
                 if idx > 0 {
-                    let ti = t.node(t.edge(*i as IdType).parent).time;
+                    let ti = t.node(t.edge(EdgeId::try_from(*i).unwrap()).parent).time;
                     let tim1 = t
-                        .node(t.edge((edge_input_order[idx] - 1) as IdType).parent)
+                        .node(
+                            t.edge(EdgeId::try_from(edge_input_order[idx] - 1).unwrap())
+                                .parent,
+                        )
                         .time;
                     assert!(ti <= tim1);
                     assert!(tim1 >= ti);
@@ -1519,11 +1539,14 @@ mod test_table_indexing {
             assert_eq!(edge_output_order.len(), t.edges().len());
             for (idx, i) in edge_output_order.iter().enumerate() {
                 if idx > 0 {
-                    let ti = t.node(t.edge(*i as IdType).parent).time;
+                    let ti = t.node(t.edge(EdgeId::try_from(*i).unwrap()).parent).time;
                     let tim1 = t
-                        .node(t.edge((edge_output_order[idx - 1]) as IdType).parent)
+                        .node(
+                            t.edge(EdgeId::try_from(edge_output_order[idx - 1]).unwrap())
+                                .parent,
+                        )
                         .time;
-                    assert!(ti >= tim1, "{} {}", ti, tim1);
+                    assert!(ti >= tim1, "{} {}", ti.value(), tim1.value());
                 }
             }
         } else {

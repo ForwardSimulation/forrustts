@@ -1198,7 +1198,7 @@ mod test_simpify_tables {
         let mut output = SimplificationOutput::new();
 
         let mut samples = SamplesInfo::new();
-        samples.samples.push(1);
+        samples.samples.push(1.into());
 
         let _ = simplify_tables_without_state(
             &samples,

@@ -926,7 +926,7 @@ mod test_trees {
 
     #[test]
     fn test_treeseq_creation_and_table_access() {
-        let mut tables = crate::TableCollection::new(100.into()).unwrap();
+        let mut tables = crate::TableCollection::new(100).unwrap();
         tables.add_node(0., 0).unwrap();
         tables
             .add_node_with_flags(1., 0, crate::NodeFlags::IS_SAMPLE.bits())
@@ -944,7 +944,7 @@ mod test_trees {
 
     #[test]
     fn test_treeseq_creation_and_tree_creation() {
-        let mut tables = crate::TableCollection::new(100.into()).unwrap();
+        let mut tables = crate::TableCollection::new(100).unwrap();
         tables.add_edge(0, 1, 0, 1).unwrap();
         tables
             .add_node_with_flags(0., 0, crate::NodeFlags::IS_SAMPLE.bits())
@@ -972,7 +972,7 @@ mod test_trees {
         // +-+-+ |
         // 2 4 5 3
 
-        let mut tables = crate::TableCollection::new(1000.into()).unwrap();
+        let mut tables = crate::TableCollection::new(1000).unwrap();
         tables.add_node(0., 0).unwrap();
         tables.add_node(1., 0).unwrap();
         tables
