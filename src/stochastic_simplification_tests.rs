@@ -1,5 +1,4 @@
 use crate::newtypes::NodeId;
-use crate::newtypes::SiteId;
 use crate::stochastic_testing_tools::*;
 use crate::traits::AncestryType;
 use crate::*;

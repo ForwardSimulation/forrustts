@@ -558,7 +558,7 @@ pub fn neutral_wf(
         );
     }
 
-    let mut is_alive: Vec<i32> = vec![0.try_into().unwrap(); pop.tables.num_nodes()];
+    let mut is_alive: Vec<i32> = vec![0; pop.tables.num_nodes()];
 
     for p in pop.parents {
         is_alive[usize::try_from(p.node0).unwrap()] = 1;
