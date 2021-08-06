@@ -32,10 +32,10 @@ macro_rules! impl_integer_ancestry_type {
             }
         }
 
-        impl std::convert::TryFrom<$integer_type> for $idtype {
-            type Error = $crate::error::RowIdError<$idtype>;
-            fn try_from(value: $integer_type) -> Result<Self, Self::Error> {
-                Self::new(value)
+        impl From<$integer_type> for $idtype {
+            fn from(value: $integer_type) -> Self {
+                debug_assert!(value >= $minval);
+                Self(value)
             }
         }
 
