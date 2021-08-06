@@ -1,9 +1,10 @@
-use crate::newtypes::IdType;
+use crate::newtypes::EdgeId;
 use crate::newtypes::NodeId;
 use crate::newtypes::Position;
+use crate::newtypes::PositionLLType;
+use crate::newtypes::SiteId;
 use crate::newtypes::Time;
 use crate::traits::AncestryType;
-use crate::traits::NullableAncestryType;
 use crate::ForrusttsError;
 use bitflags::bitflags;
 use rand::rngs::StdRng;
@@ -79,7 +80,7 @@ fn deaths_and_parents(psurvival: f64, rng: &mut StdRng, pop: &mut PopulationStat
     }
 }
 
-fn mendel(pnodes: &mut (IdType, IdType), rng: &mut StdRng) {
+fn mendel(pnodes: &mut (NodeId, NodeId), rng: &mut StdRng) {
     let x: f64 = rng.gen();
     match x.partial_cmp(&0.5) {
         Some(std::cmp::Ordering::Less) => {
@@ -92,11 +93,11 @@ fn mendel(pnodes: &mut (IdType, IdType), rng: &mut StdRng) {
 
 fn crossover_and_record_edges(
     parent: Parent,
-    child: IdType,
+    child: NodeId,
     breakpoint: BreakpointFunction,
     recorder: &impl Fn(
-        IdType,
-        IdType,
+        NodeId,
+        NodeId,
         (Position, Position),
         &mut crate::TableCollection,
         &mut crate::EdgeBuffer,
@@ -109,16 +110,16 @@ fn crossover_and_record_edges(
     mendel(&mut pnodes, rng);
 
     if let Some(exp) = breakpoint {
-        let mut current_pos: Position = 0;
+        let mut current_pos: PositionLLType = 0;
         loop {
             // TODO: gotta justify the next line...
-            let next_length = (rng.sample(exp) as Position) + 1;
+            let next_length = (rng.sample(exp) as PositionLLType) + 1;
             assert!(next_length > 0);
             if current_pos + next_length < tables.genome_length() {
                 recorder(
                     pnodes.0,
                     child,
-                    (current_pos, current_pos + next_length),
+                    (current_pos.into(), (current_pos + next_length).into()),
                     tables,
                     edge_buffer,
                 );
@@ -128,7 +129,7 @@ fn crossover_and_record_edges(
                 recorder(
                     pnodes.0,
                     child,
-                    (current_pos, tables.genome_length()),
+                    (current_pos.into(), tables.genome_length()),
                     tables,
                     edge_buffer,
                 );
@@ -140,7 +141,7 @@ fn crossover_and_record_edges(
         recorder(
             pnodes.0,
             child,
-            (0, tables.genome_length()),
+            (0.into(), tables.genome_length()),
             tables,
             edge_buffer,
         );
@@ -149,12 +150,12 @@ fn crossover_and_record_edges(
 
 fn generate_births(
     breakpoint: BreakpointFunction,
-    birth_time: i64,
+    birth_time: Time,
     rng: &mut StdRng,
     pop: &mut PopulationState,
     recorder: &impl Fn(
-        IdType,
-        IdType,
+        NodeId,
+        NodeId,
         (Position, Position),
         &mut crate::TableCollection,
         &mut crate::EdgeBuffer,
@@ -162,8 +163,8 @@ fn generate_births(
 ) {
     for b in &pop.births {
         // Record 2 new nodes
-        let new_node_0: IdType = pop.tables.add_node(birth_time as Time, 0).unwrap();
-        let new_node_1: IdType = pop.tables.add_node(birth_time as Time, 0).unwrap();
+        let new_node_0: NodeId = pop.tables.add_node(birth_time, 0).unwrap();
+        let new_node_1: NodeId = pop.tables.add_node(birth_time, 0).unwrap();
 
         crossover_and_record_edges(
             b.parent0,
@@ -191,20 +192,20 @@ fn generate_births(
 }
 
 fn buffer_edges(
-    parent: IdType,
-    child: IdType,
+    parent: NodeId,
+    child: NodeId,
     span: (Position, Position),
     _: &mut crate::TableCollection,
     buffer: &mut crate::EdgeBuffer,
 ) {
     buffer
-        .extend(parent, crate::Segment::new(span.0, span.1, child))
+        .extend(parent.value(), crate::Segment::new(span.0, span.1, child))
         .unwrap();
 }
 
 fn record_edges(
-    parent: IdType,
-    child: IdType,
+    parent: NodeId,
+    child: NodeId,
     span: (Position, Position),
     tables: &mut crate::TableCollection,
     _: &mut crate::EdgeBuffer,
@@ -350,20 +351,20 @@ fn mutate_tables(mutrate: f64, tables: &mut crate::TableCollection, rng: &mut St
         Some(_) => return vec![],
         None => panic!("bad mutation rate"),
     };
-    let mut posmap = std::collections::HashMap::<crate::Position, IdType>::new();
-    let mut derived_map = std::collections::HashMap::<crate::Position, u8>::new();
+    let mut posmap = std::collections::HashMap::<PositionLLType, SiteId>::new();
+    let mut derived_map = std::collections::HashMap::<PositionLLType, u8>::new();
 
-    let mut origin_times_init: Vec<(Time, IdType)> = vec![];
+    let mut origin_times_init: Vec<(Time, SiteId)> = vec![];
     let num_edges = tables.edges().len();
     for i in 0..num_edges {
-        let e = *tables.edge(i as IdType);
+        let e = *tables.edge(EdgeId::try_from(i).unwrap());
         let ptime = tables.node(e.parent).time.value() as i64;
         let ctime = tables.node(e.child).time.value() as i64;
         let blen = ctime - ptime;
         assert!((blen as i64) > 0, "{} {} {}", blen, ptime, ctime,);
         let mutrate_edge = (mutrate * blen as f64) / (e.right.value() - e.left.value()) as f64;
         let exp = Exp::new(mutrate_edge).unwrap();
-        let mut pos = e.left + (rng.sample(exp) as Position) + 1;
+        let mut pos = e.left.value() + (rng.sample(exp) as PositionLLType) + 1;
         let make_time = Uniform::new(ptime, ctime);
         while pos < e.right {
             assert!(ctime > ptime);
@@ -377,7 +378,7 @@ fn mutate_tables(mutrate: f64, tables: &mut crate::TableCollection, rng: &mut St
                         Some(y) => y + 1,
                         None => 1,
                     };
-                    origin_times_init.push((t as Time, *x));
+                    origin_times_init.push((t.into(), *x));
                     derived_map.insert(pos, dstate).unwrap();
                     tables
                         .add_mutation(
@@ -390,8 +391,8 @@ fn mutate_tables(mutrate: f64, tables: &mut crate::TableCollection, rng: &mut St
                         .unwrap();
                 }
                 None => {
-                    let site_id = tables.add_site(pos, Some(vec![0])).unwrap();
-                    origin_times_init.push((t as Time, tables.sites().len() as IdType - 1));
+                    let site_id = tables.add_site_from(pos, Some(vec![0])).unwrap();
+                    origin_times_init.push((t.into(), site_id));
                     tables
                         .add_mutation(
                             e.child,
@@ -402,10 +403,7 @@ fn mutate_tables(mutrate: f64, tables: &mut crate::TableCollection, rng: &mut St
                         )
                         .unwrap();
 
-                    if posmap
-                        .insert(pos, tables.sites().len() as IdType - 1)
-                        .is_some()
-                    {
+                    if posmap.insert(pos, site_id).is_some() {
                         panic!("hash failure");
                     }
                     if derived_map.insert(pos, 1).is_some() {
@@ -413,7 +411,7 @@ fn mutate_tables(mutrate: f64, tables: &mut crate::TableCollection, rng: &mut St
                     }
                 }
             }
-            pos += (rng.sample(exp) as Position) + 1;
+            pos += (rng.sample(exp) as PositionLLType) + 1;
         }
     }
     assert_eq!(origin_times_init.len(), tables.mutations().len());
@@ -472,7 +470,7 @@ fn add_tskit_mutation_site_tables(
 
 pub fn neutral_wf(
     params: SimulationParams,
-) -> Result<(crate::TableCollection, Vec<i32>, Vec<Time>), ForrusttsError> {
+) -> Result<(crate::TableCollection, Vec<NodeId>, Vec<Time>), ForrusttsError> {
     // FIXME: gotta validate input params!
 
     let mut actual_simplification_interval: i64 = -1;
@@ -534,7 +532,7 @@ pub fn neutral_wf(
         deaths_and_parents(params.psurvival, &mut rng, &mut pop);
         generate_births(
             breakpoint,
-            birth_time,
+            birth_time.into(),
             &mut rng,
             &mut pop,
             &new_edge_handler,
@@ -566,7 +564,7 @@ pub fn neutral_wf(
         );
     }
 
-    let mut is_alive: Vec<i32> = vec![0; pop.tables.num_nodes()];
+    let mut is_alive: Vec<NodeId> = vec![0.try_into().unwrap(); pop.tables.num_nodes()];
 
     for p in pop.parents {
         is_alive[usize::try_from(p.node0).unwrap()] = 1;
@@ -608,7 +606,7 @@ pub struct SimulatorIterator {
 pub struct SimResults {
     pub tables: crate::TableCollection,
     pub tsk_tables: tskit::TableCollection,
-    pub is_sample: Vec<crate::IdType>,
+    pub is_sample: Vec<NodeId>,
 }
 
 impl SimulatorIterator {
