@@ -211,13 +211,17 @@ mod tests {
 
     #[test]
     fn test_convert_to_tskit() {
-        let mut tables = TableCollection::new(100).unwrap();
+        let mut tables = TableCollection::new(100.into()).unwrap();
         tables.add_node(0., 0).unwrap(); // Add a parent node at time 0
         tables.add_node(1., 0).unwrap(); // Add a child node at time 1
         tables.add_edge(0, 100, 0, 1).unwrap(); // Add an edge
         let is_sample = vec![0, 1]; // Mark the child node as a sample.
-        let tsk_tables =
-            convert_to_tskit_minimal(&tables, &is_sample, simple_time_reverser(1.), true);
+        let tsk_tables = convert_to_tskit_minimal(
+            &tables,
+            &is_sample,
+            simple_time_reverser(1_f64.into()),
+            true,
+        );
         assert_eq!(tsk_tables.nodes().num_rows(), 2);
         assert_eq!(tsk_tables.edges().num_rows(), 1);
         assert_eq!(tsk_tables.populations().num_rows(), 1);
@@ -227,14 +231,14 @@ mod tests {
 
     #[test]
     fn test_convert_to_tskit_and_drain() {
-        let mut tables = TableCollection::new(100).unwrap();
+        let mut tables = TableCollection::new(100.into()).unwrap();
         tables.add_node(0., 0).unwrap(); // Add a parent node at time 0
         tables.add_node(1., 0).unwrap(); // Add a child node at time 1
         tables.add_edge(0, 100, 0, 1).unwrap(); // Add an edge
         let is_sample = vec![0, 1]; // Mark the child node as a sample.
         let tsk_tables = convert_to_tskit_and_drain_minimal(
             &is_sample,
-            simple_time_reverser(1.),
+            simple_time_reverser(1_f64.into()),
             true,
             &mut tables,
         );
