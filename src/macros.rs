@@ -104,8 +104,8 @@ macro_rules! impl_integer_ancestry_type {
 
 macro_rules! impl_nullable_integer_ancestry_type {
     ($idtype: ident) => {
-        impl $crate::traits::NullableAncestryType for $idtype {
-            const NULL: $idtype = Self(-1);
+        impl $idtype {
+            pub const NULL: $idtype = Self(-1);
         }
     };
 }

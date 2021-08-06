@@ -2,7 +2,6 @@ use crate::nested_forward_list::NestedForwardList;
 use crate::nested_forward_list::NULL_INDEX;
 use crate::newtypes::{IdType, NodeId, Position, SiteId, Time};
 use crate::tables::*;
-use crate::traits::NullableAncestryType;
 use crate::ForrusttsError;
 use crate::Segment;
 use bitflags::bitflags;

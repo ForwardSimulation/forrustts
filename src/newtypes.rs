@@ -1,4 +1,6 @@
-pub(crate) type IdType = i32;
+type LowLevelIdType = i32;
+// TODO: remove
+pub(crate) type IdType = LowLevelIdType;
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, std::hash::Hash)]
