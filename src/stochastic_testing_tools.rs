@@ -671,7 +671,7 @@ impl Simulator {
     }
 }
 
-pub fn make_samples(l: &[NodeId]) -> crate::SamplesInfo {
+pub fn make_samples(l: &[i32]) -> crate::SamplesInfo {
     let mut rv = crate::SamplesInfo::default();
     for (i, j) in l.iter().enumerate() {
         if *j == 1 {
