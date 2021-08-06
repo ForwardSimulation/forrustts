@@ -7,7 +7,7 @@ pub type EdgeIdLLType = LowLevelIdType;
 pub type MutationIdLLType = LowLevelIdType;
 pub type SiteIdLLType = LowLevelIdType;
 pub type DemeIdLLType = LowLevelIdType;
-pub type PositonLLType = i64;
+pub type PositionLLType = i64;
 pub type TimeLLType = f64;
 
 #[repr(transparent)]
@@ -43,15 +43,15 @@ pub struct DemeId(pub(crate) DemeIdLLType);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, std::hash::Hash)]
 #[repr(transparent)]
-pub struct Position(pub(crate) PositonLLType);
+pub struct Position(pub(crate) PositionLLType);
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Time(pub(crate) TimeLLType);
 
 impl Position {
-    pub const MIN: Position = Position(PositonLLType::MIN);
-    pub const MAX: Position = Position(PositonLLType::MAX);
+    pub const MIN: Position = Position(PositionLLType::MIN);
+    pub const MAX: Position = Position(PositionLLType::MAX);
 
     pub fn value(&self) -> i64 {
         self.0
@@ -63,8 +63,8 @@ impl Time {
     pub const MAX: Time = Time(TimeLLType::MAX);
 }
 
-impl From<PositonLLType> for Position {
-    fn from(value: PositonLLType) -> Self {
+impl From<PositionLLType> for Position {
+    fn from(value: PositionLLType) -> Self {
         Self(value)
     }
 }
