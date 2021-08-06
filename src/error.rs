@@ -49,10 +49,10 @@ where
     ValueOverflow { value: String },
 }
 
-type NodeIdError = RowIdError<crate::newtypes::NodeId>;
-type SiteIdError = RowIdError<crate::newtypes::SiteId>;
-type MutationIdError = RowIdError<crate::newtypes::MutationId>;
-type EdgeIdError = RowIdError<crate::newtypes::EdgeId>;
+pub type NodeIdError = RowIdError<crate::newtypes::NodeId>;
+pub type SiteIdError = RowIdError<crate::newtypes::SiteId>;
+pub type MutationIdError = RowIdError<crate::newtypes::MutationId>;
+pub type EdgeIdError = RowIdError<crate::newtypes::EdgeId>;
 
 #[cfg(test)]
 mod test {

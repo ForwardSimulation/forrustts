@@ -72,6 +72,16 @@ pub enum TablesError {
     /// and [`crate::TreeSequence::new_with_samples`]
     #[error("Tables not indexed")]
     TablesNotIndexed,
+    #[error("{value:?}")]
+    NodeIdError {
+        #[from]
+        value: crate::error::NodeIdError,
+    },
+    #[error("{value:?}")]
+    SiteIdError {
+        #[from]
+        value: crate::error::SiteIdError,
+    },
 }
 
 /// Result type for operations on tables
@@ -652,6 +662,24 @@ impl TableCollection {
         edge_table_add_row(&mut self.edges_, left, right, parent, child)
     }
 
+    pub fn add_edge_from<
+        P: Into<Position>,
+        N: std::convert::TryInto<NodeId, Error = crate::error::NodeIdError>,
+    >(
+        &mut self,
+        left: P,
+        right: P,
+        parent: N,
+        child: N,
+    ) -> TablesResult<EdgeId> {
+        self.add_edge(
+            left.into(),
+            right.into(),
+            parent.try_into()?,
+            child.try_into()?,
+        )
+    }
+
     /// Add a [``Site``] to the [``SiteTable``];
     ///
     /// # Parameters
@@ -698,6 +726,14 @@ impl TableCollection {
             return Err(TablesError::InvalidPosition { found: position });
         }
         site_table_add_row(&mut self.sites_, position, ancestral_state)
+    }
+
+    pub fn add_site_from<P: Into<Position>>(
+        &mut self,
+        position: P,
+        ancestral_state: Option<Vec<u8>>,
+    ) -> TablesResult<SiteId> {
+        self.add_site(position.into(), ancestral_state)
     }
 
     /// Add a [``MutationRecord``] to the [``MutationTable``].
@@ -754,6 +790,26 @@ impl TableCollection {
             node,
             key,
             site,
+            derived_state,
+            neutral,
+        )
+    }
+
+    pub fn add_mutation_from<
+        N: std::convert::TryInto<NodeId, Error = crate::error::NodeIdError>,
+        S: std::convert::TryInto<SiteId, Error = crate::error::SiteIdError>,
+    >(
+        &mut self,
+        node: N,
+        key: usize,
+        site: S,
+        derived_state: Option<Vec<u8>>,
+        neutral: bool,
+    ) -> TablesResult<MutationId> {
+        self.add_mutation(
+            node.try_into()?,
+            key,
+            site.try_into()?,
             derived_state,
             neutral,
         )
