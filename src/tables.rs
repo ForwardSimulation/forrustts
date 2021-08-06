@@ -240,7 +240,6 @@ fn node_table_add_row(
     deme: DemeId,
     flags: u32,
 ) -> TablesResult<NodeId> {
-    //time_non_negative(time)?;
     deme_non_negative(deme)?;
     nodes.push(Node { time, deme, flags });
 
@@ -567,19 +566,12 @@ impl TableCollection {
     /// let id = tables.add_node(1. , 0).unwrap();
     /// assert_eq!(id, 0);
     /// ```
-    pub fn add_node(&mut self, time: Time, deme: DemeId) -> TablesResult<NodeId> {
-        self.add_node_with_flags(time, deme, NodeFlags::default().bits())
-    }
-
-    pub fn add_node_from<
-        T: Into<Time>,
-        D: std::convert::TryInto<DemeId, Error = crate::error::DemeIdError>,
-    >(
+    pub fn add_node<T: Into<Time>, D: Into<DemeId> + Copy>(
         &mut self,
         time: T,
         deme: D,
     ) -> TablesResult<NodeId> {
-        self.add_node(time.into(), deme.try_into()?)
+        self.add_node_with_flags(time, deme, NodeFlags::default().bits())
     }
 
     /// Add a [``Node``] to the [``NodeTable``] with flags set.
@@ -634,26 +626,14 @@ impl TableCollection {
     /// assert!(tables.node(0).flags & forrustts::NodeFlags::IS_ALIVE.bits() == 0);
     /// assert!(tables.node(0).flags & forrustts::NodeFlags::IS_SAMPLE.bits() == 0);
     /// ```
-    pub fn add_node_with_flags(
-        &mut self,
-        time: Time,
-        deme: DemeId,
-        flags: u32,
-    ) -> TablesResult<NodeId> {
-        self.is_indexed = false;
-        node_table_add_row(&mut self.nodes_, time, deme, flags)
-    }
-
-    pub fn add_node_with_flags_from<
-        T: Into<Time>,
-        D: std::convert::TryInto<DemeId, Error = crate::error::DemeIdError>,
-    >(
+    pub fn add_node_with_flags<T: Into<Time>, D: Into<DemeId> + Copy>(
         &mut self,
         time: T,
         deme: D,
         flags: u32,
     ) -> TablesResult<NodeId> {
-        self.add_node_with_flags(time.into(), deme.try_into()?, flags)
+        self.is_indexed = false;
+        node_table_add_row(&mut self.nodes_, time.into(), deme.into(), flags)
     }
 
     /// Add an [``Edge``] to the [``EdgeTable``].
@@ -688,34 +668,20 @@ impl TableCollection {
     /// let id = tables.add_edge(0, 3, 5, 9).unwrap();
     /// assert_eq!(id, 0);
     /// ```
-    pub fn add_edge(
-        &mut self,
-        left: Position,
-        right: Position,
-        parent: NodeId,
-        child: NodeId,
-    ) -> TablesResult<EdgeId> {
-        self.is_indexed = false;
-        edge_table_add_row(&mut self.edges_, left, right, parent, child)
-    }
-
-    pub fn add_edge_from<
-        L: Into<Position>,
-        R: Into<Position>,
-        P: std::convert::TryInto<NodeId, Error = crate::error::NodeIdError>,
-        C: std::convert::TryInto<NodeId, Error = crate::error::NodeIdError>,
-    >(
+    pub fn add_edge<L: Into<Position>, R: Into<Position>, P: Into<NodeId>, C: Into<NodeId>>(
         &mut self,
         left: L,
         right: R,
         parent: P,
         child: C,
     ) -> TablesResult<EdgeId> {
-        self.add_edge(
+        self.is_indexed = false;
+        edge_table_add_row(
+            &mut self.edges_,
             left.into(),
             right.into(),
-            parent.try_into()?,
-            child.try_into()?,
+            parent.into(),
+            child.into(),
         )
     }
 
@@ -756,23 +722,16 @@ impl TableCollection {
     /// // Recovering state can be a bit messy!
     /// assert_eq!(tables.site(id).ancestral_state.as_ref().unwrap(), &vec![3]);
     /// ```
-    pub fn add_site(
-        &mut self,
-        position: Position,
-        ancestral_state: Option<Vec<u8>>,
-    ) -> TablesResult<SiteId> {
-        if position >= self.length_ || position.0 < 0 {
-            return Err(TablesError::InvalidPosition { found: position });
-        }
-        site_table_add_row(&mut self.sites_, position, ancestral_state)
-    }
-
-    pub fn add_site_from<P: Into<Position>>(
+    pub fn add_site<P: Into<Position>>(
         &mut self,
         position: P,
         ancestral_state: Option<Vec<u8>>,
     ) -> TablesResult<SiteId> {
-        self.add_site(position.into(), ancestral_state)
+        let p = position.into();
+        if p >= self.length_ || p.0 < 0 {
+            return Err(TablesError::InvalidPosition { found: p });
+        }
+        site_table_add_row(&mut self.sites_, p, ancestral_state)
     }
 
     /// Add a [``MutationRecord``] to the [``MutationTable``].
@@ -816,28 +775,7 @@ impl TableCollection {
     /// // Recovering state can be a bit messy!
     /// assert_eq!(tables.mutation(id).derived_state.as_ref().unwrap(), &vec![3]);
     /// ```
-    pub fn add_mutation(
-        &mut self,
-        node: NodeId,
-        key: usize,
-        site: SiteId,
-        derived_state: Option<Vec<u8>>,
-        neutral: bool,
-    ) -> TablesResult<MutationId> {
-        mutation_table_add_row(
-            &mut self.mutations_,
-            node,
-            key,
-            site,
-            derived_state,
-            neutral,
-        )
-    }
-
-    pub fn add_mutation_from<
-        N: std::convert::TryInto<NodeId, Error = crate::error::NodeIdError>,
-        S: std::convert::TryInto<SiteId, Error = crate::error::SiteIdError>,
-    >(
+    pub fn add_mutation<N: Into<NodeId>, S: Into<SiteId>>(
         &mut self,
         node: N,
         key: usize,
@@ -845,10 +783,11 @@ impl TableCollection {
         derived_state: Option<Vec<u8>>,
         neutral: bool,
     ) -> TablesResult<MutationId> {
-        self.add_mutation(
-            node.try_into()?,
+        mutation_table_add_row(
+            &mut self.mutations_,
+            node.into(),
             key,
-            site.try_into()?,
+            site.into(),
             derived_state,
             neutral,
         )
