@@ -78,9 +78,24 @@ pub enum TablesError {
         value: crate::error::NodeIdError,
     },
     #[error("{value:?}")]
+    DemeIdError {
+        #[from]
+        value: crate::error::DemeIdError,
+    },
+    #[error("{value:?}")]
     SiteIdError {
         #[from]
         value: crate::error::SiteIdError,
+    },
+    #[error("{value:?}")]
+    MutationIdError {
+        #[from]
+        value: crate::error::MutationIdError,
+    },
+    #[error("{value:?}")]
+    EdgeIdError {
+        #[from]
+        value: crate::error::EdgeIdError,
     },
 }
 
@@ -557,6 +572,17 @@ impl TableCollection {
         self.add_node_with_flags(time, deme, NodeFlags::default().bits())
     }
 
+    pub fn add_node_from<
+        T: Into<Time>,
+        D: std::convert::TryInto<DemeId, Error = crate::error::DemeIdError>,
+    >(
+        &mut self,
+        time: T,
+        deme: D,
+    ) -> TablesResult<NodeId> {
+        self.add_node(time.into(), deme.try_into()?)
+    }
+
     /// Add a [``Node``] to the [``NodeTable``] with flags set.
     ///
     /// # Parameters
@@ -619,6 +645,18 @@ impl TableCollection {
         node_table_add_row(&mut self.nodes_, time, deme, flags)
     }
 
+    pub fn add_node_with_flags_from<
+        T: Into<Time>,
+        D: std::convert::TryInto<DemeId, Error = crate::error::DemeIdError>,
+    >(
+        &mut self,
+        time: T,
+        deme: D,
+        flags: u32,
+    ) -> TablesResult<NodeId> {
+        self.add_node_with_flags(time.into(), deme.try_into()?, flags)
+    }
+
     /// Add an [``Edge``] to the [``EdgeTable``].
     ///
     /// # Parameters
@@ -663,14 +701,16 @@ impl TableCollection {
     }
 
     pub fn add_edge_from<
-        P: Into<Position>,
-        N: std::convert::TryInto<NodeId, Error = crate::error::NodeIdError>,
+        L: Into<Position>,
+        R: Into<Position>,
+        P: std::convert::TryInto<NodeId, Error = crate::error::NodeIdError>,
+        C: std::convert::TryInto<NodeId, Error = crate::error::NodeIdError>,
     >(
         &mut self,
-        left: P,
-        right: P,
-        parent: N,
-        child: N,
+        left: L,
+        right: R,
+        parent: P,
+        child: C,
     ) -> TablesResult<EdgeId> {
         self.add_edge(
             left.into(),

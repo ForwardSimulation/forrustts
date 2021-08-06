@@ -50,6 +50,7 @@ where
 }
 
 pub type NodeIdError = RowIdError<crate::newtypes::NodeId>;
+pub type DemeIdError = RowIdError<crate::newtypes::DemeId>;
 pub type SiteIdError = RowIdError<crate::newtypes::SiteId>;
 pub type MutationIdError = RowIdError<crate::newtypes::MutationId>;
 pub type EdgeIdError = RowIdError<crate::newtypes::EdgeId>;
