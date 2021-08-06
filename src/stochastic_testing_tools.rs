@@ -391,7 +391,7 @@ fn mutate_tables(mutrate: f64, tables: &mut crate::TableCollection, rng: &mut St
                         .unwrap();
                 }
                 None => {
-                    let site_id = tables.add_site_from(pos, Some(vec![0])).unwrap();
+                    let site_id = tables.add_site(pos, Some(vec![0])).unwrap();
                     origin_times_init.push((t.into(), site_id));
                     tables
                         .add_mutation(
@@ -470,7 +470,7 @@ fn add_tskit_mutation_site_tables(
 
 pub fn neutral_wf(
     params: SimulationParams,
-) -> Result<(crate::TableCollection, Vec<NodeId>, Vec<Time>), ForrusttsError> {
+) -> Result<(crate::TableCollection, Vec<i32>, Vec<Time>), ForrusttsError> {
     // FIXME: gotta validate input params!
 
     let mut actual_simplification_interval: i64 = -1;
@@ -496,14 +496,8 @@ pub fn neutral_wf(
     // Record nodes for the first generation
     // Nodes will have birth time 0 in deme 0.
     for index in 0..params.popsize {
-        let node0 = pop
-            .tables
-            .add_node(0_f64.into(), 0.try_into().unwrap())
-            .unwrap();
-        let node1 = pop
-            .tables
-            .add_node(0_f64.into(), 0.try_into().unwrap())
-            .unwrap();
+        let node0 = pop.tables.add_node(0_f64, 0).unwrap();
+        let node1 = pop.tables.add_node(0_f64, 0).unwrap();
         pop.parents.push(Parent {
             index: index as usize,
             node0,
@@ -564,7 +558,7 @@ pub fn neutral_wf(
         );
     }
 
-    let mut is_alive: Vec<NodeId> = vec![0.try_into().unwrap(); pop.tables.num_nodes()];
+    let mut is_alive: Vec<i32> = vec![0.try_into().unwrap(); pop.tables.num_nodes()];
 
     for p in pop.parents {
         is_alive[usize::try_from(p.node0).unwrap()] = 1;
@@ -606,7 +600,7 @@ pub struct SimulatorIterator {
 pub struct SimResults {
     pub tables: crate::TableCollection,
     pub tsk_tables: tskit::TableCollection,
-    pub is_sample: Vec<NodeId>,
+    pub is_sample: Vec<i32>,
 }
 
 impl SimulatorIterator {
