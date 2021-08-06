@@ -1,4 +1,6 @@
+use crate::newtypes::SiteId;
 use crate::stochastic_testing_tools::*;
+use crate::traits::AncestryType;
 use crate::*;
 use rand::rngs::StdRng;
 use rand::Rng;
@@ -284,7 +286,7 @@ fn simplify_to_samples() {
                 for u in tree.parents(*s).unwrap() {
                     p.push(u);
                 }
-                for u in tsk_tree.parents(*s).unwrap() {
+                for u in tsk_tree.parents(s.value()).unwrap() {
                     tsk_p.push(u);
                 }
                 assert!(p == tsk_p);
@@ -294,7 +296,7 @@ fn simplify_to_samples() {
                     for child in tree.children(*pi).unwrap() {
                         ci.push(child);
                     }
-                    for child in tsk_tree.children(*pi).unwrap() {
+                    for child in tsk_tree.children(pi.value()).unwrap() {
                         tsk_ci.push(child);
                     }
                     ci.sort_unstable();
@@ -308,7 +310,7 @@ fn simplify_to_samples() {
                 for s in tree.samples(node).unwrap() {
                     samples.push(s);
                 }
-                for s in tsk_tree.samples(node).unwrap() {
+                for s in tsk_tree.samples(node.value()).unwrap() {
                     tsk_samples.push(s);
                 }
                 samples.sort_unstable();
@@ -327,7 +329,7 @@ fn simplify_to_arbitrary_nodes() {
         mutrate: 2e-3,
         psurvival: 0.5,
         xovers: 5e-3,
-        genome_length: 1000000,
+        genome_length: 1000000.into(),
         buffer_edges: false,
         simplification_interval: None,
         seed: 5312851,
@@ -400,7 +402,7 @@ fn simplify_to_arbitrary_nodes() {
                     .sites()
                     .position(i as tskit::tsk_id_t)
                     .unwrap()
-                    .partial_cmp(&(s.position as f64))
+                    .partial_cmp(&(s.position.value() as f64))
                 {
                     None => panic!("bad cmp"),
                     Some(std::cmp::Ordering::Equal) => (),
@@ -420,7 +422,7 @@ fn simplify_to_arbitrary_nodes() {
                     .sites()
                     .position(tsk_tables.mutations().site(i as tskit::tsk_id_t).unwrap())
                     .unwrap()
-                    .partial_cmp(&(tables.site(m.site as IdType).position as f64))
+                    .partial_cmp(&(tables.site(m.site).position.value() as f64))
                 {
                     Some(std::cmp::Ordering::Equal) => (),
                     Some(_) => panic!("Expected Equal"),
