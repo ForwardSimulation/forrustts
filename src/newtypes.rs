@@ -63,6 +63,44 @@ impl Time {
     pub const MAX: Time = Time(TimeLLType::MAX);
 }
 
+impl crate::traits::AncestryType for Position {
+    type LLType = PositionLLType;
+    fn value(&self) -> Self::LLType {
+        self.0
+    }
+}
+
+impl crate::traits::AncestryType for Time {
+    type LLType = TimeLLType;
+    fn value(&self) -> Self::LLType {
+        self.0
+    }
+}
+
+impl PartialEq<PositionLLType> for Position {
+    fn eq(&self, other: &PositionLLType) -> bool {
+        self.0 == *other
+    }
+}
+
+impl PartialEq<Position> for PositionLLType {
+    fn eq(&self, other: &Position) -> bool {
+        *self == other.0
+    }
+}
+
+impl PartialOrd<PositionLLType> for Position {
+    fn partial_cmp(&self, other: &PositionLLType) -> Option<std::cmp::Ordering> {
+        self.0.partial_cmp(other)
+    }
+}
+
+impl PartialOrd<Position> for PositionLLType {
+    fn partial_cmp(&self, other: &Position) -> Option<std::cmp::Ordering> {
+        self.partial_cmp(&other.0)
+    }
+}
+
 impl From<PositionLLType> for Position {
     fn from(value: PositionLLType) -> Self {
         Self(value)
