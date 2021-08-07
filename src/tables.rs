@@ -841,7 +841,7 @@ impl TableCollection {
     /// tables.add_node(1., 1).unwrap();
     ///
     /// let n = tables.get_nodes(1).unwrap();
-    /// assert_eq!(n.time as i32, 1);
+    /// assert_eq!(n.time, 1.into());
     /// let n = tables.get_nodes(0..2).unwrap();
     /// assert_eq!(n.len(), 2);
     /// assert_eq!(n[0].deme, 0);
