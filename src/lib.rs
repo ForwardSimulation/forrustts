@@ -45,7 +45,6 @@ mod simplification;
 mod tables;
 mod traits;
 mod trees;
-mod tsdef;
 
 pub use error::ForrusttsError;
 pub use segment::Segment;
@@ -58,7 +57,7 @@ pub use simplification::SimplificationOutput;
 pub use simplification::{simplify_tables, simplify_tables_without_state};
 pub use tables::*;
 pub use trees::*;
-pub use tsdef::*;
+pub use newtypes::*;
 
 pub mod tskit_tools;
 
