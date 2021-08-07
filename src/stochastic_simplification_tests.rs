@@ -49,12 +49,12 @@ fn compare_edge_table_indexes(
             tsk_tables.edges().child(tsk_edge_input[idx]).unwrap()
         );
         assert_eq!(
-            tables.edges_[*val].left,
-            tsk_tables.edges().left(tsk_edge_input[idx]).unwrap() as Position
+            tables.edges_[*val].left.value() as f64,
+            tsk_tables.edges().left(tsk_edge_input[idx]).unwrap()
         );
         assert_eq!(
-            tables.edges_[*val].right,
-            tsk_tables.edges().right(tsk_edge_input[idx]).unwrap() as Position
+            tables.edges_[*val].right.value() as f64,
+            tsk_tables.edges().right(tsk_edge_input[idx]).unwrap()
         );
     }
 
