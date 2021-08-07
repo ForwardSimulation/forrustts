@@ -47,6 +47,7 @@ mod traits;
 mod trees;
 
 pub use error::ForrusttsError;
+pub use newtypes::*;
 pub use segment::Segment;
 pub use simplification::simplify_from_edge_buffer;
 pub use simplification::EdgeBuffer;
@@ -56,8 +57,8 @@ pub use simplification::SimplificationFlags;
 pub use simplification::SimplificationOutput;
 pub use simplification::{simplify_tables, simplify_tables_without_state};
 pub use tables::*;
+pub use traits::*;
 pub use trees::*;
-pub use newtypes::*;
 
 pub mod tskit_tools;
 
