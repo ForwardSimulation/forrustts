@@ -34,7 +34,6 @@ macro_rules! impl_integer_ancestry_type {
 
         impl From<$integer_type> for $idtype {
             fn from(value: $integer_type) -> Self {
-                debug_assert!(value >= $minval);
                 Self(value)
             }
         }
