@@ -49,12 +49,12 @@ fn compare_edge_table_indexes(
             tsk_tables.edges().child(tsk_edge_input[idx]).unwrap()
         );
         assert_eq!(
-            tables.edges_[*val].left.value() as f64,
-            tsk_tables.edges().left(tsk_edge_input[idx]).unwrap()
+            tables.edges_[*val].left.value(),
+            tsk_tables.edges().left(tsk_edge_input[idx]).unwrap() as PositionLLType
         );
         assert_eq!(
-            tables.edges_[*val].right.value() as f64,
-            tsk_tables.edges().right(tsk_edge_input[idx]).unwrap()
+            tables.edges_[*val].right.value(),
+            tsk_tables.edges().right(tsk_edge_input[idx]).unwrap() as PositionLLType
         );
     }
 
@@ -68,12 +68,12 @@ fn compare_edge_table_indexes(
             tsk_tables.edges().child(tsk_edge_output[idx]).unwrap()
         );
         assert_eq!(
-            tables.edges_[*val].left.value() as f64,
-            tsk_tables.edges().left(tsk_edge_output[idx]).unwrap()
+            tables.edges_[*val].left.value(),
+            tsk_tables.edges().left(tsk_edge_output[idx]).unwrap() as PositionLLType
         );
         assert_eq!(
-            tables.edges_[*val].right.value() as f64,
-            tsk_tables.edges().right(tsk_edge_output[idx]).unwrap()
+            tables.edges_[*val].right.value(),
+            tsk_tables.edges().right(tsk_edge_output[idx]).unwrap() as PositionLLType
         );
     }
     true
