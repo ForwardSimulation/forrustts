@@ -13,6 +13,7 @@ keywords = ["simulation", "tree_sequences", "tskit", "population_genetics"]
 
 [dependencies]
 bitflags = "1.2.1"
+num-traits = "0.2.14"
 streaming-iterator = "0.1.5"
 thiserror = "1.0"
 tskit = "=0.3.0"
@@ -24,3 +25,7 @@ rand_distr = "0.4.0"
 
 [[example]]
 name = "forward_simulation"
+
+[profile.release]
+lto = "fat"
+codegen-units=1

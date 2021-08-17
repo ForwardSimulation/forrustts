@@ -1,4 +1,4 @@
-use crate::IdType;
+use crate::newtypes::NodeId;
 
 /// Information about samples used for
 /// table simpilfication.
@@ -8,7 +8,7 @@ pub struct SamplesInfo {
     /// Can include both "alive" and
     /// "ancient/remembered/preserved" sample
     /// nodes.
-    pub samples: Vec<IdType>,
+    pub samples: Vec<NodeId>,
     /// When using [``EdgeBuffer``](type.EdgeBuffer.html)
     /// to record transmission
     /// events, this list must contain a list of all node IDs
@@ -16,7 +16,7 @@ pub struct SamplesInfo {
     /// "alive" means "could leave more descendants".
     /// At the *start* of a simulation, this  should be filled
     /// with a list of "founder" node IDs.
-    pub edge_buffer_founder_nodes: Vec<IdType>,
+    pub edge_buffer_founder_nodes: Vec<NodeId>,
 }
 
 impl SamplesInfo {

@@ -40,7 +40,6 @@ pub enum ForrusttsError {
 
 #[cfg(test)]
 mod test {
-
     use super::*;
 
     fn return_nested_forward_list_error(f: bool) -> Result<(), NestedForwardListError> {

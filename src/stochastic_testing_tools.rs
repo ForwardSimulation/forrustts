@@ -1,14 +1,17 @@
+use crate::newtypes::EdgeId;
+use crate::newtypes::NodeId;
+use crate::newtypes::Position;
+use crate::newtypes::PositionLLType;
+use crate::newtypes::SiteId;
+use crate::newtypes::Time;
 use crate::ForrusttsError;
-use crate::IdType;
-use crate::Position;
-use crate::Time;
 use bitflags::bitflags;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
 use rand_distr::{Exp, Uniform};
+use std::convert::TryInto;
 use tskit::TableAccess;
-
 // Some of the material below seems like a candidate for a public API,
 // but we need to decide here if this package should provide that.
 // If so, then many of these types should not be here, as they have nothing
@@ -23,8 +26,8 @@ type BreakpointFunction = Option<Exp<f64>>;
 #[derive(Copy, Clone)]
 struct Parent {
     index: usize,
-    node0: IdType,
-    node1: IdType,
+    node0: NodeId,
+    node1: NodeId,
 }
 
 struct Birth {
@@ -75,7 +78,7 @@ fn deaths_and_parents(psurvival: f64, rng: &mut StdRng, pop: &mut PopulationStat
     }
 }
 
-fn mendel(pnodes: &mut (IdType, IdType), rng: &mut StdRng) {
+fn mendel(pnodes: &mut (NodeId, NodeId), rng: &mut StdRng) {
     let x: f64 = rng.gen();
     match x.partial_cmp(&0.5) {
         Some(std::cmp::Ordering::Less) => {
@@ -88,11 +91,11 @@ fn mendel(pnodes: &mut (IdType, IdType), rng: &mut StdRng) {
 
 fn crossover_and_record_edges(
     parent: Parent,
-    child: IdType,
+    child: NodeId,
     breakpoint: BreakpointFunction,
     recorder: &impl Fn(
-        IdType,
-        IdType,
+        NodeId,
+        NodeId,
         (Position, Position),
         &mut crate::TableCollection,
         &mut crate::EdgeBuffer,
@@ -105,16 +108,16 @@ fn crossover_and_record_edges(
     mendel(&mut pnodes, rng);
 
     if let Some(exp) = breakpoint {
-        let mut current_pos: Position = 0;
+        let mut current_pos: PositionLLType = 0;
         loop {
             // TODO: gotta justify the next line...
-            let next_length = (rng.sample(exp) as Position) + 1;
+            let next_length = (rng.sample(exp) as PositionLLType) + 1;
             assert!(next_length > 0);
             if current_pos + next_length < tables.genome_length() {
                 recorder(
                     pnodes.0,
                     child,
-                    (current_pos, current_pos + next_length),
+                    (current_pos.into(), (current_pos + next_length).into()),
                     tables,
                     edge_buffer,
                 );
@@ -124,7 +127,7 @@ fn crossover_and_record_edges(
                 recorder(
                     pnodes.0,
                     child,
-                    (current_pos, tables.genome_length()),
+                    (current_pos.into(), tables.genome_length()),
                     tables,
                     edge_buffer,
                 );
@@ -136,7 +139,7 @@ fn crossover_and_record_edges(
         recorder(
             pnodes.0,
             child,
-            (0, tables.genome_length()),
+            (0.into(), tables.genome_length()),
             tables,
             edge_buffer,
         );
@@ -145,12 +148,12 @@ fn crossover_and_record_edges(
 
 fn generate_births(
     breakpoint: BreakpointFunction,
-    birth_time: i64,
+    birth_time: Time,
     rng: &mut StdRng,
     pop: &mut PopulationState,
     recorder: &impl Fn(
-        IdType,
-        IdType,
+        NodeId,
+        NodeId,
         (Position, Position),
         &mut crate::TableCollection,
         &mut crate::EdgeBuffer,
@@ -158,8 +161,8 @@ fn generate_births(
 ) {
     for b in &pop.births {
         // Record 2 new nodes
-        let new_node_0: IdType = pop.tables.add_node(birth_time as Time, 0).unwrap();
-        let new_node_1: IdType = pop.tables.add_node(birth_time as Time, 0).unwrap();
+        let new_node_0: NodeId = pop.tables.add_node(birth_time, 0).unwrap();
+        let new_node_1: NodeId = pop.tables.add_node(birth_time, 0).unwrap();
 
         crossover_and_record_edges(
             b.parent0,
@@ -187,20 +190,20 @@ fn generate_births(
 }
 
 fn buffer_edges(
-    parent: IdType,
-    child: IdType,
+    parent: NodeId,
+    child: NodeId,
     span: (Position, Position),
     _: &mut crate::TableCollection,
     buffer: &mut crate::EdgeBuffer,
 ) {
     buffer
-        .extend(parent, crate::Segment::new(span.0, span.1, child))
+        .extend(parent.into(), crate::Segment::new(span.0, span.1, child))
         .unwrap();
 }
 
 fn record_edges(
-    parent: IdType,
-    child: IdType,
+    parent: NodeId,
+    child: NodeId,
     span: (Position, Position),
     tables: &mut crate::TableCollection,
     _: &mut crate::EdgeBuffer,
@@ -269,8 +272,8 @@ fn simplify_and_remap_nodes(
     sort_and_simplify(flags, simplification_flags, samples, state, pop, output);
 
     for p in &mut pop.parents {
-        p.node0 = output.idmap[p.node0 as usize];
-        p.node1 = output.idmap[p.node1 as usize];
+        p.node0 = output.idmap[usize::from(p.node0)];
+        p.node1 = output.idmap[usize::from(p.node1)];
         assert!(pop.tables.node(p.node0).flags & crate::NodeFlags::IS_SAMPLE.bits() > 0);
     }
 
@@ -329,7 +332,7 @@ impl Default for SimulationParams {
             mutrate: 0.0,
             psurvival: 0.0,
             xovers: 0.0,
-            genome_length: 1000000,
+            genome_length: 1000000.into(),
             buffer_edges: false,
             simplification_interval: None,
             seed: 0,
@@ -346,20 +349,21 @@ fn mutate_tables(mutrate: f64, tables: &mut crate::TableCollection, rng: &mut St
         Some(_) => return vec![],
         None => panic!("bad mutation rate"),
     };
-    let mut posmap = std::collections::HashMap::<crate::Position, IdType>::new();
-    let mut derived_map = std::collections::HashMap::<crate::Position, u8>::new();
+    let mut posmap = std::collections::HashMap::<PositionLLType, SiteId>::new();
+    let mut derived_map = std::collections::HashMap::<PositionLLType, u8>::new();
 
-    let mut origin_times_init: Vec<(Time, IdType)> = vec![];
+    let mut origin_times_init: Vec<(Time, SiteId)> = vec![];
     let num_edges = tables.edges().len();
     for i in 0..num_edges {
-        let e = *tables.edge(i as IdType);
-        let ptime = tables.node(e.parent).time as i64;
-        let ctime = tables.node(e.child).time as i64;
+        let e = *tables.edge(EdgeId::from(i));
+        let ptime = i64::from(tables.node(e.parent).time);
+        let ctime = i64::from(tables.node(e.child).time);
         let blen = ctime - ptime;
         assert!((blen as i64) > 0, "{} {} {}", blen, ptime, ctime,);
-        let mutrate_edge = (mutrate * blen as f64) / (e.right - e.left) as f64;
+        let mutrate_edge = (mutrate * blen as f64)
+            / (PositionLLType::from(e.right) - PositionLLType::from(e.left)) as f64;
         let exp = Exp::new(mutrate_edge).unwrap();
-        let mut pos = e.left + (rng.sample(exp) as Position) + 1;
+        let mut pos = PositionLLType::from(e.left) + (rng.sample(exp) as PositionLLType) + 1;
         let make_time = Uniform::new(ptime, ctime);
         while pos < e.right {
             assert!(ctime > ptime);
@@ -373,7 +377,7 @@ fn mutate_tables(mutrate: f64, tables: &mut crate::TableCollection, rng: &mut St
                         Some(y) => y + 1,
                         None => 1,
                     };
-                    origin_times_init.push((t as Time, *x));
+                    origin_times_init.push((t.into(), *x));
                     derived_map.insert(pos, dstate).unwrap();
                     tables
                         .add_mutation(
@@ -386,22 +390,19 @@ fn mutate_tables(mutrate: f64, tables: &mut crate::TableCollection, rng: &mut St
                         .unwrap();
                 }
                 None => {
-                    tables.add_site(pos, Some(vec![0])).unwrap();
-                    origin_times_init.push((t as Time, tables.sites().len() as IdType - 1));
+                    let site_id = tables.add_site(pos, Some(vec![0])).unwrap();
+                    origin_times_init.push((t.into(), site_id));
                     tables
                         .add_mutation(
                             e.child,
                             origin_times_init.len() - 1,
-                            tables.sites().len() as IdType - 1,
+                            site_id,
                             Some(vec![1]),
                             true,
                         )
                         .unwrap();
 
-                    if posmap
-                        .insert(pos, tables.sites().len() as IdType - 1)
-                        .is_some()
-                    {
+                    if posmap.insert(pos, site_id).is_some() {
                         panic!("hash failure");
                     }
                     if derived_map.insert(pos, 1).is_some() {
@@ -409,14 +410,14 @@ fn mutate_tables(mutrate: f64, tables: &mut crate::TableCollection, rng: &mut St
                     }
                 }
             }
-            pos += (rng.sample(exp) as Position) + 1;
+            pos += (rng.sample(exp) as PositionLLType) + 1;
         }
     }
     assert_eq!(origin_times_init.len(), tables.mutations().len());
     assert!(posmap.len() == derived_map.len());
     origin_times_init.sort_by(|a, b| {
-        let pa = tables.site(a.1 as IdType).position;
-        let pb = tables.site(b.1 as IdType).position;
+        let pa = tables.site(a.1).position;
+        let pb = tables.site(b.1).position;
         pa.cmp(&pb)
     });
     tables.sort_tables(crate::TableSortingFlags::SKIP_EDGE_TABLE);
@@ -429,14 +430,14 @@ fn mutate_tables(mutrate: f64, tables: &mut crate::TableCollection, rng: &mut St
 
 fn add_tskit_mutation_site_tables(
     tables: &crate::TableCollection,
-    origin_times: &[crate::Time],
-    g: crate::Time,
+    origin_times: &[Time],
+    g: Time,
     tskit_tables: &mut tskit::TableCollection,
 ) {
     for s in tables.sites() {
         tskit_tables
             .add_site(
-                s.position as f64,
+                PositionLLType::from(s.position) as f64,
                 match &s.ancestral_state {
                     Some(x) => Some(x),
                     None => panic!("expected ancestral_state"),
@@ -448,7 +449,7 @@ fn add_tskit_mutation_site_tables(
     for (i, m) in tables.enumerate_mutations() {
         let reverser = crate::tskit_tools::simple_time_reverser(g);
         assert!(match reverser(origin_times[i])
-            .partial_cmp(&tskit_tables.nodes().time(m.node).unwrap())
+            .partial_cmp(&tskit_tables.nodes().time(m.node.into()).unwrap())
         {
             Some(std::cmp::Ordering::Less) => false,
             Some(_) => true,
@@ -456,8 +457,8 @@ fn add_tskit_mutation_site_tables(
         });
         tskit_tables
             .add_mutation(
-                m.site as tskit::tsk_id_t,
-                m.node,
+                tskit::tsk_id_t::from(m.site),
+                tskit::tsk_id_t::from(m.node),
                 tskit::TSK_NULL,
                 reverser(origin_times[i]),
                 Some(m.derived_state.as_ref().unwrap()),
@@ -474,9 +475,9 @@ pub fn neutral_wf(
     let mut actual_simplification_interval: i64 = -1;
 
     let breakpoint: BreakpointFunction = match params.xovers.partial_cmp(&0.0) {
-        Some(std::cmp::Ordering::Greater) => {
-            Some(Exp::new(params.xovers / params.genome_length as f64).unwrap())
-        }
+        Some(std::cmp::Ordering::Greater) => Some(
+            Exp::new(params.xovers / PositionLLType::from(params.genome_length) as f64).unwrap(),
+        ),
         Some(_) => None,
         None => panic!("invalid xovers: {}", params.xovers),
     };
@@ -494,8 +495,8 @@ pub fn neutral_wf(
     // Record nodes for the first generation
     // Nodes will have birth time 0 in deme 0.
     for index in 0..params.popsize {
-        let node0 = pop.tables.add_node(0., 0).unwrap();
-        let node1 = pop.tables.add_node(0., 0).unwrap();
+        let node0 = pop.tables.add_node(0_f64, 0).unwrap();
+        let node1 = pop.tables.add_node(0_f64, 0).unwrap();
         pop.parents.push(Parent {
             index: index as usize,
             node0,
@@ -504,7 +505,7 @@ pub fn neutral_wf(
     }
 
     for i in 0..pop.tables.num_nodes() {
-        samples.edge_buffer_founder_nodes.push(i as IdType);
+        samples.edge_buffer_founder_nodes.push(i.into());
     }
 
     let mut simplified = false;
@@ -522,7 +523,7 @@ pub fn neutral_wf(
         deaths_and_parents(params.psurvival, &mut rng, &mut pop);
         generate_births(
             breakpoint,
-            birth_time,
+            birth_time.into(),
             &mut rng,
             &mut pop,
             &new_edge_handler,
@@ -557,8 +558,8 @@ pub fn neutral_wf(
     let mut is_alive: Vec<i32> = vec![0; pop.tables.num_nodes()];
 
     for p in pop.parents {
-        is_alive[p.node0 as usize] = 1;
-        is_alive[p.node1 as usize] = 1;
+        is_alive[usize::from(p.node0)] = 1;
+        is_alive[usize::from(p.node1)] = 1;
     }
 
     let origin_times = mutate_tables(params.mutrate, &mut pop.tables, &mut rng);
@@ -596,7 +597,7 @@ pub struct SimulatorIterator {
 pub struct SimResults {
     pub tables: crate::TableCollection,
     pub tsk_tables: tskit::TableCollection,
-    pub is_sample: Vec<crate::IdType>,
+    pub is_sample: Vec<i32>,
 }
 
 impl SimulatorIterator {
@@ -626,7 +627,7 @@ impl Iterator for SimulatorIterator {
             let mut tsk_tables = crate::tskit_tools::convert_to_tskit_minimal(
                 &tables,
                 &is_sample,
-                crate::tskit_tools::simple_time_reverser(params.nsteps as Time),
+                crate::tskit_tools::simple_time_reverser(params.nsteps.into()),
                 // Do not index tables here!
                 // Things are unsorted!
                 false,
@@ -634,7 +635,7 @@ impl Iterator for SimulatorIterator {
             add_tskit_mutation_site_tables(
                 &tables,
                 &origin_times,
-                params.nsteps as Time,
+                params.nsteps.into(),
                 &mut tsk_tables,
             );
             tsk_tables
@@ -667,11 +668,11 @@ impl Simulator {
     }
 }
 
-pub fn make_samples(l: &[crate::IdType]) -> crate::SamplesInfo {
+pub fn make_samples(l: &[i32]) -> crate::SamplesInfo {
     let mut rv = crate::SamplesInfo::default();
     for (i, j) in l.iter().enumerate() {
         if *j == 1 {
-            rv.samples.push(i as crate::IdType);
+            rv.samples.push(i.try_into().unwrap());
         }
     }
     rv

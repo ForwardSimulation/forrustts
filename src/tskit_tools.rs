@@ -9,7 +9,7 @@
 //! As things develop, we may either add new functions or
 //! refactor the existing.
 
-use crate::tsdef::Time;
+use crate::newtypes::Time;
 use crate::TableCollection;
 use tskit::{tsk_flags_t, tsk_id_t, TSK_NODE_IS_SAMPLE, TSK_NULL};
 
@@ -18,7 +18,7 @@ use tskit::{tsk_flags_t, tsk_id_t, TSK_NODE_IS_SAMPLE, TSK_NULL};
 /// For all input values, ``t`` the closure will
 /// return ``-1.0*(t - x) as f64``.
 pub fn simple_time_reverser(x: Time) -> Box<dyn Fn(Time) -> f64> {
-    Box::new(move |t: Time| -1. * (t - x) as f64)
+    Box::new(move |t: Time| -1. * (t.0 - x.0) as f64)
 }
 
 /// Convert a [``TableCollection``](crate::TableCollection)
@@ -58,7 +58,7 @@ pub fn simple_time_reverser(x: Time) -> Box<dyn Fn(Time) -> f64> {
 /// let tsk_tables = forrustts::tskit_tools::convert_to_tskit_minimal(
 ///     &tables,
 ///     &is_sample,
-///     forrustts::tskit_tools::simple_time_reverser(1.),
+///     forrustts::tskit_tools::simple_time_reverser(1_f64.into()),
 ///     true,
 /// );
 /// assert_eq!(tsk_tables.nodes().num_rows(), 2);
@@ -71,11 +71,11 @@ pub fn convert_to_tskit_minimal(
     convert_time: impl Fn(Time) -> f64,
     build_indexes: bool,
 ) -> tskit::TableCollection {
-    let mut tsk_tables = tskit::TableCollection::new(tables.genome_length() as f64).unwrap();
+    let mut tsk_tables = tskit::TableCollection::new(tables.genome_length().0 as f64).unwrap();
 
     for e in tables.edges() {
         tsk_tables
-            .add_edge(e.left as f64, e.right as f64, e.parent, e.child)
+            .add_edge(e.left.0 as f64, e.right.0 as f64, e.parent.0, e.child.0)
             .unwrap();
     }
 
@@ -87,9 +87,9 @@ pub fn convert_to_tskit_minimal(
             0
         };
         tsk_tables
-            .add_node(flags, convert_time(n.time), n.deme, TSK_NULL)
+            .add_node(flags, convert_time(n.time), n.deme.0, TSK_NULL)
             .unwrap();
-        max_pop = std::cmp::max(n.deme, max_pop);
+        max_pop = std::cmp::max(n.deme.0, max_pop);
     }
 
     for _ in 0..(max_pop + 1) {
@@ -147,7 +147,7 @@ fn swap_with_empty<T>(v: &mut Vec<T>) {
 /// let is_sample = vec![0, 1]; // Mark the child node as a sample.
 /// let tsk_tables = forrustts::tskit_tools::convert_to_tskit_and_drain_minimal(
 ///     &is_sample,
-///     forrustts::tskit_tools::simple_time_reverser(1.),
+///     forrustts::tskit_tools::simple_time_reverser(1_f64.into()),
 ///     true,
 ///     &mut tables,
 /// );
@@ -164,7 +164,7 @@ pub fn convert_to_tskit_and_drain_minimal(
     build_indexes: bool,
     tables: &mut TableCollection,
 ) -> tskit::TableCollection {
-    let mut tsk_tables = tskit::TableCollection::new(tables.genome_length() as f64).unwrap();
+    let mut tsk_tables = tskit::TableCollection::new(tables.genome_length().0 as f64).unwrap();
 
     let mut max_pop: tsk_id_t = -1;
     for (i, n) in tables.enumerate_nodes() {
@@ -174,9 +174,9 @@ pub fn convert_to_tskit_and_drain_minimal(
             0
         };
         tsk_tables
-            .add_node(flags, convert_time(n.time), n.deme, TSK_NULL)
+            .add_node(flags, convert_time(n.time), n.deme.0, TSK_NULL)
             .unwrap();
-        max_pop = std::cmp::max(n.deme, max_pop);
+        max_pop = std::cmp::max(n.deme.0, max_pop);
     }
     swap_with_empty(&mut tables.nodes_);
 
@@ -184,7 +184,7 @@ pub fn convert_to_tskit_and_drain_minimal(
     // so we clear out the other tables first.
     for e in tables.edges() {
         tsk_tables
-            .add_edge(e.left as f64, e.right as f64, e.parent, e.child)
+            .add_edge(e.left.0 as f64, e.right.0 as f64, e.parent.0, e.child.0)
             .unwrap();
     }
     swap_with_empty(&mut tables.edges_);
@@ -216,8 +216,12 @@ mod tests {
         tables.add_node(1., 0).unwrap(); // Add a child node at time 1
         tables.add_edge(0, 100, 0, 1).unwrap(); // Add an edge
         let is_sample = vec![0, 1]; // Mark the child node as a sample.
-        let tsk_tables =
-            convert_to_tskit_minimal(&tables, &is_sample, simple_time_reverser(1.), true);
+        let tsk_tables = convert_to_tskit_minimal(
+            &tables,
+            &is_sample,
+            simple_time_reverser(1_f64.into()),
+            true,
+        );
         assert_eq!(tsk_tables.nodes().num_rows(), 2);
         assert_eq!(tsk_tables.edges().num_rows(), 1);
         assert_eq!(tsk_tables.populations().num_rows(), 1);
@@ -234,7 +238,7 @@ mod tests {
         let is_sample = vec![0, 1]; // Mark the child node as a sample.
         let tsk_tables = convert_to_tskit_and_drain_minimal(
             &is_sample,
-            simple_time_reverser(1.),
+            simple_time_reverser(1_f64.into()),
             true,
             &mut tables,
         );

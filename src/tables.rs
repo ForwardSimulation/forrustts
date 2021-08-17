@@ -1,4 +1,6 @@
-use crate::tsdef::{IdType, Position, Time, NULL_ID};
+use crate::newtypes::{
+    DemeId, EdgeId, MutationId, NodeId, Position, SiteId, TablesIdInteger, Time,
+};
 use bitflags::bitflags;
 use std::cmp::Ordering;
 use thiserror::Error;
@@ -13,7 +15,7 @@ pub enum TablesError {
     #[error("Invalid node: {found:?}")]
     InvalidNodeValue {
         /// The invalid `ID`
-        found: IdType,
+        found: NodeId,
     },
     /// Raised when invalid positions are encountered.
     #[error("Invalid value for position: {found:?}")]
@@ -38,7 +40,7 @@ pub enum TablesError {
     /// Raised with a deme's `ID` is invalid.
     InvalidDeme {
         /// The invalide deme `ID`
-        found: IdType,
+        found: DemeId,
     },
     #[error("Parent is NULL_ID")]
     /// Can be raised by [``validate_edge_table``]
@@ -82,7 +84,7 @@ pub struct Node {
     /// Birth time
     pub time: Time,
     /// Population (deme) of node
-    pub deme: IdType,
+    pub deme: DemeId,
     /// Bit flags
     pub flags: u32,
 }
@@ -99,9 +101,9 @@ pub struct Edge {
     /// Right end
     pub right: Position,
     /// Index of parent in a [NodeTable](type.NodeTable.html)
-    pub parent: IdType,
+    pub parent: NodeId,
     /// Index of child in a [NodeTable](type.NodeTable.html)
-    pub child: IdType,
+    pub child: NodeId,
 }
 
 // TODO: It would be nice to use generics here
@@ -126,11 +128,11 @@ pub struct Site {
 #[derive(Clone)]
 pub struct MutationRecord {
     /// The node where the mutation maps
-    pub node: IdType,
+    pub node: NodeId,
     /// Reference to mutation metadata.
     pub key: usize,
     /// The index of the corresponding [``Site``].
-    pub site: IdType,
+    pub site: SiteId,
     /// The derived state.
     /// [``None``] implies client code
     /// will apply a default.
@@ -150,32 +152,16 @@ pub type SiteTable = Vec<Site>;
 pub type MutationTable = Vec<MutationRecord>;
 
 fn position_non_negative(x: Position) -> TablesResult<()> {
-    if x < 0 {
+    if x.0 < 0 {
         Err(TablesError::InvalidPosition { found: x })
     } else {
         Ok(())
     }
 }
 
-fn node_non_negative(x: IdType) -> TablesResult<()> {
+fn node_non_negative(x: NodeId) -> TablesResult<()> {
     if x < 0 {
         Err(TablesError::InvalidNodeValue { found: x })
-    } else {
-        Ok(())
-    }
-}
-
-//fn time_non_negative(x: Time) -> TablesResult<()> {
-//    if x < 0 {
-//        Err(TablesError::InvalidTime { found: x })
-//    } else {
-//        Ok(())
-//    }
-//}
-
-fn deme_non_negative(x: IdType) -> TablesResult<()> {
-    if x < 0 {
-        Err(TablesError::InvalidDeme { found: x })
     } else {
         Ok(())
     }
@@ -185,9 +171,9 @@ fn edge_table_add_row(
     edges: &mut EdgeTable,
     left: Position,
     right: Position,
-    parent: IdType,
-    child: IdType,
-) -> TablesResult<IdType> {
+    parent: NodeId,
+    child: NodeId,
+) -> TablesResult<EdgeId> {
     if right <= left {
         return Err(TablesError::InvalidLeftRight {
             found: (left, right),
@@ -205,44 +191,43 @@ fn edge_table_add_row(
         child,
     });
 
-    Ok((edges.len() - 1) as IdType)
+    Ok(EdgeId::from(edges.len() - 1))
 }
 
 // NOTE: we allow negative times, in order to support "precapitation".
 fn node_table_add_row(
     nodes: &mut NodeTable,
     time: Time,
-    deme: IdType,
+    deme: DemeId,
     flags: u32,
-) -> TablesResult<IdType> {
-    //time_non_negative(time)?;
-    deme_non_negative(deme)?;
+) -> TablesResult<NodeId> {
     nodes.push(Node { time, deme, flags });
 
-    Ok((nodes.len() - 1) as IdType)
+    Ok(NodeId::from(nodes.len() - 1))
 }
 
 fn site_table_add_row(
     sites: &mut SiteTable,
     position: Position,
     ancestral_state: Option<Vec<u8>>,
-) -> TablesResult<IdType> {
+) -> TablesResult<SiteId> {
     position_non_negative(position)?;
     sites.push(Site {
         position,
         ancestral_state,
     });
-    Ok((sites.len() - 1) as IdType)
+
+    Ok(SiteId::from(sites.len() - 1))
 }
 
 fn mutation_table_add_row(
     mutations: &mut MutationTable,
-    node: IdType,
+    node: NodeId,
     key: usize,
-    site: IdType,
+    site: SiteId,
     derived_state: Option<Vec<u8>>,
     neutral: bool,
-) -> TablesResult<IdType> {
+) -> TablesResult<MutationId> {
     node_non_negative(node)?;
     mutations.push(MutationRecord {
         node,
@@ -251,13 +236,14 @@ fn mutation_table_add_row(
         derived_state,
         neutral,
     });
-    Ok((mutations.len() - 1) as IdType)
+
+    Ok(MutationId::from(mutations.len() - 1))
 }
 
 fn sort_edges(nodes: &[Node], edges: &mut [Edge]) {
     edges.sort_by(|a, b| {
-        let aindex = a.parent as usize;
-        let bindex = b.parent as usize;
+        let aindex = a.parent.0 as usize;
+        let bindex = b.parent.0 as usize;
         let ta = nodes[aindex].time;
         let tb = nodes[bindex].time;
         match ta.partial_cmp(&tb) {
@@ -278,18 +264,18 @@ fn sort_edges(nodes: &[Node], edges: &mut [Edge]) {
 }
 
 fn record_site(sites: &[Site], mutation: &mut MutationRecord, new_site_table: &mut SiteTable) {
-    let position = sites[mutation.site as usize].position;
+    let position = sites[mutation.site.0 as usize].position;
     if new_site_table.is_empty() || new_site_table[new_site_table.len() - 1].position != position {
-        new_site_table.push(sites[mutation.site as usize].clone());
+        new_site_table.push(sites[mutation.site.0 as usize].clone());
     }
 
-    mutation.site = (new_site_table.len() - 1) as IdType;
+    mutation.site = SiteId((new_site_table.len() - 1) as TablesIdInteger);
 }
 
 fn sort_mutation_table(sites: &[Site], mutations: &mut [MutationRecord]) {
     mutations.sort_by(|a, b| {
-        let pa = sites[a.site as usize].position;
-        let pb = sites[b.site as usize].position;
+        let pa = sites[a.site.0 as usize].position;
+        let pb = sites[b.site.0 as usize].position;
         pa.cmp(&pb)
     });
 }
@@ -398,27 +384,27 @@ pub fn validate_edge_table(len: Position, edges: &[Edge], nodes: &[Node]) -> Tab
         return Ok(true);
     }
     let mut parent_seen = vec![0; nodes.len()];
-    let mut last_parent: usize = edges[0].parent as usize;
-    let mut last_child: usize = edges[0].child as usize;
+    let mut last_parent: usize = edges[0].parent.0 as usize;
+    let mut last_child: usize = edges[0].child.0 as usize;
     let mut last_left: Position = edges[0].left;
 
     for (i, edge) in edges.iter().enumerate() {
-        if edge.parent == NULL_ID {
+        if edge.parent == NodeId::NULL {
             return Err(TablesError::NullParent);
         }
-        if edge.child == NULL_ID {
+        if edge.child == NodeId::NULL {
             return Err(TablesError::NullChild);
         }
-        if edge.parent < 0 || edge.parent as usize >= nodes.len() {
+        if edge.parent < 0 || edge.parent.0 as usize >= nodes.len() {
             return Err(TablesError::NodeOutOfBounds);
         }
-        if edge.child < 0 || edge.child as usize >= nodes.len() {
+        if edge.child < 0 || edge.child.0 as usize >= nodes.len() {
             return Err(TablesError::NodeOutOfBounds);
         }
-        if edge.left < 0 || edge.left > len {
+        if edge.left.0 < 0 || edge.left > len {
             return Err(TablesError::InvalidPosition { found: edge.left });
         }
-        if edge.right < 0 || edge.right > len {
+        if edge.right.0 < 0 || edge.right > len {
             return Err(TablesError::InvalidPosition { found: edge.right });
         }
         if edge.left >= edge.right {
@@ -428,16 +414,16 @@ pub fn validate_edge_table(len: Position, edges: &[Edge], nodes: &[Node]) -> Tab
         }
 
         // child time must be > parent time b/c time goes forwards
-        if nodes[edge.child as usize].time <= nodes[edge.parent as usize].time {
+        if nodes[edge.child.0 as usize].time <= nodes[edge.parent.0 as usize].time {
             return Err(TablesError::NodeTimesUnordered);
         }
 
-        if parent_seen[edge.parent as usize] == 1 {
+        if parent_seen[edge.parent.0 as usize] == 1 {
             return Err(TablesError::ParentsNotContiguous);
         }
 
         if i > 0 {
-            match nodes[edge.parent as usize]
+            match nodes[edge.parent.0 as usize]
                 .time
                 .partial_cmp(&nodes[last_parent].time)
             {
@@ -445,11 +431,11 @@ pub fn validate_edge_table(len: Position, edges: &[Edge], nodes: &[Node]) -> Tab
                     return Err(TablesError::ParentTimesUnsorted);
                 }
                 Some(std::cmp::Ordering::Equal) => {
-                    if edge.parent as usize == last_parent {
-                        if (edge.child as usize) < last_child {
+                    if edge.parent.0 as usize == last_parent {
+                        if (edge.child.0 as usize) < last_child {
                             return Err(TablesError::EdgesNotSortedByChild);
                         }
-                        if edge.child as usize == last_child {
+                        if edge.child.0 as usize == last_child {
                             match edge.left.cmp(&last_left) {
                                 Ordering::Greater => (),
                                 Ordering::Equal => return Err(TablesError::DuplicateEdges),
@@ -464,8 +450,8 @@ pub fn validate_edge_table(len: Position, edges: &[Edge], nodes: &[Node]) -> Tab
                 None => panic!("invalid node times"),
             }
         }
-        last_parent = edge.parent as usize;
-        last_child = edge.child as usize;
+        last_parent = edge.parent.0 as usize;
+        last_child = edge.child.0 as usize;
         last_left = edge.left;
     }
 
@@ -496,13 +482,14 @@ impl TableCollection {
     /// # Errors
     ///
     /// Will return [``TablesError``] if `genome_length < 1`.
-    pub const fn new(genome_length: Position) -> TablesResult<TableCollection> {
-        if genome_length < 1 {
+    pub fn new<P: Into<Position>>(genome_length: P) -> TablesResult<TableCollection> {
+        let p = genome_length.into();
+        if p.0 < 1 {
             return Err(TablesError::InvalidGenomeLength);
         }
 
         Ok(TableCollection {
-            length_: genome_length,
+            length_: p,
             nodes_: NodeTable::new(),
             edges_: EdgeTable::new(),
             sites_: SiteTable::new(),
@@ -517,13 +504,15 @@ impl TableCollection {
     ///
     /// # Parameters
     ///
-    /// * `time`, a [``Time``] representing the birth time.
-    /// * `deme` a valid [``IdType``] representing deme where the node is found.
+    /// * `time`, the birth time.
+    /// * `deme`, the deme where the node is found.
     ///
     /// # Returns
     ///
-    /// An [``IdType``] that is the new node's ``ID``.
-    /// This value is the index of the node in the node table.
+    /// A [``NodeId``].
+    ///
+    /// The value will be [``NodeId::NULL``] in the case of
+    /// overflow.
     ///
     /// # Side effects
     ///
@@ -542,7 +531,11 @@ impl TableCollection {
     /// let id = tables.add_node(1. , 0).unwrap();
     /// assert_eq!(id, 0);
     /// ```
-    pub fn add_node(&mut self, time: Time, deme: IdType) -> TablesResult<IdType> {
+    pub fn add_node<T: Into<Time>, D: Into<DemeId> + Copy>(
+        &mut self,
+        time: T,
+        deme: D,
+    ) -> TablesResult<NodeId> {
         self.add_node_with_flags(time, deme, NodeFlags::default().bits())
     }
 
@@ -550,18 +543,16 @@ impl TableCollection {
     ///
     /// # Parameters
     ///
-    /// * `time`: a [``Time``] representing the birth time.
-    /// * `deme`: a valid [``IdType``] representing deme where the node is found.
+    /// * `time`: the birth time.
+    /// * `deme`: the deme where the node is found.
     /// * `flags`: node flags.  See [`NodeFlags`].
     ///
     /// # Returns
     ///
-    /// An [``IdType``] that is the new node's ``ID``.
-    /// This value is the index of the node in the node table.
+    /// A [``NodeId``].
     ///
-    /// # Errors
-    ///
-    /// Will return [``TablesError``] if `deme < 0`.
+    /// The value will be [``NodeId::NULL``] in the case of
+    /// overflow.
     ///
     /// # Example
     ///
@@ -598,14 +589,14 @@ impl TableCollection {
     /// assert!(tables.node(0).flags & forrustts::NodeFlags::IS_ALIVE.bits() == 0);
     /// assert!(tables.node(0).flags & forrustts::NodeFlags::IS_SAMPLE.bits() == 0);
     /// ```
-    pub fn add_node_with_flags(
+    pub fn add_node_with_flags<T: Into<Time>, D: Into<DemeId> + Copy>(
         &mut self,
-        time: Time,
-        deme: IdType,
+        time: T,
+        deme: D,
         flags: u32,
-    ) -> TablesResult<IdType> {
+    ) -> TablesResult<NodeId> {
         self.is_indexed = false;
-        node_table_add_row(&mut self.nodes_, time, deme, flags)
+        node_table_add_row(&mut self.nodes_, time.into(), deme.into(), flags)
     }
 
     /// Add an [``Edge``] to the [``EdgeTable``].
@@ -619,8 +610,11 @@ impl TableCollection {
     ///
     /// # Returns
     ///
-    /// An [``IdType``] that is the new edge's ``ID``.
-    /// This value is the index of the edge in the edge table.
+    /// An [``EdgeId``].
+    ///
+    /// The value will be [``EdgeId::NULL``] in the case of
+    /// overflow.
+    ///
     ///
     /// # Side effects
     ///
@@ -640,15 +634,21 @@ impl TableCollection {
     /// let id = tables.add_edge(0, 3, 5, 9).unwrap();
     /// assert_eq!(id, 0);
     /// ```
-    pub fn add_edge(
+    pub fn add_edge<L: Into<Position>, R: Into<Position>, P: Into<NodeId>, C: Into<NodeId>>(
         &mut self,
-        left: Position,
-        right: Position,
-        parent: IdType,
-        child: IdType,
-    ) -> TablesResult<IdType> {
+        left: L,
+        right: R,
+        parent: P,
+        child: C,
+    ) -> TablesResult<EdgeId> {
         self.is_indexed = false;
-        edge_table_add_row(&mut self.edges_, left, right, parent, child)
+        edge_table_add_row(
+            &mut self.edges_,
+            left.into(),
+            right.into(),
+            parent.into(),
+            child.into(),
+        )
     }
 
     /// Add a [``Site``] to the [``SiteTable``];
@@ -670,8 +670,9 @@ impl TableCollection {
     ///
     /// # Returns
     ///
-    /// An [``IdType``] that is the new site's ``ID``.
-    /// This value is the index of the site in the site table.
+    /// A [``SiteId``].
+    ///
+    /// The value will be [``SiteId::NULL``] in the case of overflow.
     ///
     /// # Errors
     ///
@@ -688,15 +689,16 @@ impl TableCollection {
     /// // Recovering state can be a bit messy!
     /// assert_eq!(tables.site(id).ancestral_state.as_ref().unwrap(), &vec![3]);
     /// ```
-    pub fn add_site(
+    pub fn add_site<P: Into<Position>>(
         &mut self,
-        position: Position,
+        position: P,
         ancestral_state: Option<Vec<u8>>,
-    ) -> TablesResult<IdType> {
-        if position >= self.length_ || position < 0 {
-            return Err(TablesError::InvalidPosition { found: position });
+    ) -> TablesResult<SiteId> {
+        let p = position.into();
+        if p >= self.length_ || p.0 < 0 {
+            return Err(TablesError::InvalidPosition { found: p });
         }
-        site_table_add_row(&mut self.sites_, position, ancestral_state)
+        site_table_add_row(&mut self.sites_, p, ancestral_state)
     }
 
     /// Add a [``MutationRecord``] to the [``MutationTable``].
@@ -705,7 +707,7 @@ impl TableCollection {
     ///
     /// * `node`, the node where the mutation maps.
     /// * `key`, index of the mutation's metadata.
-    /// * `site`, the [``IdType``] of the mutation's [``Site``].
+    /// * `site`, the id of the mutation's [``Site``].
     /// * `derived_state`, the derived state of the variant.
     /// * `neutral`, [``true``] if the mutation affects fitness,
     ///              [``false``] otherwise.
@@ -722,8 +724,10 @@ impl TableCollection {
     ///
     /// # Returns
     ///
-    /// An [``IdType``] that is the new mutation's ``ID``.
-    /// This value is the index of the mutation in the mutation table.
+    /// A [``MutationId``].
+    ///
+    /// The value will be [``MutationId::NULL``] in the case ov
+    /// overflow.
     ///
     /// # Errors
     ///
@@ -740,19 +744,19 @@ impl TableCollection {
     /// // Recovering state can be a bit messy!
     /// assert_eq!(tables.mutation(id).derived_state.as_ref().unwrap(), &vec![3]);
     /// ```
-    pub fn add_mutation(
+    pub fn add_mutation<N: Into<NodeId>, S: Into<SiteId>>(
         &mut self,
-        node: IdType,
+        node: N,
         key: usize,
-        site: IdType,
+        site: S,
         derived_state: Option<Vec<u8>>,
         neutral: bool,
-    ) -> TablesResult<IdType> {
+    ) -> TablesResult<MutationId> {
         mutation_table_add_row(
             &mut self.mutations_,
-            node,
+            node.into(),
             key,
-            site,
+            site.into(),
             derived_state,
             neutral,
         )
@@ -789,8 +793,8 @@ impl TableCollection {
     }
 
     /// Return the i-th [``Node``].
-    pub fn node(&self, i: IdType) -> &Node {
-        &self.nodes_[i as usize]
+    pub fn node<N: Into<NodeId>>(&self, i: N) -> &Node {
+        &self.nodes_[i.into().0 as usize]
     }
 
     /// Get a slice of nodes
@@ -805,7 +809,7 @@ impl TableCollection {
     /// tables.add_node(1., 1).unwrap();
     ///
     /// let n = tables.get_nodes(1).unwrap();
-    /// assert_eq!(n.time as i32, 1);
+    /// assert_eq!(n.time, 1.into());
     /// let n = tables.get_nodes(0..2).unwrap();
     /// assert_eq!(n.len(), 2);
     /// assert_eq!(n[0].deme, 0);
@@ -819,8 +823,8 @@ impl TableCollection {
     }
 
     /// Return the i-th [``Edge``].
-    pub fn edge(&self, i: IdType) -> &Edge {
-        &self.edges_[i as usize]
+    pub fn edge<E: Into<EdgeId>>(&self, i: E) -> &Edge {
+        &self.edges_[i.into().0 as usize]
     }
 
     /// Get a slice of edges
@@ -849,8 +853,8 @@ impl TableCollection {
     }
 
     /// Return the i-th [``Site``].
-    pub fn site(&self, i: IdType) -> &Site {
-        &self.sites_[i as usize]
+    pub fn site<S: Into<SiteId>>(&self, i: S) -> &Site {
+        &self.sites_[i.into().0 as usize]
     }
 
     /// Get a slice of sites
@@ -879,8 +883,8 @@ impl TableCollection {
     }
 
     /// Return the i-th [``MutationRecord``].
-    pub fn mutation(&self, i: IdType) -> &MutationRecord {
-        &self.mutations_[i as usize]
+    pub fn mutation<M: Into<MutationId>>(&self, i: M) -> &MutationRecord {
+        &self.mutations_[i.into().0 as usize]
     }
 
     /// Get a slice of mutations
@@ -970,8 +974,8 @@ impl TableCollection {
             let ea = unsafe { edges.get_unchecked(*a) };
             let eb = unsafe { edges.get_unchecked(*b) };
             if ea.right == eb.right {
-                let ta = unsafe { *nodes.get_unchecked(ea.parent as usize) }.time;
-                let tb = unsafe { *nodes.get_unchecked(eb.parent as usize) }.time;
+                let ta = unsafe { *nodes.get_unchecked(ea.parent.0 as usize) }.time;
+                let tb = unsafe { *nodes.get_unchecked(eb.parent.0 as usize) }.time;
                 match ta.partial_cmp(&tb) {
                     Some(x) => match x {
                         std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
@@ -996,8 +1000,8 @@ impl TableCollection {
             let ea = unsafe { edges.get_unchecked(*a) };
             let eb = unsafe { edges.get_unchecked(*b) };
             if ea.left == eb.left {
-                let ta = unsafe { *nodes.get_unchecked(ea.parent as usize) }.time;
-                let tb = unsafe { *nodes.get_unchecked(eb.parent as usize) }.time;
+                let ta = unsafe { *nodes.get_unchecked(ea.parent.0 as usize) }.time;
+                let tb = unsafe { *nodes.get_unchecked(eb.parent.0 as usize) }.time;
                 match ta.partial_cmp(&tb) {
                     Some(x) => match x.reverse() {
                         std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
@@ -1039,16 +1043,16 @@ impl TableCollection {
         self.edge_input_order.clear();
         self.edge_output_order.clear();
         for (i, e) in self.edges_.iter().enumerate() {
-            if e.parent == NULL_ID {
+            if e.parent == NodeId::NULL {
                 return Err(TablesError::NullParent);
             }
-            if e.child == NULL_ID {
+            if e.child == NodeId::NULL {
                 return Err(TablesError::NullChild);
             }
-            if e.parent >= self.nodes_.len() as IdType {
+            if e.parent >= self.nodes_.len() as TablesIdInteger {
                 return Err(TablesError::NodeOutOfBounds);
             }
-            if e.child >= self.nodes_.len() as IdType {
+            if e.child >= self.nodes_.len() as TablesIdInteger {
                 return Err(TablesError::NodeOutOfBounds);
             }
             self.edge_input_order.push(i);
@@ -1177,7 +1181,7 @@ impl TableCollection {
             let output = self.edge_output_order.as_slice();
             let edges = self.edges_.as_slice();
 
-            let mut tree_left: Position = 0;
+            let mut tree_left = Position(0);
             while input_index < input.len() || tree_left < self.genome_length() {
                 for idx in output[output_index..].iter() {
                     if edges[*idx].right != tree_left {
@@ -1213,7 +1217,7 @@ mod test_tables {
 
     #[test]
     fn test_bad_genome_length() {
-        let _ = TableCollection::new(0).map_or_else(
+        let _ = TableCollection::new(Position(0)).map_or_else(
             |x: TablesError| assert_eq!(x, TablesError::InvalidGenomeLength),
             |_| panic!(),
         );
@@ -1241,12 +1245,26 @@ mod test_tables {
         let mut tables = TableCollection::new(10).unwrap();
 
         let _ = tables.add_edge(-1, 1, 1, 2).map_or_else(
-            |x: TablesError| assert_eq!(x, TablesError::InvalidPosition { found: -1 }),
+            |x: TablesError| {
+                assert_eq!(
+                    x,
+                    TablesError::InvalidPosition {
+                        found: Position(-1)
+                    }
+                )
+            },
             |_| panic!(),
         );
 
         let _ = tables.add_edge(1, -1, 1, 2).map_or_else(
-            |x: TablesError| assert_eq!(x, TablesError::InvalidLeftRight { found: (1, -1) }),
+            |x: TablesError| {
+                assert_eq!(
+                    x,
+                    TablesError::InvalidLeftRight {
+                        found: (Position(1), Position(-1))
+                    }
+                )
+            },
             |_| panic!(),
         );
     }
@@ -1256,12 +1274,26 @@ mod test_tables {
         let mut tables = TableCollection::new(10).unwrap();
 
         let _ = tables.add_edge(0, 1, -1, 2).map_or_else(
-            |x: TablesError| assert_eq!(x, TablesError::InvalidNodeValue { found: -1 }),
+            |x: TablesError| {
+                assert_eq!(
+                    x,
+                    TablesError::InvalidNodeValue {
+                        found: NodeId::NULL
+                    }
+                )
+            },
             |_| panic!(),
         );
 
         let _ = tables.add_edge(0, 1, 1, -2).map_or_else(
-            |x: TablesError| assert_eq!(x, TablesError::InvalidNodeValue { found: -2 }),
+            |x: TablesError| {
+                assert_eq!(
+                    x,
+                    TablesError::InvalidNodeValue {
+                        found: NodeId::NULL
+                    }
+                )
+            },
             |_| panic!(),
         );
     }
@@ -1304,7 +1336,7 @@ mod test_tables {
 
     #[test]
     fn test_add_site_with_complex_ancestral_state() {
-        let mut tables = TableCollection::new(10).unwrap();
+        let mut tables = TableCollection::new(Position(10)).unwrap();
         let mut a: Vec<u8> = vec![];
         let astate_part1: i32 = 300;
         let astate_part2: i32 = 3;
@@ -1468,9 +1500,9 @@ mod test_table_indexing {
             assert_eq!(edge_input_order.len(), t.edges().len());
             for (idx, i) in edge_input_order.iter().enumerate() {
                 if idx > 0 {
-                    let ti = t.node(t.edge(*i as IdType).parent).time;
+                    let ti = t.node(t.edge(EdgeId::from(*i)).parent).time;
                     let tim1 = t
-                        .node(t.edge((edge_input_order[idx] - 1) as IdType).parent)
+                        .node(t.edge(EdgeId::from(edge_input_order[idx] - 1)).parent)
                         .time;
                     assert!(ti <= tim1);
                     assert!(tim1 >= ti);
@@ -1484,11 +1516,11 @@ mod test_table_indexing {
             assert_eq!(edge_output_order.len(), t.edges().len());
             for (idx, i) in edge_output_order.iter().enumerate() {
                 if idx > 0 {
-                    let ti = t.node(t.edge(*i as IdType).parent).time;
+                    let ti = t.node(t.edge(EdgeId::from(*i)).parent).time;
                     let tim1 = t
-                        .node(t.edge((edge_output_order[idx - 1]) as IdType).parent)
+                        .node(t.edge(EdgeId::from(edge_output_order[idx - 1])).parent)
                         .time;
-                    assert!(ti >= tim1, "{} {}", ti, tim1);
+                    assert!(ti >= tim1, "{} {}", f64::from(ti), f64::from(tim1));
                 }
             }
         } else {
