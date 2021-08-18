@@ -339,6 +339,7 @@ fn mutate_tables(
                             e.child,
                             origin_times_init.len() - 1,
                             *x,
+                            t,
                             Some(vec![dstate]),
                             true,
                         )
@@ -352,6 +353,7 @@ fn mutate_tables(
                             e.child,
                             origin_times_init.len() - 1,
                             site_id,
+                            t,
                             Some(vec![1]),
                             true,
                         )
