@@ -8,68 +8,92 @@ use thiserror::Error;
 /// Error type related to [``TableCollection``]
 #[derive(Error, Debug, PartialEq)]
 pub enum TablesError {
-    /// Raised by [``TableCollection::new``].
+    /// Returned by [``TableCollection::new``].
     #[error("Invalid genome length")]
     InvalidGenomeLength,
-    /// Raised when invalid node `ID`s are encountered.
+    /// Returned when invalid node `ID`s are encountered.
     #[error("Invalid node: {found:?}")]
     InvalidNodeValue {
         /// The invalid `ID`
         found: NodeId,
     },
-    /// Raised when invalid positions are encountered.
+    /// Returned when invalid positions are encountered.
     #[error("Invalid value for position: {found:?}")]
     InvalidPosition {
         /// The invalid position
         found: Position,
     },
-    /// Raised when an [``Edge``]'s left/right
+    /// Returned when table validation detects duplicate posititions
+    /// in a site table.
+    #[error("Duplicated site positions found")]
+    DuplicatedSitePosition,
+    /// Returned then site tables are not properly sorted
+    #[error("Site positions are unsorted")]
+    UnsortedSitePosition,
+    #[error("Site ID out of bounds")]
+    /// Returned when a [``MutationRecord``]'s [`SiteId`] is out of bounds.
+    SiteOutofBounds,
+    /// Returned when mutations tables are not sorted by site position.
+    #[error("Mutations not sorted by increasing position")]
+    UnsortedMutationPositions,
+    /// Returned when mutations at the same site are not sorted
+    /// correctly by time.
+    #[error("Mutations within same site are not sorted by time")]
+    UnsortedMutationsWithinSite,
+    /// Retured when a [``MutationRecord``]'s time field is not finite
+    #[error("Invalid Mutation time.")]
+    InvalidMutationTime,
+    /// Retured when a [``Node``]'s time field is not finite,
+    /// including the node field of [``MutationRecord``].
+    #[error("Invalid Node time.")]
+    InvalidNodeTime,
+    /// Returned when an [``Edge``]'s left/right
     /// values are invalid.
     #[error("Invalid position range: {found:?}")]
     InvalidLeftRight {
         /// The invalid `(left, right)`.
         found: (Position, Position),
     },
-    /// Raised when invalid times are encountered.
+    /// Returned when invalid times are encountered.
     #[error("Invalid value for time: {found:?}")]
     InvalidTime {
         /// The invalid time
         found: Time,
     },
     #[error("Invalid value for deme: {found:?}")]
-    /// Raised with a deme's `ID` is invalid.
+    /// Returned with a deme's `ID` is invalid.
     InvalidDeme {
         /// The invalide deme `ID`
         found: DemeId,
     },
     #[error("Parent is NULL_ID")]
-    /// Can be raised by [``validate_edge_table``]
+    /// Can be returned by [``validate_edge_table``]
     NullParent,
     #[error("Child is NULL_ID")]
-    /// Can be raised by [``validate_edge_table``]
+    /// Can be returned by [``validate_edge_table``]
     NullChild,
     #[error("Node is out of bounds")]
-    /// Can be raised by [``validate_edge_table``]
+    /// Can be returned by [``validate_edge_table``]
     NodeOutOfBounds,
     #[error("Node time order violation")]
-    /// Can be raised by [``validate_edge_table``]
+    /// Can be returned by [``validate_edge_table``]
     NodeTimesUnordered,
     #[error("Parents not sorted by time")]
-    /// Can be raised by [``validate_edge_table``]
+    /// Can be returned by [``validate_edge_table``]
     ParentTimesUnsorted,
     #[error("Parents not contiguous")]
-    /// Can be raised by [``validate_edge_table``]
+    /// Can be returned by [``validate_edge_table``]
     ParentsNotContiguous,
     #[error("Edges not sorted by child")]
-    /// Can be raised by [``validate_edge_table``]
+    /// Can be returned by [``validate_edge_table``]
     EdgesNotSortedByChild,
     #[error("Edges not sorted by left")]
-    /// Can be raised by [``validate_edge_table``]
+    /// Can be returned by [``validate_edge_table``]
     EdgesNotSortedByLeft,
     #[error("Duplicate edges")]
-    /// Can be raised by [``validate_edge_table``]
+    /// Can be returned by [``validate_edge_table``]
     DuplicateEdges,
-    /// Can be raised by [`crate::TreeSequence::new`]
+    /// Can be returned by [`crate::TreeSequence::new`]
     /// and [`crate::TreeSequence::new_with_samples`]
     #[error("Tables not indexed")]
     TablesNotIndexed,
@@ -280,7 +304,14 @@ fn sort_mutation_table(sites: &[Site], mutations: &mut [MutationRecord]) {
     mutations.sort_by(|a, b| {
         let pa = sites[a.site.0 as usize].position;
         let pb = sites[b.site.0 as usize].position;
-        pa.cmp(&pb)
+        match pa.cmp(&pb) {
+            std::cmp::Ordering::Equal => match a.time.partial_cmp(&b.time) {
+                Some(x) => x,
+                None => panic!("bad mutation times {} {}", a.time.0, b.time.0),
+            },
+            std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
+            std::cmp::Ordering::Less => std::cmp::Ordering::Less,
+        }
     });
 }
 
@@ -310,14 +341,27 @@ bitflags! {
     /// [``TableCollection::validate``]
     ///
     /// ```
-    /// let f = forrustts::TableValidationFlags::empty();
+    /// let f = forrustts::TableValidationFlags::default();
     /// assert_eq!(f.contains(forrustts::TableValidationFlags::VALIDATE_ALL), true);
     /// ```
-    #[derive(Default)]
     pub struct TableValidationFlags: u32 {
+        /// Validate the edge table
+        const VALIDATE_EDGES = 1<<0;
+        /// Validate the site table
+        const VALIDATE_SITES = 1<<1;
+        /// Validate the mutation table
+        const VALIDATE_MUTATIONS = 1<<2;
+        /// Validate the node table
+        const VALIDATE_NODES = 1<<3;
         /// Validate all tables.
-        /// This is also the "default"/empty.
-        const VALIDATE_ALL = 0;
+        /// This is also the "default" value.
+        const VALIDATE_ALL = Self::VALIDATE_EDGES.bits|Self::VALIDATE_MUTATIONS.bits|Self::VALIDATE_SITES.bits|Self::VALIDATE_NODES.bits;
+    }
+}
+
+impl Default for TableValidationFlags {
+    fn default() -> Self {
+        TableValidationFlags::VALIDATE_ALL
     }
 }
 
@@ -460,6 +504,69 @@ pub fn validate_edge_table(len: Position, edges: &[Edge], nodes: &[Node]) -> Tab
     }
 
     Ok(true)
+}
+
+pub fn validate_node_table(nodes: &[Node]) -> TablesResult<()> {
+    for n in nodes {
+        if !n.time.0.is_finite() {
+            return Err(TablesError::InvalidNodeTime);
+        }
+    }
+    Ok(())
+}
+
+pub fn validate_site_table(len: Position, sites: &[Site]) -> TablesResult<()> {
+    for (i, site) in sites.iter().enumerate() {
+        if site.position < 0 || site.position >= len {
+            return Err(TablesError::InvalidPosition {
+                found: site.position,
+            });
+        }
+        if i > 0 {
+            if sites[i - 1].position == site.position {
+                return Err(TablesError::DuplicatedSitePosition);
+            }
+            if sites[i - 1].position > site.position {
+                return Err(TablesError::UnsortedSitePosition);
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn validate_mutation_table(
+    mutations: &[MutationRecord],
+    sites: &[Site],
+    nodes: &[Node],
+) -> TablesResult<()> {
+    let mut last_site: Option<SiteId> = None;
+    let mut last_time = Time::MIN;
+    for (i, mutation) in mutations.iter().enumerate() {
+        if !mutation.time.0.is_finite() {
+            return Err(TablesError::InvalidMutationTime);
+        }
+        if mutation.site < 0 || (mutation.site.0 as usize) >= sites.len() {
+            return Err(TablesError::SiteOutofBounds);
+        }
+        if mutation.node < 0 || (mutation.node.0 as usize) >= nodes.len() {
+            return Err(TablesError::NodeOutOfBounds);
+        }
+        if !nodes[mutation.node.0 as usize].time.0.is_finite() {
+            return Err(TablesError::InvalidNodeTime);
+        }
+        if i > 0 {
+            if mutations[i - 1].site > mutation.site {
+                return Err(TablesError::UnsortedMutationPositions);
+            }
+            if last_site.is_some() && Some(mutation.site) == last_site && mutation.time < last_time
+            {
+                return Err(TablesError::UnsortedMutationsWithinSite);
+            }
+        }
+        last_site = Some(mutation.site);
+        last_time = mutation.time;
+    }
+    Ok(())
 }
 
 /// A collection of node, edge, site, and mutation tables.
@@ -969,8 +1076,17 @@ impl TableCollection {
 
     /// Run a validation check on the tables.
     pub fn validate(&self, flags: TableValidationFlags) -> TablesResult<bool> {
-        if flags.contains(TableValidationFlags::VALIDATE_ALL) {
+        if flags.contains(TableValidationFlags::VALIDATE_EDGES) {
             validate_edge_table(self.genome_length(), &self.edges_, &self.nodes_)?;
+        }
+        if flags.contains(TableValidationFlags::VALIDATE_NODES) {
+            validate_node_table(self.nodes())?;
+        }
+        if flags.contains(TableValidationFlags::VALIDATE_SITES) {
+            validate_site_table(self.genome_length(), self.sites())?;
+        }
+        if flags.contains(TableValidationFlags::VALIDATE_MUTATIONS) {
+            validate_mutation_table(self.mutations(), self.sites(), self.nodes())?;
         }
         Ok(true)
     }
@@ -1566,5 +1682,42 @@ mod test_table_indexing {
 
         t.add_node(0., 0).unwrap();
         assert!(!t.is_indexed());
+    }
+}
+
+#[cfg(test)]
+mod test_table_validation {
+    use super::*;
+
+    #[test]
+    fn test_validation_flags() {
+        let v = vec![
+            TableValidationFlags::VALIDATE_EDGES,
+            TableValidationFlags::VALIDATE_SITES,
+            TableValidationFlags::VALIDATE_MUTATIONS,
+        ];
+        for f in v.iter() {
+            for ff in v.iter() {
+                if *f != *ff {
+                    assert!(!f.contains(*ff));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_site_table_not_sorted_by_position() {
+        // edges aren't sorted, but we skip that check
+        let mut t = TableCollection::new(10).unwrap();
+        let node0 = t.add_node(0., 0).unwrap();
+        let node1 = t.add_node(1., 0).unwrap();
+        t.add_edge(0, t.genome_length(), node1, node0).unwrap();
+        t.add_site(5, None).unwrap();
+        t.add_site(4, None).unwrap();
+        match t.validate(TableValidationFlags::VALIDATE_SITES) {
+            Err(TablesError::UnsortedSitePosition) => (),
+            Err(_) => panic!("unexpected Err"),
+            Ok(_) => panic!("unexpected Ok"),
+        };
     }
 }
