@@ -133,6 +133,8 @@ pub struct MutationRecord {
     pub key: usize,
     /// The index of the corresponding [``Site``].
     pub site: SiteId,
+    /// The origin time of the mutation
+    pub time: Time,
     /// The derived state.
     /// [``None``] implies client code
     /// will apply a default.
@@ -225,6 +227,7 @@ fn mutation_table_add_row(
     node: NodeId,
     key: usize,
     site: SiteId,
+    time: Time,
     derived_state: Option<Vec<u8>>,
     neutral: bool,
 ) -> TablesResult<MutationId> {
@@ -233,6 +236,7 @@ fn mutation_table_add_row(
         node,
         key,
         site,
+        time,
         derived_state,
         neutral,
     });
@@ -708,6 +712,7 @@ impl TableCollection {
     /// * `node`, the node where the mutation maps.
     /// * `key`, index of the mutation's metadata.
     /// * `site`, the id of the mutation's [``Site``].
+    /// * `time`, the origin time of the mutation.
     /// * `derived_state`, the derived state of the variant.
     /// * `neutral`, [``true``] if the mutation affects fitness,
     ///              [``false``] otherwise.
@@ -739,16 +744,17 @@ impl TableCollection {
     /// ```
     /// let mut tables = forrustts::TableCollection::new(100).unwrap();
     /// // derived state is a u9 equal to 3
-    /// let id = tables.add_mutation(0, 0, 0, Some(vec![3]), false).unwrap();
+    /// let id = tables.add_mutation(0, 0, 0, 0, Some(vec![3]), false).unwrap();
     /// assert_eq!(id, 0);
     /// // Recovering state can be a bit messy!
     /// assert_eq!(tables.mutation(id).derived_state.as_ref().unwrap(), &vec![3]);
     /// ```
-    pub fn add_mutation<N: Into<NodeId>, S: Into<SiteId>>(
+    pub fn add_mutation<N: Into<NodeId>, S: Into<SiteId>, T: Into<Time>>(
         &mut self,
         node: N,
         key: usize,
         site: S,
+        time: T,
         derived_state: Option<Vec<u8>>,
         neutral: bool,
     ) -> TablesResult<MutationId> {
@@ -757,6 +763,7 @@ impl TableCollection {
             node.into(),
             key,
             site.into(),
+            time.into(),
             derived_state,
             neutral,
         )
@@ -895,8 +902,8 @@ impl TableCollection {
     ///
     /// ```
     /// let mut tables = forrustts::TableCollection::new(100).unwrap();
-    /// tables.add_mutation(0, 113, 10, None, true);
-    /// tables.add_mutation(58, 114, 55 , None, true);
+    /// tables.add_mutation(0, 113, 10, 0, None, true);
+    /// tables.add_mutation(58, 114, 55, 0, None, true);
     ///
     /// let s = tables.get_mutations(1).unwrap();
     /// assert_eq!(s.node, 58);
@@ -1378,7 +1385,7 @@ mod test_tables {
     #[test]
     fn test_add_mutation_without_derived_state() {
         let mut tables = TableCollection::new(10).unwrap();
-        let _ = tables.add_mutation(0, 0, 0, None, false).unwrap();
+        let _ = tables.add_mutation(0, 0, 0, 0, None, false).unwrap();
         let m = tables.mutation(0);
         if m.derived_state.as_ref().is_some() {
             panic!()
@@ -1389,7 +1396,7 @@ mod test_tables {
     fn test_add_mutation_with_derived_state() {
         let mut tables = TableCollection::new(10).unwrap();
         let _ = tables
-            .add_mutation(0, 0, 0, Some(b"0".to_vec()), false)
+            .add_mutation(0, 0, 0, 0, Some(b"0".to_vec()), false)
             .unwrap();
         let m = tables.mutation(0);
         match std::str::from_utf8(m.derived_state.as_ref().unwrap()) {
