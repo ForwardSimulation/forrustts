@@ -1,11 +1,5 @@
-use crate::newtypes::EdgeId;
-use crate::newtypes::NodeId;
-use crate::newtypes::Position;
-use crate::newtypes::PositionLLType;
-use crate::newtypes::SiteId;
-use crate::newtypes::Time;
-use crate::ForrusttsError;
 use bitflags::bitflags;
+use forrustts::*;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
@@ -42,8 +36,8 @@ type VecBirth = Vec<Birth>;
 struct PopulationState {
     pub parents: VecParent,
     pub births: VecBirth,
-    pub edge_buffer: crate::EdgeBuffer,
-    pub tables: crate::TableCollection,
+    pub edge_buffer: EdgeBuffer,
+    pub tables: TableCollection,
 }
 
 impl PopulationState {
@@ -51,8 +45,8 @@ impl PopulationState {
         PopulationState {
             parents: vec![],
             births: vec![],
-            edge_buffer: crate::EdgeBuffer::new(),
-            tables: crate::TableCollection::new(genome_length).unwrap(),
+            edge_buffer: EdgeBuffer::new(),
+            tables: TableCollection::new(genome_length).unwrap(),
         }
     }
 }
@@ -93,16 +87,10 @@ fn crossover_and_record_edges(
     parent: Parent,
     child: NodeId,
     breakpoint: BreakpointFunction,
-    recorder: &impl Fn(
-        NodeId,
-        NodeId,
-        (Position, Position),
-        &mut crate::TableCollection,
-        &mut crate::EdgeBuffer,
-    ),
+    recorder: &impl Fn(NodeId, NodeId, (Position, Position), &mut TableCollection, &mut EdgeBuffer),
     rng: &mut StdRng,
-    tables: &mut crate::TableCollection,
-    edge_buffer: &mut crate::EdgeBuffer,
+    tables: &mut TableCollection,
+    edge_buffer: &mut EdgeBuffer,
 ) {
     let mut pnodes = (parent.node0, parent.node1);
     mendel(&mut pnodes, rng);
@@ -151,13 +139,7 @@ fn generate_births(
     birth_time: Time,
     rng: &mut StdRng,
     pop: &mut PopulationState,
-    recorder: &impl Fn(
-        NodeId,
-        NodeId,
-        (Position, Position),
-        &mut crate::TableCollection,
-        &mut crate::EdgeBuffer,
-    ),
+    recorder: &impl Fn(NodeId, NodeId, (Position, Position), &mut TableCollection, &mut EdgeBuffer),
 ) {
     for b in &pop.births {
         // Record 2 new nodes
@@ -193,11 +175,11 @@ fn buffer_edges(
     parent: NodeId,
     child: NodeId,
     span: (Position, Position),
-    _: &mut crate::TableCollection,
-    buffer: &mut crate::EdgeBuffer,
+    _: &mut TableCollection,
+    buffer: &mut EdgeBuffer,
 ) {
     buffer
-        .extend(parent.into(), crate::Segment::new(span.0, span.1, child))
+        .extend(parent.into(), Segment::new(span.0, span.1, child))
         .unwrap();
 }
 
@@ -205,13 +187,13 @@ fn record_edges(
     parent: NodeId,
     child: NodeId,
     span: (Position, Position),
-    tables: &mut crate::TableCollection,
-    _: &mut crate::EdgeBuffer,
+    tables: &mut TableCollection,
+    _: &mut EdgeBuffer,
 ) {
     tables.add_edge(span.0, span.1, parent, child).unwrap();
 }
 
-fn fill_samples(parents: &[Parent], samples: &mut crate::SamplesInfo) {
+fn fill_samples(parents: &[Parent], samples: &mut SamplesInfo) {
     samples.samples.clear();
     for p in parents {
         samples.samples.push(p.node0);
@@ -221,16 +203,16 @@ fn fill_samples(parents: &[Parent], samples: &mut crate::SamplesInfo) {
 
 fn sort_and_simplify(
     flags: SimulationFlags,
-    simplification_flags: crate::SimplificationFlags,
-    samples: &crate::SamplesInfo,
-    state: &mut crate::SimplificationBuffers,
+    simplification_flags: SimplificationFlags,
+    samples: &SamplesInfo,
+    state: &mut SimplificationBuffers,
     pop: &mut PopulationState,
-    output: &mut crate::SimplificationOutput,
+    output: &mut SimplificationOutput,
 ) {
     if !flags.contains(SimulationFlags::BUFFER_EDGES) {
-        pop.tables.sort_tables(crate::TableSortingFlags::empty());
+        pop.tables.sort_tables(TableSortingFlags::empty());
         if flags.contains(SimulationFlags::USE_STATE) {
-            crate::simplify_tables(
+            simplify_tables(
                 samples,
                 simplification_flags,
                 state,
@@ -239,16 +221,11 @@ fn sort_and_simplify(
             )
             .unwrap();
         } else {
-            crate::simplify_tables_without_state(
-                samples,
-                simplification_flags,
-                &mut pop.tables,
-                output,
-            )
-            .unwrap();
+            simplify_tables_without_state(samples, simplification_flags, &mut pop.tables, output)
+                .unwrap();
         }
     } else {
-        crate::simplify_from_edge_buffer(
+        simplify_from_edge_buffer(
             samples,
             simplification_flags,
             state,
@@ -262,11 +239,11 @@ fn sort_and_simplify(
 
 fn simplify_and_remap_nodes(
     flags: SimulationFlags,
-    simplification_flags: crate::SimplificationFlags,
-    samples: &mut crate::SamplesInfo,
-    state: &mut crate::SimplificationBuffers,
+    simplification_flags: SimplificationFlags,
+    samples: &mut SamplesInfo,
+    state: &mut SimplificationBuffers,
     pop: &mut PopulationState,
-    output: &mut crate::SimplificationOutput,
+    output: &mut SimplificationOutput,
 ) {
     fill_samples(&pop.parents, samples);
     sort_and_simplify(flags, simplification_flags, samples, state, pop, output);
@@ -274,7 +251,7 @@ fn simplify_and_remap_nodes(
     for p in &mut pop.parents {
         p.node0 = output.idmap[usize::from(p.node0)];
         p.node1 = output.idmap[usize::from(p.node1)];
-        assert!(pop.tables.node(p.node0).flags & crate::NodeFlags::IS_SAMPLE.bits() > 0);
+        assert!(pop.tables.node(p.node0).flags & NodeFlags::IS_SAMPLE.bits() > 0);
     }
 
     if flags.contains(SimulationFlags::BUFFER_EDGES) {
@@ -322,7 +299,7 @@ pub struct SimulationParams {
     pub seed: u64,
     pub nsteps: i64,
     pub flags: SimulationFlags,
-    pub simplification_flags: crate::SimplificationFlags,
+    pub simplification_flags: SimplificationFlags,
 }
 
 impl Default for SimulationParams {
@@ -338,12 +315,12 @@ impl Default for SimulationParams {
             seed: 0,
             nsteps: 0,
             flags: SimulationFlags::empty(),
-            simplification_flags: crate::SimplificationFlags::empty(),
+            simplification_flags: SimplificationFlags::empty(),
         }
     }
 }
 
-fn mutate_tables(mutrate: f64, tables: &mut crate::TableCollection, rng: &mut StdRng) -> Vec<Time> {
+fn mutate_tables(mutrate: f64, tables: &mut TableCollection, rng: &mut StdRng) -> Vec<Time> {
     match mutrate.partial_cmp(&0.0) {
         Some(std::cmp::Ordering::Greater) => (),
         Some(_) => return vec![],
@@ -420,7 +397,7 @@ fn mutate_tables(mutrate: f64, tables: &mut crate::TableCollection, rng: &mut St
         let pb = tables.site(b.1).position;
         pa.cmp(&pb)
     });
-    tables.sort_tables(crate::TableSortingFlags::SKIP_EDGE_TABLE);
+    tables.sort_tables(TableSortingFlags::SKIP_EDGE_TABLE);
     let mut rv = vec![];
     for (i, _) in origin_times_init {
         rv.push(i);
@@ -429,7 +406,7 @@ fn mutate_tables(mutrate: f64, tables: &mut crate::TableCollection, rng: &mut St
 }
 
 fn add_tskit_mutation_site_tables(
-    tables: &crate::TableCollection,
+    tables: &TableCollection,
     origin_times: &[Time],
     g: Time,
     tskit_tables: &mut tskit::TableCollection,
@@ -447,7 +424,7 @@ fn add_tskit_mutation_site_tables(
     }
 
     for (i, m) in tables.enumerate_mutations() {
-        let reverser = crate::tskit_tools::simple_time_reverser(g);
+        let reverser = tskit_tools::simple_time_reverser(g);
         assert!(match reverser(origin_times[i])
             .partial_cmp(&tskit_tables.nodes().time(m.node.into()).unwrap())
         {
@@ -469,7 +446,7 @@ fn add_tskit_mutation_site_tables(
 
 pub fn neutral_wf(
     params: SimulationParams,
-) -> Result<(crate::TableCollection, Vec<i32>, Vec<Time>), ForrusttsError> {
+) -> Result<(TableCollection, Vec<i32>, Vec<Time>), ForrusttsError> {
     // FIXME: gotta validate input params!
 
     let mut actual_simplification_interval: i64 = -1;
@@ -490,7 +467,7 @@ pub fn neutral_wf(
     let mut rng = StdRng::seed_from_u64(params.seed);
 
     let mut pop = PopulationState::new(params.genome_length);
-    let mut samples: crate::SamplesInfo = Default::default();
+    let mut samples: SamplesInfo = Default::default();
 
     // Record nodes for the first generation
     // Nodes will have birth time 0 in deme 0.
@@ -509,9 +486,9 @@ pub fn neutral_wf(
     }
 
     let mut simplified = false;
-    let mut state = crate::SimplificationBuffers::new();
+    let mut state = SimplificationBuffers::new();
 
-    let mut output = crate::SimplificationOutput::new();
+    let mut output = SimplificationOutput::new();
 
     let new_edge_handler = if params.flags.contains(SimulationFlags::BUFFER_EDGES) {
         buffer_edges
@@ -595,7 +572,7 @@ pub struct SimulatorIterator {
 }
 
 pub struct SimResults {
-    pub tables: crate::TableCollection,
+    pub tables: TableCollection,
     pub tsk_tables: tskit::TableCollection,
     pub is_sample: Vec<i32>,
 }
@@ -622,12 +599,12 @@ impl Iterator for SimulatorIterator {
             params.seed = seed;
             let (mut tables, is_sample, origin_times) = neutral_wf(params).unwrap();
 
-            tables.sort_tables(crate::TableSortingFlags::empty());
+            tables.sort_tables(TableSortingFlags::empty());
 
-            let mut tsk_tables = crate::tskit_tools::convert_to_tskit_minimal(
+            let mut tsk_tables = tskit_tools::convert_to_tskit_minimal(
                 &tables,
                 &is_sample,
-                crate::tskit_tools::simple_time_reverser(params.nsteps.into()),
+                tskit_tools::simple_time_reverser(params.nsteps.into()),
                 // Do not index tables here!
                 // Things are unsorted!
                 false,
@@ -668,8 +645,8 @@ impl Simulator {
     }
 }
 
-pub fn make_samples(l: &[i32]) -> crate::SamplesInfo {
-    let mut rv = crate::SamplesInfo::default();
+pub fn make_samples(l: &[i32]) -> SamplesInfo {
+    let mut rv = SamplesInfo::default();
     for (i, j) in l.iter().enumerate() {
         if *j == 1 {
             rv.samples.push(i.try_into().unwrap());

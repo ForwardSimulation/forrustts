@@ -66,8 +66,3 @@ pub mod tskit_tools;
 pub fn version() -> &'static str {
     return env!("CARGO_PKG_VERSION");
 }
-
-#[cfg(test)]
-mod stochastic_simplification_tests;
-#[cfg(test)]
-pub mod stochastic_testing_tools;

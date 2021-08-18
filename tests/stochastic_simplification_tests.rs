@@ -1,11 +1,13 @@
-use crate::newtypes::NodeId;
-use crate::stochastic_testing_tools::*;
-use crate::traits::TableTypeIntoRaw;
-use crate::*;
+#[path = "./stochastic_testing_tools.rs"]
+mod stochastic_testing_tools;
+
+use forrustts::NodeId;
+use forrustts::*;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
 use rand_distr::Uniform;
+use stochastic_testing_tools::*;
 use streaming_iterator::StreamingIterator;
 use tskit::TableAccess;
 use tskit::TskitTypeAccess;
@@ -16,7 +18,7 @@ impl From<Vec<NodeId>> for VecTskId {
     fn from(value: Vec<NodeId>) -> Self {
         let mut rv: Vec<tskit::tsk_id_t> = vec![];
         for v in &value {
-            rv.push(v.0);
+            rv.push(v.into_raw());
         }
         Self(rv)
     }
@@ -38,40 +40,40 @@ fn compare_edge_table_indexes(
             tsk_tables.edges().num_rows() as usize,
         )
     };
-    for (idx, val) in tables.edge_input_order.iter().enumerate() {
+    for (idx, val) in tables.edge_input_order().unwrap().iter().enumerate() {
         assert_eq!(
-            tables.edges_[*val].parent,
+            tables.edges()[*val].parent,
             tsk_tables.edges().parent(tsk_edge_input[idx]).unwrap()
         );
         assert_eq!(
-            tables.edges_[*val].child,
+            tables.edges()[*val].child,
             tsk_tables.edges().child(tsk_edge_input[idx]).unwrap()
         );
         assert_eq!(
-            tables.edges_[*val].left.into_raw(),
+            tables.edges()[*val].left.into_raw(),
             tsk_tables.edges().left(tsk_edge_input[idx]).unwrap() as PositionLLType
         );
         assert_eq!(
-            tables.edges_[*val].right.into_raw(),
+            tables.edges()[*val].right.into_raw(),
             tsk_tables.edges().right(tsk_edge_input[idx]).unwrap() as PositionLLType
         );
     }
 
-    for (idx, val) in tables.edge_output_order.iter().enumerate() {
+    for (idx, val) in tables.edge_output_order().unwrap().iter().enumerate() {
         assert_eq!(
-            tables.edges_[*val].parent,
+            tables.edges()[*val].parent,
             tsk_tables.edges().parent(tsk_edge_output[idx]).unwrap()
         );
         assert_eq!(
-            tables.edges_[*val].child,
+            tables.edges()[*val].child,
             tsk_tables.edges().child(tsk_edge_output[idx]).unwrap()
         );
         assert_eq!(
-            tables.edges_[*val].left.into_raw(),
+            tables.edges()[*val].left.into_raw(),
             tsk_tables.edges().left(tsk_edge_output[idx]).unwrap() as PositionLLType
         );
         assert_eq!(
-            tables.edges_[*val].right.into_raw(),
+            tables.edges()[*val].right.into_raw(),
             tsk_tables.edges().right(tsk_edge_output[idx]).unwrap() as PositionLLType
         );
     }
