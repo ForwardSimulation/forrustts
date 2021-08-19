@@ -177,9 +177,7 @@ fn buffer_edges(
     _: &mut TableCollection,
     buffer: &mut EdgeBuffer,
 ) {
-    buffer
-        .extend(parent.into(), Segment::new(span.0, span.1, child))
-        .unwrap();
+    buffer.record_edge(parent, child, span.0, span.1).unwrap();
 }
 
 fn record_edges(
