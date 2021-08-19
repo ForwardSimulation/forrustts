@@ -340,7 +340,6 @@ fn mutate_tables(mutrate: f64, tables: &mut TableCollection, rng: &mut StdRng) {
         let exp = Exp::new(mutrate_edge).unwrap();
         let mut pos = PositionLLType::from(e.left) + (rng.sample(exp) as PositionLLType) + 1;
         let make_time = Uniform::new(ptime, ctime);
-        let mut next_key: usize = 0;
         while pos < e.right {
             assert!(ctime > ptime);
             let t = rng.sample(make_time) + 1;
@@ -355,13 +354,13 @@ fn mutate_tables(mutrate: f64, tables: &mut TableCollection, rng: &mut StdRng) {
                     };
                     derived_map.insert(pos, dstate).unwrap();
                     tables
-                        .add_mutation(e.child, next_key, *x, t, Some(vec![dstate]), true)
+                        .add_mutation(e.child, None, *x, t, Some(vec![dstate]), true)
                         .unwrap();
                 }
                 None => {
                     let site_id = tables.add_site(pos, Some(vec![0])).unwrap();
                     tables
-                        .add_mutation(e.child, next_key, site_id, t, Some(vec![1]), true)
+                        .add_mutation(e.child, None, site_id, t, Some(vec![1]), true)
                         .unwrap();
 
                     if posmap.insert(pos, site_id).is_some() {
@@ -373,7 +372,6 @@ fn mutate_tables(mutrate: f64, tables: &mut TableCollection, rng: &mut StdRng) {
                 }
             }
             pos += (rng.sample(exp) as PositionLLType) + 1;
-            next_key += 1;
         }
     }
     tables.sort_tables(TableSortingFlags::SKIP_EDGE_TABLE);
