@@ -795,21 +795,21 @@ impl TableCollection {
     /// ```
     /// let mut tables = forrustts::TableCollection::new(100).unwrap();
     /// // ancestral state is a u9 equal to 3
-    /// let id = tables.add_site(3, Some(vec![3])).unwrap();
+    /// let id = tables.add_site(3, vec![3]).unwrap();
     /// assert_eq!(id, 0);
     /// // Recovering state can be a bit messy!
     /// assert_eq!(tables.site(id).ancestral_state.as_ref().unwrap(), &vec![3]);
     /// ```
-    pub fn add_site<P: Into<Position>>(
+    pub fn add_site<P: Into<Position>, A: Into<Option<Vec<u8>>>>(
         &mut self,
         position: P,
-        ancestral_state: Option<Vec<u8>>,
+        ancestral_state: A,
     ) -> TablesResult<SiteId> {
         let p = position.into();
         if p >= self.length_ || p.0 < 0 {
             return Err(TablesError::InvalidPosition { found: p });
         }
-        site_table_add_row(&mut self.sites_, p, ancestral_state)
+        site_table_add_row(&mut self.sites_, p, ancestral_state.into())
     }
 
     /// Add a [``MutationRecord``] to the [``MutationTable``].
@@ -851,18 +851,24 @@ impl TableCollection {
     /// ```
     /// let mut tables = forrustts::TableCollection::new(100).unwrap();
     /// // derived state is a u9 equal to 3
-    /// let id = tables.add_mutation(0, 1, 0, 0, Some(vec![3]), false).unwrap();
+    /// let id = tables.add_mutation(0, 1, 0, 0, vec![3], false).unwrap();
     /// assert_eq!(id, 0);
     /// // Recovering state can be a bit messy!
     /// assert_eq!(tables.mutation(id).derived_state.as_ref().unwrap(), &vec![3]);
     /// ```
-    pub fn add_mutation<N: Into<NodeId>, S: Into<SiteId>, T: Into<Time>, K: Into<Option<usize>>>(
+    pub fn add_mutation<
+        N: Into<NodeId>,
+        S: Into<SiteId>,
+        T: Into<Time>,
+        K: Into<Option<usize>>,
+        D: Into<Option<Vec<u8>>>,
+    >(
         &mut self,
         node: N,
         key: K,
         site: S,
         time: T,
-        derived_state: Option<Vec<u8>>,
+        derived_state: D,
         neutral: bool,
     ) -> TablesResult<MutationId> {
         mutation_table_add_row(
@@ -871,7 +877,7 @@ impl TableCollection {
             key.into(),
             site.into(),
             time.into(),
-            derived_state,
+            derived_state.into(),
             neutral,
         )
     }
