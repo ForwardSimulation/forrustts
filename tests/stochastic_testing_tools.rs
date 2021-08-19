@@ -5,7 +5,7 @@ use rand::Rng;
 use rand::SeedableRng;
 use rand_distr::{Exp, Uniform};
 use std::convert::TryInto;
-use tskit::TableAccess;
+
 // Some of the material below seems like a candidate for a public API,
 // but we need to decide here if this package should provide that.
 // If so, then many of these types should not be here, as they have nothing
@@ -320,16 +320,15 @@ impl Default for SimulationParams {
     }
 }
 
-fn mutate_tables(mutrate: f64, tables: &mut TableCollection, rng: &mut StdRng) -> Vec<Time> {
+fn mutate_tables(mutrate: f64, tables: &mut TableCollection, rng: &mut StdRng) {
     match mutrate.partial_cmp(&0.0) {
         Some(std::cmp::Ordering::Greater) => (),
-        Some(_) => return vec![],
+        Some(_) => return,
         None => panic!("bad mutation rate"),
     };
     let mut posmap = std::collections::HashMap::<PositionLLType, SiteId>::new();
     let mut derived_map = std::collections::HashMap::<PositionLLType, u8>::new();
 
-    let mut origin_times_init: Vec<(Time, SiteId)> = vec![];
     let num_edges = tables.edges().len();
     for i in 0..num_edges {
         let e = *tables.edge(EdgeId::from(i));
@@ -342,6 +341,7 @@ fn mutate_tables(mutrate: f64, tables: &mut TableCollection, rng: &mut StdRng) -
         let exp = Exp::new(mutrate_edge).unwrap();
         let mut pos = PositionLLType::from(e.left) + (rng.sample(exp) as PositionLLType) + 1;
         let make_time = Uniform::new(ptime, ctime);
+        let mut next_key: usize = 0;
         while pos < e.right {
             assert!(ctime > ptime);
             let t = rng.sample(make_time) + 1;
@@ -354,31 +354,15 @@ fn mutate_tables(mutrate: f64, tables: &mut TableCollection, rng: &mut StdRng) -
                         Some(y) => y + 1,
                         None => 1,
                     };
-                    origin_times_init.push((t.into(), *x));
                     derived_map.insert(pos, dstate).unwrap();
                     tables
-                        .add_mutation(
-                            e.child,
-                            origin_times_init.len() - 1,
-                            *x,
-                            t,
-                            Some(vec![dstate]),
-                            true,
-                        )
+                        .add_mutation(e.child, next_key, *x, t, Some(vec![dstate]), true)
                         .unwrap();
                 }
                 None => {
                     let site_id = tables.add_site(pos, Some(vec![0])).unwrap();
-                    origin_times_init.push((t.into(), site_id));
                     tables
-                        .add_mutation(
-                            e.child,
-                            origin_times_init.len() - 1,
-                            site_id,
-                            t,
-                            Some(vec![1]),
-                            true,
-                        )
+                        .add_mutation(e.child, next_key, site_id, t, Some(vec![1]), true)
                         .unwrap();
 
                     if posmap.insert(pos, site_id).is_some() {
@@ -390,26 +374,14 @@ fn mutate_tables(mutrate: f64, tables: &mut TableCollection, rng: &mut StdRng) -
                 }
             }
             pos += (rng.sample(exp) as PositionLLType) + 1;
+            next_key += 1;
         }
     }
-    assert_eq!(origin_times_init.len(), tables.mutations().len());
-    assert!(posmap.len() == derived_map.len());
-    origin_times_init.sort_by(|a, b| {
-        let pa = tables.site(a.1).position;
-        let pb = tables.site(b.1).position;
-        pa.cmp(&pb)
-    });
     tables.sort_tables(TableSortingFlags::SKIP_EDGE_TABLE);
-    let mut rv = vec![];
-    for (i, _) in origin_times_init {
-        rv.push(i);
-    }
-    rv
 }
 
-fn add_tskit_mutation_site_tables(
+pub fn add_tskit_mutation_site_tables(
     tables: &TableCollection,
-    origin_times: &[Time],
     g: Time,
     tskit_tables: &mut tskit::TableCollection,
 ) {
@@ -425,30 +397,21 @@ fn add_tskit_mutation_site_tables(
             .unwrap();
     }
 
-    for (i, m) in tables.enumerate_mutations() {
+    for m in tables.mutations() {
         let reverser = tskit_tools::simple_time_reverser(g);
-        assert!(match reverser(origin_times[i])
-            .partial_cmp(&tskit_tables.nodes().time(m.node.into()).unwrap())
-        {
-            Some(std::cmp::Ordering::Less) => false,
-            Some(_) => true,
-            None => panic!("bad ordering"),
-        });
         tskit_tables
             .add_mutation(
                 tskit::tsk_id_t::from(m.site),
                 tskit::tsk_id_t::from(m.node),
                 tskit::TSK_NULL,
-                reverser(origin_times[i]),
+                reverser(m.time),
                 Some(m.derived_state.as_ref().unwrap()),
             )
             .unwrap();
     }
 }
 
-pub fn neutral_wf(
-    params: SimulationParams,
-) -> Result<(TableCollection, Vec<i32>, Vec<Time>), ForrusttsError> {
+pub fn neutral_wf(params: SimulationParams) -> Result<(TableCollection, Vec<i32>), ForrusttsError> {
     // FIXME: gotta validate input params!
 
     let mut actual_simplification_interval: i64 = -1;
@@ -541,7 +504,7 @@ pub fn neutral_wf(
         is_alive[usize::from(p.node1)] = 1;
     }
 
-    let origin_times = mutate_tables(params.mutrate, &mut pop.tables, &mut rng);
+    mutate_tables(params.mutrate, &mut pop.tables, &mut rng);
 
     for s in pop.tables.sites() {
         match &s.ancestral_state {
@@ -562,7 +525,7 @@ pub fn neutral_wf(
         };
     }
 
-    Ok((pop.tables, is_alive, origin_times))
+    Ok((pop.tables, is_alive))
 }
 
 pub struct SimulatorIterator {
@@ -599,7 +562,7 @@ impl Iterator for SimulatorIterator {
             let seed = self.rng.sample(self.make_seed);
             let mut params = self.params;
             params.seed = seed;
-            let (mut tables, is_sample, origin_times) = neutral_wf(params).unwrap();
+            let (mut tables, is_sample) = neutral_wf(params).unwrap();
 
             tables.sort_tables(TableSortingFlags::empty());
 
@@ -611,12 +574,7 @@ impl Iterator for SimulatorIterator {
                 // Things are unsorted!
                 false,
             );
-            add_tskit_mutation_site_tables(
-                &tables,
-                &origin_times,
-                params.nsteps.into(),
-                &mut tsk_tables,
-            );
+            add_tskit_mutation_site_tables(&tables, params.nsteps.into(), &mut tsk_tables);
             tsk_tables
                 .full_sort(tskit::TableSortOptions::empty())
                 .unwrap();

@@ -100,8 +100,8 @@ fn compare_state_to_no_state() {
     let mut params_state = params;
     params_state.flags = SimulationFlags::USE_STATE;
 
-    let (tables, _, _) = neutral_wf(params).unwrap();
-    let (tables_state, _, _) = neutral_wf(params_state).unwrap();
+    let (tables, _) = neutral_wf(params).unwrap();
+    let (tables_state, _) = neutral_wf(params_state).unwrap();
     assert_eq!(tables.num_nodes(), tables_state.num_nodes());
     assert_eq!(tables.num_edges(), tables_state.num_edges());
 
@@ -140,8 +140,8 @@ fn compare_buffer_vs_sort_overlapping_gens() {
 
     let mut params_buffer = params;
     params_buffer.flags = SimulationFlags::BUFFER_EDGES;
-    let (mut tables, _, _) = neutral_wf(params).unwrap();
-    let (mut tables_buffer, _, _) = neutral_wf(params_buffer).unwrap();
+    let (mut tables, _) = neutral_wf(params).unwrap();
+    let (mut tables_buffer, _) = neutral_wf(params_buffer).unwrap();
     assert_eq!(tables.num_nodes(), tables_buffer.num_nodes());
     assert_eq!(tables.num_edges(), tables_buffer.num_edges());
 
@@ -444,5 +444,48 @@ fn simplify_to_arbitrary_nodes() {
                 }
             }
         }
+    }
+}
+
+#[test]
+fn test_mutation_tables() {
+    let seeds: Vec<u64> = vec![18822, 6699, 173, 14199, 5046, 32637, 25950];
+    for seed in seeds {
+        let nsteps = 1000;
+        let simparams = SimulationParams {
+            popsize: 100,
+            mutrate: 1e-3,
+            psurvival: 0.0,
+            xovers: 3e-2,
+            genome_length: 10000000.into(),
+            buffer_edges: true,
+            simplification_interval: Some(100),
+            seed,
+            nsteps,
+            flags: SimulationFlags::USE_STATE | SimulationFlags::BUFFER_EDGES,
+            simplification_flags: forrustts::SimplificationFlags::empty(),
+        };
+        let (mut tables, is_sample) = neutral_wf(simparams).unwrap();
+        forrustts::validate_site_table(tables.genome_length(), tables.sites()).unwrap_or_else(
+            |e| {
+                panic!("{}", e);
+            },
+        );
+        forrustts::validate_mutation_table(tables.mutations(), tables.sites(), tables.nodes())
+            .unwrap_or_else(|e| {
+                panic!("{}", e);
+            });
+        let mut tskit_tables = forrustts::tskit_tools::convert_to_tskit_and_drain_minimal(
+            &is_sample,
+            forrustts::tskit_tools::simple_time_reverser(nsteps.into()),
+            true,
+            &mut tables,
+        );
+        add_tskit_mutation_site_tables(&tables, nsteps.into(), &mut tskit_tables);
+        tskit_tables
+            .tree_sequence(tskit::TreeSequenceFlags::BUILD_INDEXES)
+            .unwrap_or_else(|e| {
+                panic!("{}", e);
+            });
     }
 }
