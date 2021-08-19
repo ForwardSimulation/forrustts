@@ -1228,7 +1228,43 @@ impl TableCollection {
     ///
     /// The `self` object is left with an empty
     /// node table.
+    #[deprecated(since = "0.3.0", note = "use dump_node_table instead")]
     pub fn dump_nodes(&mut self) -> NodeTable {
+        self.dump_node_table()
+    }
+
+    /// Dump contents of edge table.
+    ///
+    /// The `self` object is left with an empty
+    /// edge table.
+    #[deprecated(since = "0.3.0", note = "use dump_edge_table instead")]
+    pub fn dump_edges(&mut self) -> EdgeTable {
+        self.dump_edge_table()
+    }
+
+    /// Dump contents of site table.
+    ///
+    /// The `self` object is left with an empty
+    /// site table.
+    #[deprecated(since = "0.3.0", note = "use dump_site_table instead")]
+    pub fn dump_sites(&mut self) -> SiteTable {
+        self.dump_site_table()
+    }
+
+    /// Dump contents of mutation table.
+    ///
+    /// The `self` object is left with an empty
+    /// mutation table.
+    #[deprecated(since = "0.3.0", note = "use dump_mutation_table instead")]
+    pub fn dump_mutations(&mut self) -> MutationTable {
+        self.dump_mutation_table()
+    }
+
+    /// Dump contents of node table.
+    ///
+    /// The `self` object is left with an empty
+    /// node table.
+    pub fn dump_node_table(&mut self) -> NodeTable {
         let mut rv = vec![];
         std::mem::swap(&mut self.nodes_, &mut rv);
         self.is_indexed = false;
@@ -1245,7 +1281,7 @@ impl TableCollection {
     ///
     /// The `self` object is left with an empty
     /// edge table.
-    pub fn dump_edges(&mut self) -> EdgeTable {
+    pub fn dump_edge_table(&mut self) -> EdgeTable {
         let mut rv = vec![];
         std::mem::swap(&mut self.edges_, &mut rv);
         self.is_indexed = false;
@@ -1262,7 +1298,7 @@ impl TableCollection {
     ///
     /// The `self` object is left with an empty
     /// site table.
-    pub fn dump_sites(&mut self) -> SiteTable {
+    pub fn dump_site_table(&mut self) -> SiteTable {
         let mut rv = vec![];
         std::mem::swap(&mut self.sites_, &mut rv);
         rv
@@ -1277,7 +1313,7 @@ impl TableCollection {
     ///
     /// The `self` object is left with an empty
     /// mutation table.
-    pub fn dump_mutations(&mut self) -> MutationTable {
+    pub fn dump_mutation_table(&mut self) -> MutationTable {
         let mut rv = vec![];
         std::mem::swap(&mut self.mutations_, &mut rv);
         rv
