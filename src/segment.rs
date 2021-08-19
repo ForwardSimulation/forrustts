@@ -8,7 +8,7 @@ use crate::newtypes::{NodeId, Position};
 /// it is the value element of a
 /// [``crate::EdgeBuffer``].
 #[derive(Clone, Copy)]
-pub struct Segment {
+pub(crate) struct Segment {
     /// Left edge of interval
     pub left: Position,
     /// Right edge of interval

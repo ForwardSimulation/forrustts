@@ -48,7 +48,7 @@ mod trees;
 
 pub use error::ForrusttsError;
 pub use newtypes::*;
-pub use segment::Segment;
+use segment::Segment;
 pub use simplification::simplify_from_edge_buffer;
 pub use simplification::EdgeBuffer;
 pub use simplification::SamplesInfo;
