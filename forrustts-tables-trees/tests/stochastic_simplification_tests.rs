@@ -1,8 +1,9 @@
 #[path = "./stochastic_testing_tools.rs"]
 mod stochastic_testing_tools;
 
-use forrustts::NodeId;
-use forrustts::*;
+use forrustts_tables_trees::NodeId;
+use forrustts_tables_trees::TableTypeIntoRaw;
+use forrustts_tables_trees::*;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
@@ -463,24 +464,28 @@ fn test_mutation_tables() {
             seed,
             nsteps,
             flags: SimulationFlags::USE_STATE | SimulationFlags::BUFFER_EDGES,
-            simplification_flags: forrustts::SimplificationFlags::empty(),
+            simplification_flags: forrustts_tables_trees::SimplificationFlags::empty(),
         };
         let (mut tables, is_sample) = neutral_wf(simparams).unwrap();
-        forrustts::validate_site_table(tables.genome_length(), tables.sites()).unwrap_or_else(
-            |e| {
-                panic!("{}", e);
-            },
-        );
-        forrustts::validate_mutation_table(tables.mutations(), tables.sites(), tables.nodes())
+        forrustts_tables_trees::validate_site_table(tables.genome_length(), tables.sites())
             .unwrap_or_else(|e| {
                 panic!("{}", e);
             });
-        let mut tskit_tables = forrustts::tskit_tools::convert_to_tskit_and_drain_minimal(
-            &is_sample,
-            forrustts::tskit_tools::simple_time_reverser(nsteps.into()),
-            true,
-            &mut tables,
-        );
+        forrustts_tables_trees::validate_mutation_table(
+            tables.mutations(),
+            tables.sites(),
+            tables.nodes(),
+        )
+        .unwrap_or_else(|e| {
+            panic!("{}", e);
+        });
+        let mut tskit_tables =
+            forrustts_tables_trees::tskit_tools::convert_to_tskit_and_drain_minimal(
+                &is_sample,
+                forrustts_tables_trees::tskit_tools::simple_time_reverser(nsteps.into()),
+                true,
+                &mut tables,
+            );
         add_tskit_mutation_site_tables(&tables, nsteps.into(), &mut tskit_tables);
         tskit_tables
             .tree_sequence(tskit::TreeSequenceFlags::BUILD_INDEXES)

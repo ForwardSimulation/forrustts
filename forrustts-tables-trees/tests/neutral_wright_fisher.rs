@@ -1,5 +1,5 @@
 use bitflags::bitflags;
-use forrustts::*;
+use forrustts_tables_trees::*;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
@@ -393,7 +393,7 @@ pub fn add_tskit_mutation_site_tables(
     }
 
     for m in tables.mutations() {
-        let reverser = tskit_tools::simple_time_reverser(g);
+        let reverser = forrustts_tables_trees::tskit_tools::simple_time_reverser(g);
         tskit_tables
             .add_mutation(
                 tskit::tsk_id_t::from(m.site),
@@ -406,7 +406,9 @@ pub fn add_tskit_mutation_site_tables(
     }
 }
 
-pub fn neutral_wf(params: SimulationParams) -> Result<(TableCollection, Vec<i32>), ForrusttsError> {
+pub fn neutral_wf(
+    params: SimulationParams,
+) -> Result<(TableCollection, Vec<i32>), Box<dyn std::error::Error>> {
     // FIXME: gotta validate input params!
 
     let mut actual_simplification_interval: i64 = -1;

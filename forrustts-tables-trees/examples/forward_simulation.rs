@@ -97,10 +97,10 @@ fn main() {
         );
     }
 
-    let mut simplification_flags = forrustts::SimplificationFlags::empty();
+    let mut simplification_flags = forrustts_tables_trees::SimplificationFlags::empty();
 
     if validate_tables {
-        simplification_flags |= forrustts::SimplificationFlags::VALIDATE_ALL;
+        simplification_flags |= forrustts_tables_trees::SimplificationFlags::VALIDATE_ALL;
     }
 
     let simparams = SimulationParams {
@@ -114,14 +114,14 @@ fn main() {
         seed,
         nsteps,
         flags: SimulationFlags::USE_STATE | SimulationFlags::BUFFER_EDGES,
-        simplification_flags: forrustts::SimplificationFlags::empty(),
+        simplification_flags: forrustts_tables_trees::SimplificationFlags::empty(),
     };
 
     let (mut tables, is_sample) = neutral_wf(simparams).unwrap();
 
-    let mut tskit_tables = forrustts::tskit_tools::convert_to_tskit_and_drain_minimal(
+    let mut tskit_tables = forrustts_tables_trees::tskit_tools::convert_to_tskit_and_drain_minimal(
         &is_sample,
-        forrustts::tskit_tools::simple_time_reverser(nsteps.into()),
+        forrustts_tables_trees::tskit_tools::simple_time_reverser(nsteps.into()),
         simplify.is_some(),
         &mut tables,
     );

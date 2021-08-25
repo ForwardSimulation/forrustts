@@ -898,7 +898,8 @@ impl<'a> TreeSequence<'a> {
         &self,
         samples: Option<&[NodeId]>,
         flags: crate::SimplificationFlags,
-    ) -> Result<(crate::TableCollection, crate::SimplificationOutput), crate::ForrusttsError> {
+    ) -> Result<(crate::TableCollection, crate::SimplificationOutput), crate::SimplificationError>
+    {
         let mut tcopy = self.tables.clone();
         let mut si = crate::SamplesInfo::new();
         match samples {
