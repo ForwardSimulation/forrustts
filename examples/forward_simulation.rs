@@ -56,13 +56,6 @@ fn main() {
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("buffer_edges")
-                .short("B")
-                .long("buffer_edges")
-                .help("Use edge buffering instead of sorting")
-                .takes_value(false),
-        )
-        .arg(
             Arg::with_name("psurvival")
                 .short("P")
                 .long("psurvival")
@@ -84,7 +77,7 @@ fn main() {
     let nsteps = value_t_or_exit!(matches.value_of("nsteps"), i64);
     let xovers = value_t_or_exit!(matches.value_of("xovers"), f64);
     let mutrate = value_t_or_exit!(matches.value_of("mutrate"), f64);
-    let simplify_input = value_t!(matches.value_of("simplification_interval"), i64).unwrap_or(-1);
+    let simplify_input = value_t!(matches.value_of("simplification_interval"), u64).unwrap_or(100);
     let psurvival = value_t!(matches.value_of("psurvival"), f64).unwrap_or(0.0);
     let seed = value_t_or_exit!(matches.value_of("seed"), u64);
     let outfile = value_t_or_exit!(matches.value_of("outfile"), String);
@@ -92,10 +85,16 @@ fn main() {
 
     // TODO: parameter validation..
 
-    let mut simplify: Option<i64> = None;
+    let simplify = match simplify_input > 0 {
+        true => Some(simplify_input as i64),
+        false => None,
+    };
 
-    if simplify_input > 0 {
-        simplify = Some(simplify_input);
+    if simplify.is_none() {
+        panic!(
+            "Simplification interval must be > 0. We got {}",
+            simplify_input
+        );
     }
 
     let mut simplification_flags = forrustts::SimplificationFlags::empty();
@@ -111,7 +110,7 @@ fn main() {
         xovers,
         genome_length: 10000000.into(),
         buffer_edges: true,
-        simplification_interval: Some(100),
+        simplification_interval: simplify,
         seed,
         nsteps,
         flags: SimulationFlags::USE_STATE | SimulationFlags::BUFFER_EDGES,
