@@ -1,7 +1,7 @@
 #[path = "./neutral_wright_fisher.rs"]
 mod neutral_wright_fisher;
 
-use forrustts_tables_trees::*;
+use forrustts::*;
 pub use neutral_wright_fisher::*;
 use rand::rngs::StdRng;
 use rand::Rng;
