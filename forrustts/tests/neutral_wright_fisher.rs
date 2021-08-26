@@ -1,5 +1,5 @@
 use bitflags::bitflags;
-use forrustts_tables_trees::*;
+use forrustts::*;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
