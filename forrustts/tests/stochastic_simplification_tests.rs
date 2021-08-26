@@ -43,11 +43,11 @@ fn compare_edge_table_indexes(
     };
     for (idx, val) in tables.edge_input_order().unwrap().iter().enumerate() {
         assert_eq!(
-            tables.edges()[*val].parent,
+            tables.edges()[*val].parent.into_raw(),
             tsk_tables.edges().parent(tsk_edge_input[idx]).unwrap()
         );
         assert_eq!(
-            tables.edges()[*val].child,
+            tables.edges()[*val].child.into_raw(),
             tsk_tables.edges().child(tsk_edge_input[idx]).unwrap()
         );
         assert_eq!(
@@ -62,11 +62,11 @@ fn compare_edge_table_indexes(
 
     for (idx, val) in tables.edge_output_order().unwrap().iter().enumerate() {
         assert_eq!(
-            tables.edges()[*val].parent,
+            tables.edges()[*val].parent.into_raw(),
             tsk_tables.edges().parent(tsk_edge_output[idx]).unwrap()
         );
         assert_eq!(
-            tables.edges()[*val].child,
+            tables.edges()[*val].child.into_raw(),
             tsk_tables.edges().child(tsk_edge_output[idx]).unwrap()
         );
         assert_eq!(
@@ -251,7 +251,7 @@ fn simplify_to_samples() {
 
         for (idx, m) in i.tables.enumerate_mutations() {
             assert_eq!(
-                m.node,
+                m.node.into_raw(),
                 i.tsk_tables
                     .mutations()
                     .node(idx as tskit::tsk_id_t)
@@ -301,22 +301,26 @@ fn simplify_to_samples() {
                 for u in tree.parents(*s).unwrap() {
                     p.push(u);
                 }
-                for u in tsk_tree.parents(tskit::tsk_id_t::from(*s)).unwrap() {
+                for u in tsk_tree.parents(s.into_raw().into()).unwrap() {
                     tsk_p.push(u);
                 }
-                assert!(p == tsk_p);
+                for (i, j) in p.iter().zip(tsk_p.iter()) {
+                    assert_eq!(i.into_raw(), *j);
+                }
                 for pi in &p {
                     let mut ci = vec![];
                     let mut tsk_ci = vec![];
                     for child in tree.children(*pi).unwrap() {
                         ci.push(child);
                     }
-                    for child in tsk_tree.children(tskit::tsk_id_t::from(*pi)).unwrap() {
+                    for child in tsk_tree.children(pi.into_raw().into()).unwrap() {
                         tsk_ci.push(child);
                     }
                     ci.sort_unstable();
                     tsk_ci.sort_unstable();
-                    assert!(ci == tsk_ci);
+                    for (i, j) in ci.iter().zip(tsk_ci.iter()) {
+                        assert!(i.into_raw() == *j);
+                    }
                 }
             }
             for node in tree.traverse_nodes(NodeTraversalOrder::Preorder).take(5) {
@@ -325,12 +329,14 @@ fn simplify_to_samples() {
                 for s in tree.samples(node).unwrap() {
                     samples.push(s);
                 }
-                for s in tsk_tree.samples(node.into()).unwrap() {
+                for s in tsk_tree.samples(node.into_raw().into()).unwrap() {
                     tsk_samples.push(s);
                 }
                 samples.sort_unstable();
                 tsk_samples.sort_unstable();
-                assert!(samples == tsk_samples);
+                for (i, j) in samples.iter().zip(tsk_samples.iter()) {
+                    assert_eq!(i.into_raw(), *j);
+                }
             }
         }
     }
@@ -427,7 +433,7 @@ fn simplify_to_arbitrary_nodes() {
 
             for (i, m) in tables.enumerate_mutations() {
                 assert_eq!(
-                    m.node,
+                    m.node.into_raw(),
                     tsk_tables.mutations().node(i as tskit::tsk_id_t).unwrap()
                 );
             }
@@ -451,6 +457,8 @@ fn simplify_to_arbitrary_nodes() {
 #[test]
 #[ignore]
 fn test_mutation_tables() {
+    use tskit::TableAccess;
+
     let seeds: Vec<u64> = vec![18822, 6699, 173, 14199, 5046, 32637, 25950];
     for seed in seeds {
         let nsteps = 1000;
@@ -467,7 +475,7 @@ fn test_mutation_tables() {
             flags: SimulationFlags::USE_STATE | SimulationFlags::BUFFER_EDGES,
             simplification_flags: forrustts::SimplificationFlags::empty(),
         };
-        let (mut tables, is_sample) = neutral_wf(simparams).unwrap();
+        let (tables, is_sample) = neutral_wf(simparams).unwrap();
         forrustts::validate_site_table(tables.genome_length(), tables.sites()).unwrap_or_else(
             |e| {
                 panic!("{}", e);
@@ -477,18 +485,25 @@ fn test_mutation_tables() {
             .unwrap_or_else(|e| {
                 panic!("{}", e);
             });
-        let mut tskit_tables =
-            forrustts_tables_trees::tskit_tools::convert_to_tskit_and_drain_minimal(
-                &is_sample,
-                forrustts_tables_trees::tskit_tools::simple_time_reverser(nsteps.into()),
-                true,
-                &mut tables,
-            );
-        add_tskit_mutation_site_tables(&tables, nsteps.into(), &mut tskit_tables);
-        tskit_tables
+        let tskit_tables = forrustts_tskit::export_tables(
+            tables.clone(),
+            forrustts_tskit::simple_time_reverser(nsteps.into()),
+            forrustts_tskit::TableCollectionExportFlags::BUILD_INDEXES,
+        )
+        .unwrap();
+        assert!(tskit_tables.sites().num_rows() > 0);
+        assert!(tskit_tables.mutations().num_rows() > 0);
+
+        let ts = tskit_tables
             .tree_sequence(tskit::TreeSequenceFlags::BUILD_INDEXES)
-            .unwrap_or_else(|e| {
-                panic!("{}", e);
-            });
+            .unwrap_or_else(|e| panic!("{}", e));
+        for (i, j) in is_sample.iter().enumerate() {
+            let flags = ts.nodes().flags(tskit::NodeId::from(i as i32)).unwrap();
+            if *j == 1 {
+                assert!((flags & tskit::TSK_NODE_IS_SAMPLE) != 0);
+            } else {
+                assert!((flags & tskit::TSK_NODE_IS_SAMPLE) == 0);
+            }
+        }
     }
 }
