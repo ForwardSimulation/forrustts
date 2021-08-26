@@ -449,6 +449,7 @@ fn simplify_to_arbitrary_nodes() {
 }
 
 #[test]
+#[ignore]
 fn test_mutation_tables() {
     let seeds: Vec<u64> = vec![18822, 6699, 173, 14199, 5046, 32637, 25950];
     for seed in seeds {
