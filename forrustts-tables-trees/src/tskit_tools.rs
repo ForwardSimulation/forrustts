@@ -50,15 +50,15 @@ pub fn simple_time_reverser(x: Time) -> Box<dyn Fn(Time) -> f64> {
 ///
 /// ```
 /// use tskit::TableAccess;
-/// let mut tables = forrustts::TableCollection::new(100).unwrap();
+/// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
 /// tables.add_node(0., 0).unwrap(); // Add a parent node at time 0
 /// tables.add_node(1., 0).unwrap(); // Add a child node at time 1
 /// tables.add_edge(0, 100, 0, 1).unwrap(); // Add an edge
 /// let is_sample = vec![0, 1]; // Mark the child node as a sample.
-/// let tsk_tables = forrustts::tskit_tools::convert_to_tskit_minimal(
+/// let tsk_tables = forrustts_tables_trees::tskit_tools::convert_to_tskit_minimal(
 ///     &tables,
 ///     &is_sample,
-///     forrustts::tskit_tools::simple_time_reverser(1_f64.into()),
+///     forrustts_tables_trees::tskit_tools::simple_time_reverser(1_f64.into()),
 ///     true,
 /// );
 /// assert_eq!(tsk_tables.nodes().num_rows(), 2);
@@ -140,14 +140,14 @@ fn swap_with_empty<T>(v: &mut Vec<T>) {
 ///
 /// ```
 /// use tskit::TableAccess;
-/// let mut tables = forrustts::TableCollection::new(100).unwrap();
+/// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
 /// tables.add_node(0., 0).unwrap(); // Add a parent node at time 0
 /// tables.add_node(1., 0).unwrap(); // Add a child node at time 1
 /// tables.add_edge(0, 100, 0, 1).unwrap(); // Add an edge
 /// let is_sample = vec![0, 1]; // Mark the child node as a sample.
-/// let tsk_tables = forrustts::tskit_tools::convert_to_tskit_and_drain_minimal(
+/// let tsk_tables = forrustts_tables_trees::tskit_tools::convert_to_tskit_and_drain_minimal(
 ///     &is_sample,
-///     forrustts::tskit_tools::simple_time_reverser(1_f64.into()),
+///     forrustts_tables_trees::tskit_tools::simple_time_reverser(1_f64.into()),
 ///     true,
 ///     &mut tables,
 /// );

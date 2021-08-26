@@ -1,0 +1,26 @@
+[package]
+name = "forrustts-tables-trees"
+version = "0.2.0"
+authors = ["molpopgen <krthornt@uci.edu>"]
+edition = "2018"
+description = "Table collections and tree sequences."
+license = "GPL-3.0-or-later"
+homepage = "https://github.com/ForwardSimulation/forrustts"
+repository = "https://github.com/ForwardSimulation/forrustts"
+keywords = ["simulation", "tree_sequences", "tskit", "population_genetics"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dev-dependencies]
+clap = "~2.33.3"
+rand = "0.8.3"
+rand_distr = "0.4.0"
+
+[dependencies]
+bitflags = "1.2.1"
+num-traits = "0.2.14"
+streaming-iterator = "0.1.5"
+thiserror = "1.0"
+tskit = "=0.3.0"
+
+[[example]]
+name = "forward_simulation"

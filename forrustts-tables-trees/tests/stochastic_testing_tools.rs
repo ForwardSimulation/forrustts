@@ -1,7 +1,7 @@
 #[path = "./neutral_wright_fisher.rs"]
 mod neutral_wright_fisher;
 
-use forrustts::*;
+use forrustts_tables_trees::*;
 pub use neutral_wright_fisher::*;
 use rand::rngs::StdRng;
 use rand::Rng;
@@ -47,10 +47,10 @@ impl Iterator for SimulatorIterator {
 
             tables.sort_tables(TableSortingFlags::empty());
 
-            let mut tsk_tables = tskit_tools::convert_to_tskit_minimal(
+            let mut tsk_tables = forrustts_tables_trees::tskit_tools::convert_to_tskit_minimal(
                 &tables,
                 &is_sample,
-                tskit_tools::simple_time_reverser(params.nsteps.into()),
+                forrustts_tables_trees::tskit_tools::simple_time_reverser(params.nsteps.into()),
                 // Do not index tables here!
                 // Things are unsorted!
                 false,
