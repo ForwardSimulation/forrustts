@@ -263,7 +263,7 @@ pub struct Tree<'treeseq> {
     samples: &'treeseq [NodeId],
     sample_index_map: Vec<NodeId>, // TODO: decide if this is better as usize.
     flags: TreeFlags,
-    treeseq: &'treeseq TreeSequence<'treeseq>,
+    treeseq: &'treeseq TreeSequence,
     // The following help implement StreamingIterator
     input_edge_index: usize,
     output_edge_index: usize,
@@ -673,7 +673,7 @@ impl<'treeseq> streaming_iterator::StreamingIterator for Tree<'treeseq> {
     // TODO: if tables are validated when TreeSequence is created,
     // then the accesses below can be unchecked.
     fn advance(&mut self) {
-        let tables = self.treeseq.tables;
+        let tables = &self.treeseq.tables;
         let edge_table = self.treeseq.tables.edges_.as_slice();
         let edge_input_order = tables.edge_input_order.as_slice();
         let edge_output_order = tables.edge_output_order.as_slice();
@@ -795,8 +795,8 @@ pub enum TreesError {
     NotTrackingSamples,
 }
 
-pub struct TreeSequence<'a> {
-    tables: &'a crate::TableCollection,
+pub struct TreeSequence {
+    tables: crate::TableCollection,
     samples: Vec<NodeId>,
     num_trees: u32,
 }
@@ -811,10 +811,8 @@ bitflags! {
     }
 }
 
-impl<'a> TreeSequence<'a> {
-    fn new_from_tables(
-        tables: &'a crate::TableCollection,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+impl TreeSequence {
+    fn new_from_tables(tables: crate::TableCollection) -> Result<Self, Box<dyn std::error::Error>> {
         if !tables.is_indexed() {
             return Err(Box::new(crate::TablesError::TablesNotIndexed));
         }
@@ -827,16 +825,17 @@ impl<'a> TreeSequence<'a> {
         if samples.is_empty() {
             Err(Box::new(TreesError::NoSamples))
         } else {
+            let num_trees = tables.count_trees()?;
             Ok(Self {
                 tables,
                 samples,
-                num_trees: tables.count_trees().unwrap(),
+                num_trees,
             })
         }
     }
 
     pub fn new(
-        tables: &'a crate::TableCollection,
+        tables: crate::TableCollection,
         flags: TreeSequenceFlags,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         if !tables.is_indexed() {
@@ -849,7 +848,7 @@ impl<'a> TreeSequence<'a> {
     }
 
     pub fn new_with_samples(
-        tables: &'a crate::TableCollection,
+        tables: crate::TableCollection,
         samples: &[NodeId],
         flags: TreeSequenceFlags,
     ) -> Result<Self, Box<dyn std::error::Error>> {
@@ -871,15 +870,20 @@ impl<'a> TreeSequence<'a> {
                 return Err(Box::new(TreesError::InvalidSamples));
             }
         }
+        let num_trees = tables.count_trees()?;
         Ok(Self {
             tables,
             samples: samples.to_vec(),
-            num_trees: tables.count_trees().unwrap(),
+            num_trees,
         })
     }
 
-    pub fn tables(&self) -> &'a crate::TableCollection {
+    pub fn tables(self) -> crate::TableCollection {
         self.tables
+    }
+
+    pub fn tables_copy(&self) -> crate::TableCollection {
+        self.tables.clone()
     }
 
     pub fn tree_iterator(&self, flags: TreeFlags) -> Tree<'_> {
@@ -936,7 +940,7 @@ mod test_trees {
             .build_indexes(crate::IndexTablesFlags::empty())
             .unwrap();
 
-        let ts = TreeSequence::new(&tables, TreeSequenceFlags::empty()).unwrap();
+        let ts = TreeSequence::new(tables, TreeSequenceFlags::empty()).unwrap();
 
         let tref = ts.tables();
         assert_eq!(tref.edges().len(), 1);
@@ -954,7 +958,7 @@ mod test_trees {
             .build_indexes(crate::IndexTablesFlags::empty())
             .unwrap();
 
-        let ts = TreeSequence::new(&tables, TreeSequenceFlags::empty()).unwrap();
+        let ts = TreeSequence::new(tables, TreeSequenceFlags::empty()).unwrap();
         let _ = ts.tree_iterator(TreeFlags::empty());
     }
 
@@ -1012,7 +1016,7 @@ mod test_trees {
     fn test_two_trees() {
         use streaming_iterator::StreamingIterator;
         let tables = make_small_table_collection_two_trees();
-        let treeseq = TreeSequence::new(&tables, TreeSequenceFlags::empty()).unwrap();
+        let treeseq = TreeSequence::new(tables, TreeSequenceFlags::empty()).unwrap();
         assert_eq!(treeseq.samples.len(), 4);
 
         let mut tree_iter = treeseq.tree_iterator(TreeFlags::TRACK_SAMPLES);
@@ -1147,8 +1151,8 @@ mod test_treeseq_encapsulation {
     }
 
     impl MyStruct {
-        fn treeseq(&self) -> TreeSequence<'_> {
-            TreeSequence::new(&self.tables, TreeSequenceFlags::empty()).unwrap()
+        fn treeseq(&self) -> TreeSequence {
+            TreeSequence::new(self.tables.clone(), TreeSequenceFlags::empty()).unwrap()
         }
     }
 

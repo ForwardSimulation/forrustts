@@ -152,8 +152,8 @@ fn compare_buffer_vs_sort_overlapping_gens() {
         .unwrap();
     assert_eq!(tables.count_trees(), tables_buffer.count_trees());
 
-    let ts = TreeSequence::new(&tables, TreeSequenceFlags::empty()).unwrap();
-    let ts_buffer = TreeSequence::new(&tables_buffer, TreeSequenceFlags::empty()).unwrap();
+    let ts = TreeSequence::new(tables, TreeSequenceFlags::empty()).unwrap();
+    let ts_buffer = TreeSequence::new(tables_buffer, TreeSequenceFlags::empty()).unwrap();
 
     let mut ti = ts.tree_iterator(TreeFlags::empty());
     let mut ti_buffer = ts_buffer.tree_iterator(TreeFlags::empty());
@@ -281,7 +281,7 @@ fn simplify_to_samples() {
         i.tables.build_indexes(IndexTablesFlags::empty()).unwrap();
         i.tsk_tables.build_index().unwrap();
         assert!(compare_edge_table_indexes(&i.tables, &i.tsk_tables));
-        let ts = TreeSequence::new(&i.tables, TreeSequenceFlags::empty()).unwrap();
+        let ts = TreeSequence::new(i.tables, TreeSequenceFlags::empty()).unwrap();
         let tsk_ts =
             tskit::TreeSequence::new(i.tsk_tables, tskit::TreeSequenceFlags::empty()).unwrap();
         assert_eq!(ts.num_trees(), tsk_ts.num_trees());
