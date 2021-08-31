@@ -2,8 +2,8 @@ use crate::newtypes::{NodeId, Position, TablesIdInteger, Time};
 use bitflags::bitflags;
 
 bitflags! {
+    #[derive(Default)]
     pub struct TreeFlags: u32 {
-        const NONE = 0;
         const TRACK_SAMPLES = 1 << 0;
     }
 }

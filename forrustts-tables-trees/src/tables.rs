@@ -327,8 +327,6 @@ bitflags! {
     /// this crate.
     #[derive(Default)]
     pub struct NodeFlags: u32 {
-        /// Default
-        const NONE = 0;
         /// The node is a sample node.
         const IS_SAMPLE = 1 << 0;
         /// The node is alive.
@@ -373,15 +371,14 @@ bitflags! {
     /// Modifies behavior of
     /// [``TableCollection::sort_tables``]
     ///
+    /// The default is to sort all tables.
+    ///
     /// ```
     /// let f = forrustts_tables_trees::TableSortingFlags::empty();
-    /// assert_eq!(f.contains(forrustts_tables_trees::TableSortingFlags::SORT_ALL), true);
+    /// assert_eq!(f, forrustts_tables_trees::TableSortingFlags::default());
     /// ```
     #[derive(Default)]
     pub struct TableSortingFlags: u32 {
-        /// Sort all tables.
-        /// This is also the "default"/empty.
-        const SORT_ALL = 0;
         /// Do not sort the edge table.
         const SKIP_EDGE_TABLE = 1 << 0;
     }
@@ -390,10 +387,10 @@ bitflags! {
 bitflags! {
     /// Modifies behavior of
     /// [``TableCollection::build_indexes``]
+    ///
+    /// The default means "validate no tables".
     #[derive(Default)]
     pub struct IndexTablesFlags: u32 {
-        /// Default behavior
-        const NONE = 0;
         /// Do not validate edge table
         const NO_VALIDATION = 1<<0;
     }
