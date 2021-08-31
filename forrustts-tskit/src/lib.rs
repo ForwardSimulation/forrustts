@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 //! Data interchange with ``tskit`` format using
 //! [``tskit``](https://crates.io/crates/tskit).
 //!
@@ -13,6 +15,21 @@
 //! will be to create a tree sequence from the
 //! [`TskTableCollection`].  Doing so triggers
 //! validation code.  See the examples [here](export_tables).
+//!
+//! # Technical notes
+//!
+//! When needed, metadata must be stored in containers
+//! that are accessible via `usize` via the trait
+//! [`GetWithUsize`].  That trait is implemented
+//! for `Vec` and `HashMap`.
+//!
+//! ## Limitations
+//!
+//! * We do not have a good model for going back and forth
+//!   between nodes and individuals.
+//! * Possible logic errors are probably untested.
+//! * It would be preferable to do this with procedural
+//!   macros if at all possible.
 
 use bitflags::bitflags;
 use forrustts_tables_trees::TableCollection;
@@ -42,7 +59,11 @@ pub type TskTableCollection = tskit::TableCollection;
 /// This trait allows one to use either `Vec` or
 /// `HashMap` to store metadata.
 pub trait GetWithUsize {
+    /// The type to return
     type Output: Sized;
+    /// Get an optional reference to `Self::Output`.
+    /// The implementation should have the behavior
+    /// of the `get` functions of `Vec` and/or `HashMap`.
     fn get(&self, index: usize) -> Option<&Self::Output>;
 }
 
@@ -87,6 +108,8 @@ pub enum TableCollectionExportError {
     /// Error returned from `tskit`
     #[error("{value:?}")]
     TskitError {
+        /// The specific error returned from
+        /// `tskit`.
         #[from]
         value: tskit::TskitError,
     },
@@ -103,8 +126,9 @@ pub enum TableCollectionExportError {
 ///
 /// For all input values, ``t`` the closure will
 /// return ``-1.0*(t - x) as f64``.
-pub fn simple_time_reverser(x: Time) -> impl Fn(Time) -> f64 {
-    move |t: Time| -1. * (t.into_raw() - x.into_raw()) as f64
+pub fn simple_time_reverser<T: Into<Time>>(x: T) -> impl Fn(Time) -> f64 {
+    let ti = x.into();
+    move |t: Time| -1. * (t.into_raw() - ti.into_raw()) as f64
 }
 
 /// Convert a [``TableCollection``](crate::TableCollection)
@@ -143,7 +167,7 @@ pub fn simple_time_reverser(x: Time) -> impl Fn(Time) -> f64 {
 /// tables.add_edge(0, 100, 0, 1).unwrap(); // Add an edge
 /// let tsk_tables = forrustts_tskit::export_tables(
 ///     tables,
-///     &forrustts_tskit::simple_time_reverser(1_f64.into()),
+///     &forrustts_tskit::simple_time_reverser(1),
 ///     forrustts_tskit::TableCollectionExportFlags::BUILD_INDEXES,
 /// ).unwrap();
 /// assert_eq!(tsk_tables.nodes().num_rows(), 2);
@@ -292,6 +316,39 @@ pub fn build_population_table(
     Ok(())
 }
 
+/// Builds a population table with metadata.
+///
+/// # Parameters
+///
+/// * `nodes`: A slice of [`forrustts_tables_trees::NodeId`]
+/// * `metadata`: metadata container.
+/// * `tsk_tables`: the output tables.
+///
+/// # Examples
+///
+/// ```
+/// use tskit::TableAccess;
+///
+/// #[derive(serde::Serialize, serde::Deserialize, tskit::metadata::PopulationMetadata)]
+/// #[serializer("serde_json")]
+/// struct PopulationName(String);
+///
+/// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+/// tables.add_node(0, 0).unwrap();
+/// let md = vec![PopulationName("YRB".to_string())];
+///
+/// let mut tsk_tables = tskit::TableCollection::new(100.).unwrap();
+/// forrustts_tskit::build_population_table_with_metadata(tables.nodes(), &md, &mut tsk_tables).unwrap();
+/// let decoded = tsk_tables.populations().metadata::<PopulationName>(0.into()).unwrap().unwrap();
+/// assert_eq!(&decoded.0, "YRB");
+/// ```
+///
+/// # Errors
+///
+/// [`TableCollectionExportError`] if `nodes` is empty, if
+/// a deme does not have associated metadata,
+/// or if there is an error from `tskit`.
+///
 pub fn build_population_table_with_metadata<'metadata, C, M>(
     nodes: &[forrustts_tables_trees::Node],
     metadata: &'metadata C,
@@ -340,7 +397,7 @@ where
 /// tables.add_node(1, 2).unwrap();
 /// let mut tsk_tables = TskTableCollection::new(tables.genome_length().into_raw() as f64).unwrap();
 /// forrustts_tskit::export_nodes(tables.nodes(),
-///                               &forrustts_tskit::simple_time_reverser(1.into()),
+///                               &forrustts_tskit::simple_time_reverser(1),
 ///                               &mut tsk_tables).unwrap();
 /// // Time 1 is our maximal time in the forward direction,
 /// // so it is converted to 0:
@@ -368,6 +425,46 @@ pub fn export_nodes(
 }
 
 // TODO: handle "individuals"
+/// Export node table with metadata.
+///
+/// # Parameters
+///
+/// * `nodes`: a slice of [`forrustts_tables_trees::Node`]
+/// * `convert_time`: A function to convert input time (forwards) to `tskit`-time (backwards).
+/// * `metadata`: the node metadata
+/// * `tsk_tables`: The output tables.
+///
+/// # Example
+///
+/// ```
+/// use forrustts_tables_trees::TableCollection;
+/// use forrustts_tables_trees::TableTypeIntoRaw;
+/// use forrustts_tskit::TskTableCollection;
+/// use serde::{Serialize, Deserialize};
+/// use tskit::TableAccess;
+/// use tskit::metadata::NodeMetadata;
+///
+/// #[derive(Serialize, Deserialize, NodeMetadata)]
+/// #[serializer("serde_json")]
+/// struct Metadata(i32);
+///
+/// let mut tables = TableCollection::new(100).unwrap();
+/// tables.add_node(1, 2).unwrap();
+/// let mut tsk_tables = TskTableCollection::new(tables.genome_length().into_raw() as f64).unwrap();
+/// let md = vec![Metadata(42)];
+/// forrustts_tskit::export_nodes_with_metadata(tables.nodes(),
+///                               &forrustts_tskit::simple_time_reverser(1),
+///                               &md,
+///                               &mut tsk_tables).unwrap();
+/// // Time 1 is our maximal time in the forward direction,
+/// // so it is converted to 0:
+/// assert_eq!(tsk_tables.nodes().time(0).unwrap(), 0.0);
+/// assert_eq!(tsk_tables.nodes().population(0).unwrap(), 2);
+/// ```
+///
+/// # Errors
+///
+/// [`tskit::TskitError`] if adding rows returns an error.
 pub fn export_nodes_with_metadata<'metadata, C, M>(
     nodes: &[forrustts_tables_trees::Node],
     convert_time: &impl Fn(Time) -> f64,
@@ -393,6 +490,20 @@ where
     Ok(())
 }
 
+/// Export a mutation table
+///
+/// # Examples
+///
+/// ```
+/// use tskit::TableAccess;
+/// use forrustts_tskit::simple_time_reverser;
+///
+/// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+/// tables.add_mutation(0, None, 0, 0, None, true).unwrap();
+/// let mut tsk_tables = tskit::TableCollection::new(100.).unwrap();
+/// forrustts_tskit::export_mutations(tables.mutations(), &simple_time_reverser(0), &mut tsk_tables).unwrap();
+/// assert_eq!(tsk_tables.mutations().num_rows(), 1);
+/// ```
 pub fn export_mutations(
     mutations: &[forrustts_tables_trees::MutationRecord],
     convert_time: &impl Fn(Time) -> f64,
@@ -413,6 +524,28 @@ pub fn export_mutations(
     Ok(())
 }
 
+/// Export a mutation table with metadata
+///
+/// # Examples
+///
+/// ```
+/// use serde::{Serialize, Deserialize};
+/// use tskit::metadata::MutationMetadata;
+/// use tskit::TableAccess;
+/// use forrustts_tskit::simple_time_reverser;
+///
+/// #[derive(Serialize, Deserialize, MutationMetadata)]
+/// #[serializer("serde_json")]
+/// struct Metadata(i32);
+///
+///
+/// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+/// tables.add_mutation(0, None, 0, 0, None, true).unwrap();
+/// let mut tsk_tables = tskit::TableCollection::new(100.).unwrap();
+/// let md = vec![Metadata(-1)];
+/// forrustts_tskit::export_mutations_with_metadata(tables.mutations(), &simple_time_reverser(0), &md, &mut tsk_tables).unwrap();
+/// assert_eq!(tsk_tables.mutations().num_rows(), 1);
+/// ```
 pub fn export_mutations_with_metadata<'metadata, C, M>(
     mutations: &[forrustts_tables_trees::MutationRecord],
     convert_time: &impl Fn(Time) -> f64,
@@ -460,6 +593,20 @@ where
     Ok(())
 }
 
+/// Export a site table
+///
+/// # Examples
+///
+/// ```
+/// use tskit::TableAccess;
+/// use forrustts_tskit::simple_time_reverser;
+///
+/// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+/// tables.add_site(50, None).unwrap();
+/// let mut tsk_tables = tskit::TableCollection::new(100.).unwrap();
+/// forrustts_tskit::export_sites(tables.sites(), &mut tsk_tables).unwrap();
+/// assert_eq!(tsk_tables.sites().num_rows(), 1);
+/// ```
 pub fn export_sites(
     sites: &[forrustts_tables_trees::Site],
     tsk_tables: &mut TskTableCollection,
@@ -476,6 +623,27 @@ pub fn export_sites(
     Ok(())
 }
 
+/// Export a site table
+///
+/// # Examples
+///
+/// ```
+/// use serde::{Serialize, Deserialize};
+/// use tskit::metadata::SiteMetadata;
+/// use tskit::TableAccess;
+/// use forrustts_tskit::simple_time_reverser;
+///
+/// #[derive(Serialize, Deserialize, SiteMetadata)]
+/// #[serializer("serde_json")]
+/// struct Metadata(i32);
+///
+/// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+/// tables.add_site(50, None).unwrap();
+/// let mut tsk_tables = tskit::TableCollection::new(100.).unwrap();
+/// let md = vec![Metadata(1234)];
+/// forrustts_tskit::export_sites_with_metadata(tables.sites(), &md, &mut tsk_tables).unwrap();
+/// assert_eq!(tsk_tables.sites().num_rows(), 1);
+/// ```
 pub fn export_sites_with_metadata<'metadata, C, M>(
     sites: &[forrustts_tables_trees::Site],
     metadata: &'metadata C,

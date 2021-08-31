@@ -30,6 +30,8 @@ pub trait TableType: private_traits::TableTypePrivate {}
 /// defined in this crate because it requires [``TableType``],
 /// which cannot be defined.
 pub trait TableId: std::fmt::Debug + TableType + private_traits::TableIdPrivate {
+    /// Return true if `self` is equal to the
+    /// type's `NULL` value.
     fn is_null(&self) -> bool;
 }
 

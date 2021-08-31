@@ -36,7 +36,7 @@ struct TablesWithMetadata {
 }
 
 fn make_reverser() -> impl Fn(forrustts_tables_trees::Time) -> f64 {
-    simple_time_reverser(1.into())
+    simple_time_reverser(1)
 }
 
 impl Default for TablesWithMetadata {
