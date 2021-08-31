@@ -318,13 +318,15 @@ fn sort_mutation_table(sites: &[Site], mutations: &mut [MutationRecord]) {
 bitflags! {
     /// Set properties of a [`Node`].
     ///
-    /// The first 16 bits are reserved for internal use.
-    /// Client code is free to use the remaining bits
-    /// as needed.
+    /// `tskit` reserves the first 15 bits (inclusive)
+    /// for internal use.  We will match those values here
+    /// as appropriate.
+    ///
+    /// We define some flags starting at the 16th bit.
+    /// We consider bits 16-24 (inclusive) reserved for
+    /// this crate.
     #[derive(Default)]
     pub struct NodeFlags: u32 {
-        /// Default
-        const NONE = 0;
         /// The node is a sample node.
         const IS_SAMPLE = 1 << 0;
         /// The node is alive.
@@ -332,7 +334,7 @@ bitflags! {
         /// IS_SAMPLE in order to distinguish
         /// living individuals from, e.g.,
         /// ancient samples.
-        const IS_ALIVE = 1 << 1;
+        const IS_ALIVE = 1 << 16;
     }
 }
 
@@ -369,15 +371,14 @@ bitflags! {
     /// Modifies behavior of
     /// [``TableCollection::sort_tables``]
     ///
+    /// The default is to sort all tables.
+    ///
     /// ```
     /// let f = forrustts_tables_trees::TableSortingFlags::empty();
-    /// assert_eq!(f.contains(forrustts_tables_trees::TableSortingFlags::SORT_ALL), true);
+    /// assert_eq!(f, forrustts_tables_trees::TableSortingFlags::default());
     /// ```
     #[derive(Default)]
     pub struct TableSortingFlags: u32 {
-        /// Sort all tables.
-        /// This is also the "default"/empty.
-        const SORT_ALL = 0;
         /// Do not sort the edge table.
         const SKIP_EDGE_TABLE = 1 << 0;
     }
@@ -386,10 +387,10 @@ bitflags! {
 bitflags! {
     /// Modifies behavior of
     /// [``TableCollection::build_indexes``]
+    ///
+    /// The default means "validate no tables".
     #[derive(Default)]
     pub struct IndexTablesFlags: u32 {
-        /// Default behavior
-        const NONE = 0;
         /// Do not validate edge table
         const NO_VALIDATION = 1<<0;
     }

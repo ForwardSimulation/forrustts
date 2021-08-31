@@ -271,15 +271,15 @@ bitflags! {
     #[derive(Default)]
     pub struct SimulationFlags: u32
     {
-        // If set, and BUFFER_EDGES is not set,
-        // then simplification will use a reusable set
-        // of buffers for each call.  Otherwise,
-        // these buffers will be allocated each time
-        // simplification happens.
+        /// If set, and BUFFER_EDGES is not set,
+        /// then simplification will use a reusable set
+        /// of buffers for each call.  Otherwise,
+        /// these buffers will be allocated each time
+        /// simplification happens.
         const USE_STATE = 1 << 0;
-        // If set, edge buffering will be used.
-        // If not set, then the standard "record
-        // and sort" method will be used.
+        /// If set, edge buffering will be used.
+        /// If not set, then the standard "record
+        /// and sort" method will be used.
         const BUFFER_EDGES = 1 << 1;
     }
 }

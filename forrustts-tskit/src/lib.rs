@@ -72,10 +72,10 @@ where
 
 bitflags! {
     /// Flags affecting the behavior of [`export_tables`].
+    ///
+    /// The default/empty state is to "do nothing".
     #[derive(Default)]
     pub struct TableCollectionExportFlags: u32 {
-        /// The default, which is to do nothing.
-        const NONE = 0;
         /// Build the edge table indexes
         const BUILD_INDEXES = 1 << 0;
     }
