@@ -117,21 +117,26 @@ fn main() {
         simplification_flags: forrustts_tables_trees::SimplificationFlags::empty(),
     };
 
-    let (mut tables, is_sample) = neutral_wf(simparams).unwrap();
+    let (tables, is_sample) = neutral_wf(simparams).unwrap();
 
-    let mut tskit_tables = forrustts_tables_trees::tskit_tools::convert_to_tskit_and_drain_minimal(
-        &is_sample,
-        forrustts_tables_trees::tskit_tools::simple_time_reverser(nsteps.into()),
-        simplify.is_some(),
-        &mut tables,
-    );
-
-    add_tskit_mutation_site_tables(&tables, nsteps.into(), &mut tskit_tables);
+    let tskit_tables = forrustts_tskit::export_tables(
+        tables,
+        forrustts_tskit::simple_time_reverser(nsteps.into()),
+        match simplify.is_some() {
+            true => Some(forrustts_tskit::TableCollectionExportFlags::BUILD_INDEXES),
+            false => None,
+        },
+    )
+    .unwrap();
 
     let ts = match tskit_tables.tree_sequence(tskit::TreeSequenceFlags::BUILD_INDEXES) {
         Ok(x) => x,
         Err(e) => panic!("{}", e),
     };
+
+    for (i, j) in ts.sample_nodes().iter().zip(is_sample.iter()) {
+        assert_eq!(*i, *j);
+    }
 
     ts.dump(&outfile, tskit::TableOutputOptions::default())
         .unwrap();

@@ -47,15 +47,14 @@ impl Iterator for SimulatorIterator {
 
             tables.sort_tables(TableSortingFlags::empty());
 
-            let mut tsk_tables = forrustts_tables_trees::tskit_tools::convert_to_tskit_minimal(
-                &tables,
-                &is_sample,
-                forrustts_tables_trees::tskit_tools::simple_time_reverser(params.nsteps.into()),
+            let mut tsk_tables = forrustts_tskit::export_tables(
+                tables.clone(),
+                forrustts_tskit::simple_time_reverser(params.nsteps.into()),
                 // Do not index tables here!
                 // Things are unsorted!
-                false,
-            );
-            add_tskit_mutation_site_tables(&tables, params.nsteps.into(), &mut tsk_tables);
+                None,
+            )
+            .unwrap();
             tsk_tables
                 .full_sort(tskit::TableSortOptions::empty())
                 .unwrap();

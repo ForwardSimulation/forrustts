@@ -1381,6 +1381,11 @@ mod test_tables {
     use super::*;
 
     #[test]
+    fn test_flags_vs_tskit() {
+        assert_eq!(NodeFlags::IS_SAMPLE.bits(), tskit::TSK_NODE_IS_SAMPLE);
+    }
+
+    #[test]
     fn test_bad_genome_length() {
         let _ = TableCollection::new(Position(0)).map_or_else(
             |x: TablesError| assert_eq!(x, TablesError::InvalidGenomeLength),

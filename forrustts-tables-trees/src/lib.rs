@@ -22,7 +22,8 @@
 //!    used during the simulation.  Thus, it is not
 //!    part of a [``TableCollection``] and is something
 //!    that would only be useful to write when transfering
-//!    final results to a [`tskit::TableCollection`].
+//!    final results to a `tskit::TableCollection`
+//!    (see [`tskit`](https://crates.io/crates/tskit)).
 //! 4. Mutation table data are different. See [``MutationRecord``].
 //! 5. Genomic locations are integers (see [``Position``]).
 //!    In `tskit`, both are C `double`, the equivalent of [``f64``].
@@ -59,8 +60,6 @@ pub use tables::*;
 pub use traits::*;
 pub use trees::*;
 pub mod prelude;
-
-pub mod tskit_tools;
 
 /// Get the forrustts version number.
 pub fn version() -> &'static str {

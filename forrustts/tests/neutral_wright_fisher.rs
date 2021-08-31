@@ -375,37 +375,6 @@ fn mutate_tables(mutrate: f64, tables: &mut TableCollection, rng: &mut StdRng) {
     tables.sort_tables(TableSortingFlags::SKIP_EDGE_TABLE);
 }
 
-pub fn add_tskit_mutation_site_tables(
-    tables: &TableCollection,
-    g: Time,
-    tskit_tables: &mut tskit::TableCollection,
-) {
-    for s in tables.sites() {
-        tskit_tables
-            .add_site(
-                PositionLLType::from(s.position) as f64,
-                match &s.ancestral_state {
-                    Some(x) => Some(x),
-                    None => panic!("expected ancestral_state"),
-                },
-            )
-            .unwrap();
-    }
-
-    for m in tables.mutations() {
-        let reverser = forrustts_tables_trees::tskit_tools::simple_time_reverser(g);
-        tskit_tables
-            .add_mutation(
-                tskit::tsk_id_t::from(m.site),
-                tskit::tsk_id_t::from(m.node),
-                tskit::TSK_NULL,
-                reverser(m.time),
-                Some(m.derived_state.as_ref().unwrap()),
-            )
-            .unwrap();
-    }
-}
-
 pub fn neutral_wf(
     params: SimulationParams,
 ) -> Result<(TableCollection, Vec<i32>), Box<dyn std::error::Error>> {
