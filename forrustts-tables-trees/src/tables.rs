@@ -318,9 +318,13 @@ fn sort_mutation_table(sites: &[Site], mutations: &mut [MutationRecord]) {
 bitflags! {
     /// Set properties of a [`Node`].
     ///
-    /// The first 16 bits are reserved for internal use.
-    /// Client code is free to use the remaining bits
-    /// as needed.
+    /// `tskit` reserves the first 15 bits (inclusive)
+    /// for internal use.  We will match those values here
+    /// as appropriate.
+    ///
+    /// We define some flags starting at the 16th bit.
+    /// We consider bits 16-24 (inclusive) reserved for
+    /// this crate.
     #[derive(Default)]
     pub struct NodeFlags: u32 {
         /// Default
@@ -332,7 +336,7 @@ bitflags! {
         /// IS_SAMPLE in order to distinguish
         /// living individuals from, e.g.,
         /// ancient samples.
-        const IS_ALIVE = 1 << 1;
+        const IS_ALIVE = 1 << 16;
     }
 }
 
