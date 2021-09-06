@@ -121,7 +121,7 @@ fn main() {
 
     let tskit_tables = forrustts_tskit::export_tables(
         tables,
-        forrustts_tskit::simple_time_reverser(nsteps.into()),
+        forrustts_tskit::simple_time_reverser(nsteps),
         match simplify.is_some() {
             true => Some(forrustts_tskit::TableCollectionExportFlags::BUILD_INDEXES),
             false => None,

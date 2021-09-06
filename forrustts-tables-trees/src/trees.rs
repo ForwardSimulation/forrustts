@@ -2,14 +2,31 @@ use crate::newtypes::{NodeId, Position, TablesIdInteger, Time};
 use bitflags::bitflags;
 
 bitflags! {
+    /// Modify the behavior of [`TreeSequence::tree_iterator`].
     #[derive(Default)]
     pub struct TreeFlags: u32 {
+        /// Keep track of which sample nodes descend from
+        /// each node.  This tracking is relatively expensive.
         const TRACK_SAMPLES = 1 << 0;
     }
 }
 
+/// Data describing the toplological relationship
+/// between [`NodeId`] in a [`Tree`].
+///
+/// For a [`TreeSequence`] whose tables have `n`
+/// nodes, there are `n` instances of this
+/// struct.
+///
+/// For a given instance, the fields provide
+/// the id of other nodes of specific relationships
+/// in the same tree.
+///
+/// Some fields may be equal to [`NodeId::NULL`],
+/// indicating that the current instance is a root
+/// or leaf node, for example.
 #[derive(Copy, Clone)]
-pub struct TopologyData {
+struct TopologyData {
     parent: NodeId,
     left_child: NodeId,
     right_child: NodeId,
@@ -254,6 +271,10 @@ impl NodeIterator for SamplesIterator<'_> {
 
 iterator_for_nodeiterator!(SamplesIterator<'_>);
 
+/// A tree is the genealogy of a non-recombining
+/// segment of a genome.  A [`TreeSequence`] contains
+/// the information needed to efficiently build trees
+/// and iterate over each tree in a genome.
 pub struct Tree<'treeseq> {
     topology: Vec<TopologyData>,
     left_root: NodeId,
@@ -485,7 +506,7 @@ impl<'treeseq> Tree<'treeseq> {
         }
     }
 
-    pub fn new(treeseq: &'treeseq TreeSequence, flags: TreeFlags) -> Self {
+    fn new(treeseq: &'treeseq TreeSequence, flags: TreeFlags) -> Self {
         let mut rv = Self::new_internal(treeseq, flags);
         rv.init_samples();
         rv.left_root = rv.samples[0];
@@ -513,10 +534,13 @@ impl<'treeseq> Tree<'treeseq> {
         }
     }
 
+    /// Return the length of this tree along the genome.
     pub fn span(&self) -> i64 {
         self.right.0 - self.left.0
     }
 
+    /// Return the `[left, right)` [`Position`] for
+    /// which this tree is the genealogy.
     pub fn range(&self) -> (Position, Position) {
         (self.left, self.right)
     }
@@ -590,6 +614,7 @@ impl<'treeseq> Tree<'treeseq> {
         v
     }
 
+    /// Return a slice of the samples in this tree.
     pub fn sample_nodes(&self) -> &[NodeId] {
         self.samples
     }
@@ -618,48 +643,72 @@ impl<'treeseq> Tree<'treeseq> {
         }
     }
 
+    /// The number of nodes in the tree sequence.
     pub fn num_nodes(&self) -> usize {
         assert_eq!(self.topology.len(), self.treeseq.tables.num_nodes());
         self.treeseq.tables.num_nodes()
     }
 
+    /// Return the parent of node `u`.
     pub fn parent<N: Into<NodeId> + Copy>(&self, u: N) -> TreesResult<NodeId> {
         self.id_in_range(u)?;
         // SAFETY: just checked the range.
         Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.parent)
     }
 
+    /// Return the left child of node `u`.
     pub fn left_child<N: Into<NodeId> + Copy>(&self, u: N) -> TreesResult<NodeId> {
         self.id_in_range(u)?;
         // SAFETY: just checked the range.
         Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.left_child)
     }
 
+    /// Return the right child of node `u`.
     pub fn right_child<N: Into<NodeId> + Copy>(&self, u: N) -> TreesResult<NodeId> {
         self.id_in_range(u)?;
         // SAFETY: just checked the range.
         Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.right_child)
     }
 
+    /// Return the left sibling of node `u`.
     pub fn left_sib<N: Into<NodeId> + Copy>(&self, u: N) -> TreesResult<NodeId> {
         self.id_in_range(u)?;
         // SAFETY: just checked the range.
         Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.left_sib)
     }
 
+    /// Return the right sibling of node `u`.
     pub fn right_sib<N: Into<NodeId> + Copy>(&self, u: N) -> TreesResult<NodeId> {
         self.id_in_range(u)?;
         // SAFETY: just checked the range.
         Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.right_sib)
     }
 
+    /// Return the left sample of node `u`.
     pub fn left_sample<N: Into<NodeId> + Copy>(&self, u: N) -> TreesResult<NodeId> {
+        if !self.flags.contains(TreeFlags::TRACK_SAMPLES) {
+            return Err(TreesError::NotTrackingSamples);
+        }
         self.id_in_range(u)?;
         // SAFETY: just checked the range.
         Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.left_sample)
     }
+    //
+    /// Return the next sample after node `u`.
+    pub fn next_sample<N: Into<NodeId> + Copy>(&self, u: N) -> TreesResult<NodeId> {
+        if !self.flags.contains(TreeFlags::TRACK_SAMPLES) {
+            return Err(TreesError::NotTrackingSamples);
+        }
+        self.id_in_range(u)?;
+        // SAFETY: just checked the range.
+        Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.next_sample)
+    }
 
+    /// Return the right sample of node `u`.
     pub fn right_sample<N: Into<NodeId> + Copy>(&self, u: N) -> TreesResult<NodeId> {
+        if !self.flags.contains(TreeFlags::TRACK_SAMPLES) {
+            return Err(TreesError::NotTrackingSamples);
+        }
         self.id_in_range(u)?;
         // SAFETY: just checked the range.
         Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.right_sample)
@@ -780,21 +829,31 @@ impl<'treeseq> streaming_iterator::StreamingIterator for Tree<'treeseq> {
 /// Error type related to [``TreeSequence``] and [``Tree``].
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum TreesError {
-    /// Raised by [``TreeSequence::new``].
+    /// Returned by [``TreeSequence::new``].
     #[error("Tables not indexed.")]
     TablesNotIndexed,
+    /// Returned when a [`NodeId`] is not
+    /// present in a [`Tree`] or [`TreeSequence`].
     #[error("Node ID out of range")]
     NodeIdOutOfRange,
+    /// Returned if a tree sequence is
+    /// initialized with no samples.
     #[error("No samples found.")]
     NoSamples,
+    /// Returned when there are problems with sample lists.
     #[error("Invalid samples.")]
     InvalidSamples,
+    /// Returned if sample lists contain duplicate [`NodeId`].
     #[error("Duplicate samples.")]
     DuplicateSamples,
+    /// Returned when information about samples describing
+    /// from a node is requested, yet
+    /// [`TreeFlags::TRACK_SAMPLES`] is not set}.
     #[error("Not tracking samples.")]
     NotTrackingSamples,
 }
 
+/// A tree sequence.
 pub struct TreeSequence {
     tables: crate::TableCollection,
     samples: Vec<NodeId>,
@@ -805,6 +864,8 @@ pub struct TreeSequence {
 pub type TreesResult<T> = Result<T, TreesError>;
 
 bitflags! {
+    /// Bit flags modifying the behavior of [`TreeSequence`]
+    /// initialization.
     pub struct TreeSequenceFlags: u32 {
         /// Do not validate tables when creating a [`TreeSequence`]
         const NO_TABLE_VALIDATION = 1 << 0;
@@ -834,6 +895,25 @@ impl TreeSequence {
         }
     }
 
+    /// Create a new tree sequence from a [`TableCollection`](crate::TableCollection).
+    ///
+    /// The input tables are consumed, owned by the tree sequence.
+    ///
+    /// By default, the tables will be validated.
+    ///
+    /// To disable validation, `flags` should contain
+    /// [`TreeSequenceFlags::NO_TABLE_VALIDATION`].
+    ///
+    /// The list of samples will be populated from the [`node flags`](crate::Node::flags).
+    /// Any `flag` containing [`IS_SAMPLE`](crate::NodeFlags::IS_SAMPLE) will be
+    /// in the list.
+    ///
+    /// # Errors
+    ///
+    /// [`TablesNotIndexed`](crate::TablesError::TablesNotIndexed) if
+    /// [`build_indexes`](crate::TableCollection::build_indexes) as not been called.
+    ///
+    /// [`TablesError`](crate::TablesError) if table validation fails.
     pub fn new(
         tables: crate::TableCollection,
         flags: TreeSequenceFlags,
@@ -847,6 +927,15 @@ impl TreeSequence {
         Self::new_from_tables(tables)
     }
 
+    /// Create a new tree sequence from a table collection
+    /// and a list of samples.
+    ///
+    /// Unlike [`TreeSequence::new`], this function ignores node flags and uses the samples
+    /// list instead.
+    ///
+    /// # Error
+    ///
+    /// [`TreesError`] if the samples list is invalid.
     pub fn new_with_samples(
         tables: crate::TableCollection,
         samples: &[NodeId],
@@ -854,6 +943,9 @@ impl TreeSequence {
     ) -> Result<Self, Box<dyn std::error::Error>> {
         if !flags.contains(TreeSequenceFlags::NO_TABLE_VALIDATION) {
             tables.validate(crate::TableValidationFlags::empty())?;
+        }
+        if samples.is_empty() {
+            return Err(Box::new(TreesError::NoSamples));
         }
         let mut nodes = vec![0; tables.nodes_.len()];
         for s in samples {
@@ -878,26 +970,57 @@ impl TreeSequence {
         })
     }
 
+    /// Move the underlying [`TableCollection`](crate::TableCollection),
+    /// consuming `self`.
     pub fn tables(self) -> crate::TableCollection {
         self.tables
     }
 
+    /// Get a clone of the underlying [`TableCollection`](crate::TableCollection).
     pub fn tables_copy(&self) -> crate::TableCollection {
         self.tables.clone()
     }
 
+    /// Return a streaming iterator over all [`Tree`]
+    /// objects in the tree sequence.
     pub fn tree_iterator(&self, flags: TreeFlags) -> Tree<'_> {
         Tree::new(self, flags)
     }
 
+    /// The number of sample nodes
     pub fn sample_nodes(&self) -> &[NodeId] {
         &self.samples
     }
 
+    /// The number of trees in the tree sequence
     pub fn num_trees(&self) -> u32 {
         self.num_trees
     }
 
+    /// Simplify the internal [`TableCollection`](crate::TableCollection).
+    ///
+    /// # Parameters
+    ///
+    /// * `samples`: An optional slice of [`NodeId`]
+    /// * `flags`: flags to modify the simplification behavior
+    ///
+    /// # Details
+    ///
+    /// If `samples` is `None`, then all nodes currently marked
+    /// as a sample will be used as a samples list.
+    /// Calling this functions without a samples list is only
+    /// useful if the tree sequence was created with a valid-but-unsimplified
+    /// [`TableCollection`](crate::TableCollection).
+    ///
+    /// # Returns
+    ///
+    /// A tuple of [`TableCollection`](crate::TableCollection)
+    /// and [`SimplificationOutput`](crate::SimplificationOutput).
+    ///
+    /// # Errors
+    ///
+    /// [`SimplificationError`](crate::simplification::SimplificationError)
+    ///
     pub fn simplify(
         &self,
         samples: Option<&[NodeId]>,

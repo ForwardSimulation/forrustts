@@ -561,6 +561,7 @@ impl<Value> NestedForwardList<Value> {
         self.tail_.iter_mut().for_each(|x| *x = NULL_INDEX);
     }
 
+    /// Deprecated
     #[deprecated(since = "0.3.0", note = "Use .head_iter instead")]
     pub fn head_itr(&self) -> impl DoubleEndedIterator<Item = &IndexType> + '_ {
         self.head_iter()

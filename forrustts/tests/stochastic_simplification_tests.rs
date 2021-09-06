@@ -487,7 +487,7 @@ fn test_mutation_tables() {
             });
         let tskit_tables = forrustts_tskit::export_tables(
             tables.clone(),
-            forrustts_tskit::simple_time_reverser(nsteps.into()),
+            forrustts_tskit::simple_time_reverser(nsteps),
             forrustts_tskit::TableCollectionExportFlags::BUILD_INDEXES,
         )
         .unwrap();

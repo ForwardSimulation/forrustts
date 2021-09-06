@@ -49,7 +49,7 @@ impl Iterator for SimulatorIterator {
 
             let mut tsk_tables = forrustts_tskit::export_tables(
                 tables.clone(),
-                forrustts_tskit::simple_time_reverser(params.nsteps.into()),
+                forrustts_tskit::simple_time_reverser(params.nsteps),
                 // Do not index tables here!
                 // Things are unsorted!
                 None,

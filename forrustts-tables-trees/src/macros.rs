@@ -15,6 +15,7 @@ macro_rules! iterator_for_nodeiterator {
 macro_rules! impl_table_id {
     ($idtype: ident, $integer_type: ty) => {
         impl $idtype {
+            /// NULL value for the type
             pub const NULL: $idtype = Self(-1);
         }
 

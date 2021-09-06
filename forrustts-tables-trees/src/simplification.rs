@@ -11,10 +11,14 @@ use thiserror::Error;
 /// simplification
 #[derive(Error, Debug, PartialEq)]
 pub enum SimplificationError {
+    /// Usef for error reporting by the simplification algorithm.
     #[error("{0:?}")]
     ErrorMessage(String),
+    /// Returned when there is an error in data
+    /// structures used internally during simplification.
     #[error("{0:?}")]
     ListError(#[from] crate::nested_forward_list::NestedForwardListError),
+    /// Returned if the tables are invalid.
     #[error("{0:?}")]
     TableValidationError(#[from] crate::TablesError),
 }

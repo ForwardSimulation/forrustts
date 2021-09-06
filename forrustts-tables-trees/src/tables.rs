@@ -507,6 +507,11 @@ pub fn validate_edge_table(len: Position, edges: &[Edge], nodes: &[Node]) -> Tab
     Ok(true)
 }
 
+/// Validate contents of edge table.
+///
+/// # Error
+///
+/// [`TablesError::InvalidNodeTime`] if any node times are not finite.
 pub fn validate_node_table(nodes: &[Node]) -> TablesResult<()> {
     for n in nodes {
         if !n.time.0.is_finite() {
@@ -516,6 +521,11 @@ pub fn validate_node_table(nodes: &[Node]) -> TablesResult<()> {
     Ok(())
 }
 
+/// Validate the site table.
+///
+/// # Error
+///
+/// [`TablesError`] if site positions are out of range or unsorted.
 pub fn validate_site_table(len: Position, sites: &[Site]) -> TablesResult<()> {
     for (i, site) in sites.iter().enumerate() {
         if site.position < 0 || site.position >= len {
@@ -535,6 +545,8 @@ pub fn validate_site_table(len: Position, sites: &[Site]) -> TablesResult<()> {
     Ok(())
 }
 
+/// Validate that a mutation table is correctly sorted
+/// and refers to valid sites and nodes.
 pub fn validate_mutation_table(
     mutations: &[MutationRecord],
     sites: &[Site],
