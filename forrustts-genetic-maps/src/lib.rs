@@ -73,24 +73,25 @@ impl PoissonInterval {
 
 impl GeneticMapElement for PoissonInterval {
     fn generate_breakpoints(&self, rng: &mut Rng, breakpoints: &mut Vec<Position>) {
-        use forrustts_rng::poisson;
+        use forrustts_rng::{poisson, uniform_i64};
 
         let n = poisson(rng, self.mean);
         for _ in 0..n {
-            breakpoints.push(self.beg);
+            breakpoints.push(uniform_i64(rng, self.beg.into(), self.end.into()).into());
         }
     }
 }
 
 impl GeneticMapElement2 for PoissonInterval {
     fn generate_breakpoints2(&mut self, rng: &mut Rng) -> &[Position] {
-        use forrustts_rng::poisson;
+        use forrustts_rng::{poisson, uniform_i64};
 
         self.breakpoints.clear();
 
         let n = poisson(rng, self.mean);
         for _ in 0..n {
-            self.breakpoints.push(self.beg);
+            self.breakpoints
+                .push(uniform_i64(rng, self.beg.into(), self.end.into()).into());
         }
         &self.breakpoints
     }

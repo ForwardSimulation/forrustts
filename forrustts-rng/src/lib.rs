@@ -55,6 +55,11 @@ pub fn poisson(rng: &mut Rng, mean: f64) -> u32 {
     rng.0.poisson(mean)
 }
 
+#[inline]
+pub fn uniform_i64(rng: &mut Rng, lo: i64, hi: i64) -> i64 {
+    rng.0.flat(lo as f64, hi as f64) as i64
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
