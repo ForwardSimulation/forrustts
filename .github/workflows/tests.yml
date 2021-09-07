@@ -23,8 +23,14 @@ jobs:
           access_token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/checkout@v2
-      - run: sudo apt-get update -y
+      - run: |
+            sudo apt-get update -y
+            sudo apt-get install -y libgsl0-dev
         if: matrix.os == 'ubuntu-latest'
+      - run: |
+            brew update
+            brew install gsl
+        if: matrix.os == 'macos-latest'
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.rust }}
