@@ -13,6 +13,7 @@ keywords = ["simulation", "tree_sequences", "tskit", "population_genetics"]
 [workspace]
 members = [
     "forrustts-core",
+    "forrustts-genetic-maps",
     "forrustts-tables-trees",
     "forrustts-tskit",
 ]
@@ -32,6 +33,7 @@ tskit = "0.11.1"
 
 [dependencies]
 forrustts-core = { version = "0.1.0", path = "forrustts-core" }
+forrustts-genetic-maps = { version = "0.1.0", path = "forrustts-genetic-maps" }
 forrustts-tables-trees = { version = "0.2.0", path = "forrustts-tables-trees" }
 forrustts-tskit = { version = "0.1.0", path = "forrustts-tskit" }
 thiserror = "1.0"
