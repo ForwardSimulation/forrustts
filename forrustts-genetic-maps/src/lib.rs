@@ -108,6 +108,7 @@ fn test2(bench: &mut test::Bencher) {
             for i in &mut v {
                 b.extend_from_slice(i.generate_breakpoints2(&mut rng));
             }
+            b.sort();
         }
     });
 }
@@ -137,6 +138,7 @@ fn test1(bench: &mut test::Bencher) {
             for i in &mut v {
                 i.generate_breakpoints(&mut rng, &mut b);
             }
+            b.sort();
         }
     });
 }
