@@ -47,6 +47,9 @@ impl GeneticMap for SimpleGeneticMap {
             i.generate_breakpoints(rng, &mut self.breakpoints);
         }
         self.breakpoints.sort();
+        if !self.breakpoints.is_empty() {
+            self.breakpoints.push(Position::MAX);
+        }
     }
 
     fn breakpoints(&self) -> &[Position] {
@@ -120,9 +123,6 @@ fn test0(bench: &mut test::Bencher) {
     bench.iter(|| {
         for _ in 0..1000 {
             m.generate_breakpoints(&mut rng);
-            for i in m.breakpoints() {
-                assert!(i >= &0);
-            }
         }
     });
 }
