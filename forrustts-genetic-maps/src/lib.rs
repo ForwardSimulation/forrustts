@@ -5,7 +5,7 @@ pub trait GeneticMapElement {
     fn begin(&self) -> Position;
     fn end(&self) -> Position;
     // Should we expect a &[Position] instead?
-    fn generate_breakpoints(&self, rng: &mut Rng, breakpoints: &mut Vec<Position>) -> ();
+    fn generate_breakpoints(&self, rng: &mut Rng, breakpoints: &mut Vec<Position>);
 }
 
 #[cfg(test)]
