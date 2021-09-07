@@ -2,6 +2,7 @@
 
 members = [
     "forrustts",
+    "forrustts-genetic-maps",
     "forrustts-rng",
     "forrustts-tables-trees",
     "forrustts-tskit",
