@@ -18,6 +18,41 @@ pub trait GeneticMapElement2 {
     fn generate_breakpoints2(&mut self, rng: &mut Rng) -> &[Position];
 }
 
+pub trait GeneticMap {
+    fn generate_breakpoints(&mut self, rng: &mut Rng);
+    fn breakpoints(&self) -> &[Position];
+}
+
+pub struct SimpleGeneticMap {
+    map: Vec<Box<dyn GeneticMapElement>>,
+    breakpoints: Vec<Position>,
+}
+
+impl SimpleGeneticMap {
+    fn new() -> Self {
+        let mut map: Vec<Box<dyn GeneticMapElement>> = vec![];
+        map.push(Box::new(PoissonInterval::new(0, 1, 5e-2)));
+        map.push(Box::new(PoissonInterval::new(0, 1, 25e-2)));
+        Self {
+            map,
+            breakpoints: vec![],
+        }
+    }
+}
+
+impl GeneticMap for SimpleGeneticMap {
+    fn generate_breakpoints(&mut self, rng: &mut Rng) {
+        self.breakpoints.clear();
+        for i in &self.map {
+            i.generate_breakpoints(rng, &mut self.breakpoints);
+        }
+    }
+
+    fn breakpoints(&self) -> &[Position] {
+        &self.breakpoints
+    }
+}
+
 pub struct PoissonInterval {
     beg: Position,
     end: Position,
@@ -62,30 +97,47 @@ impl GeneticMapElement2 for PoissonInterval {
 }
 #[bench]
 fn test2(bench: &mut test::Bencher) {
-    let mut v = vec![PoissonInterval::new(0, 1, 1.25)];
-    v.push(PoissonInterval::new(0, 1, 25.));
+    let mut v = vec![PoissonInterval::new(0, 1, 5e-2)];
+    v.push(PoissonInterval::new(0, 1, 25e-2));
     let mut rng = Rng::new(43);
     bench.iter(|| {
-        let mut b = vec![];
-        for i in &mut v {
-            b.extend_from_slice(i.generate_breakpoints2(&mut rng));
+        for _ in 0..1000 {
+            let mut b = vec![];
+            for i in &mut v {
+                b.extend_from_slice(i.generate_breakpoints2(&mut rng));
+            }
+        }
+    });
+}
+
+#[bench]
+fn test0(bench: &mut test::Bencher) {
+    let mut m = SimpleGeneticMap::new();
+    let mut rng = Rng::new(43);
+    bench.iter(|| {
+        for _ in 0..1000 {
+            m.generate_breakpoints(&mut rng);
+            for i in m.breakpoints() {
+                assert!(i >= &0);
+            }
         }
     });
 }
 
 #[bench]
 fn test1(bench: &mut test::Bencher) {
-    let mut v = vec![PoissonInterval::new(0, 1, 1.25)];
-    v.push(PoissonInterval::new(0, 1, 25.));
+    let mut v = vec![PoissonInterval::new(0, 1, 5e-2)];
+    v.push(PoissonInterval::new(0, 1, 25e-2));
     let mut rng = Rng::new(43);
     bench.iter(|| {
-        let mut b = vec![];
-        for i in &mut v {
-            i.generate_breakpoints(&mut rng, &mut b);
+        for _ in 0..1000 {
+            let mut b = vec![];
+            for i in &mut v {
+                i.generate_breakpoints(&mut rng, &mut b);
+            }
         }
     });
 }
-
 
 #[cfg(test)]
 mod tests {
