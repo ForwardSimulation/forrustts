@@ -46,6 +46,7 @@ impl GeneticMap for SimpleGeneticMap {
         for i in &self.map {
             i.generate_breakpoints(rng, &mut self.breakpoints);
         }
+        self.breakpoints.sort();
     }
 
     fn breakpoints(&self) -> &[Position] {
