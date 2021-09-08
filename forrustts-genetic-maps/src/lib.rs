@@ -39,6 +39,10 @@ impl GeneralGeneticMap {
             breakpoints: vec![],
         }
     }
+
+    pub fn add_element<E: GeneticMapElement + 'static>(&mut self, element: E) {
+        self.map.push(Box::new(element));
+    }
 }
 
 impl Default for GeneralGeneticMap {
@@ -128,9 +132,9 @@ fn test2(bench: &mut test::Bencher) {
 
 #[bench]
 fn test0(bench: &mut test::Bencher) {
-    let mut map: Vec<Box<dyn GeneticMapElement>> = vec![Box::new(PoissonInterval::new(0, 1, 5e-2))];
-    map.push(Box::new(PoissonInterval::new(0, 1, 25e-2)));
-    let mut m = GeneralGeneticMap::new_from_vec(map);
+    let mut m = GeneralGeneticMap::default();
+    m.add_element(PoissonInterval::new(0, 1, 5e-2));
+    m.add_element(PoissonInterval::new(0, 1, 25e-2));
     let mut rng = Rng::new(43);
     bench.iter(|| {
         for _ in 0..1000 {
