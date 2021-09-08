@@ -29,12 +29,22 @@ pub struct GeneralGeneticMap {
 }
 
 impl GeneralGeneticMap {
-    fn new() -> Self {
-        let mut map: Vec<Box<dyn GeneticMapElement>> = vec![];
-        map.push(Box::new(PoissonInterval::new(0, 1, 5e-2)));
-        map.push(Box::new(PoissonInterval::new(0, 1, 25e-2)));
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn new_from_vec(map: Vec<Box<dyn GeneticMapElement>>) -> Self {
         Self {
             map,
+            breakpoints: vec![],
+        }
+    }
+}
+
+impl Default for GeneralGeneticMap {
+    fn default() -> Self {
+        Self {
+            map: vec![],
             breakpoints: vec![],
         }
     }
@@ -118,7 +128,9 @@ fn test2(bench: &mut test::Bencher) {
 
 #[bench]
 fn test0(bench: &mut test::Bencher) {
-    let mut m = GeneralGeneticMap::new();
+    let mut map: Vec<Box<dyn GeneticMapElement>> = vec![Box::new(PoissonInterval::new(0, 1, 5e-2))];
+    map.push(Box::new(PoissonInterval::new(0, 1, 25e-2)));
+    let mut m = GeneralGeneticMap::new_from_vec(map);
     let mut rng = Rng::new(43);
     bench.iter(|| {
         for _ in 0..1000 {
