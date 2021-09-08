@@ -99,6 +99,73 @@ impl GeneticMapElement for PoissonInterval {
     }
 }
 
+#[derive(Copy, Clone)]
+pub struct BinomialPoint {
+    position: Position,
+    probability: f64,
+}
+
+impl BinomialPoint {
+    pub fn new<P: Into<Position>>(position: P, probability: f64) -> Self {
+        Self {
+            position: position.into(),
+            probability,
+        }
+    }
+}
+
+impl GeneticMapElement for BinomialPoint {
+    fn begin(&self) -> Position {
+        self.position
+    }
+
+    fn end(&self) -> Position {
+        self.position
+    }
+
+    fn generate_breakpoints(&self, rng: &mut Rng, breakpoints: &mut Vec<Position>) {
+        use forrustts_rng::bernoulli_trial;
+
+        if bernoulli_trial(rng, self.probability) {
+            breakpoints.push(self.position);
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct BinomialInterval {
+    beg: Position,
+    end: Position,
+    probability: f64,
+}
+
+impl BinomialInterval {
+    pub fn new<P: Into<Position>>(beg: P, end: P, probability: f64) -> Self {
+        Self {
+            beg: beg.into(),
+            end: end.into(),
+            probability,
+        }
+    }
+}
+
+impl GeneticMapElement for BinomialInterval {
+    fn begin(&self) -> Position {
+        self.beg
+    }
+
+    fn end(&self) -> Position {
+        self.end
+    }
+
+    fn generate_breakpoints(&self, rng: &mut Rng, breakpoints: &mut Vec<Position>) {
+        use forrustts_rng::{bernoulli_trial, uniform_i64};
+
+        if bernoulli_trial(rng, self.probability) {}
+        breakpoints.push(uniform_i64(rng, self.beg.into(), self.end.into()).into());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
