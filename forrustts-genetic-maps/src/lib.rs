@@ -5,17 +5,9 @@ use forrustts_rng::Rng;
 use forrustts_tables_trees::Position;
 
 pub trait GeneticMapElement {
-    //fn begin(&self) -> Position;
-    //fn end(&self) -> Position;
-    // Should we expect a &[Position] instead?
+    fn begin(&self) -> Position;
+    fn end(&self) -> Position;
     fn generate_breakpoints(&self, rng: &mut Rng, breakpoints: &mut Vec<Position>);
-}
-
-pub trait GeneticMapElement2 {
-    //fn begin(&self) -> Position;
-    //fn end(&self) -> Position;
-    // Should we expect a &[Position] instead?
-    fn generate_breakpoints2(&mut self, rng: &mut Rng) -> &[Position];
 }
 
 pub trait GeneticMap {
@@ -71,11 +63,11 @@ impl GeneticMap for BoxedGeneticMap {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct PoissonInterval {
     beg: Position,
     end: Position,
     mean: f64,
-    breakpoints: Vec<Position>,
 }
 
 impl PoissonInterval {
@@ -84,12 +76,19 @@ impl PoissonInterval {
             beg: beg.into(),
             end: end.into(),
             mean,
-            breakpoints: vec![],
         }
     }
 }
 
 impl GeneticMapElement for PoissonInterval {
+    fn begin(&self) -> Position {
+        self.beg
+    }
+
+    fn end(&self) -> Position {
+        self.end
+    }
+
     fn generate_breakpoints(&self, rng: &mut Rng, breakpoints: &mut Vec<Position>) {
         use forrustts_rng::{poisson, uniform_i64};
 
@@ -98,65 +97,6 @@ impl GeneticMapElement for PoissonInterval {
             breakpoints.push(uniform_i64(rng, self.beg.into(), self.end.into()).into());
         }
     }
-}
-
-impl GeneticMapElement2 for PoissonInterval {
-    fn generate_breakpoints2(&mut self, rng: &mut Rng) -> &[Position] {
-        use forrustts_rng::{poisson, uniform_i64};
-
-        self.breakpoints.clear();
-
-        let n = poisson(rng, self.mean);
-        for _ in 0..n {
-            self.breakpoints
-                .push(uniform_i64(rng, self.beg.into(), self.end.into()).into());
-        }
-        &self.breakpoints
-    }
-}
-#[bench]
-fn test2(bench: &mut test::Bencher) {
-    let mut v = vec![PoissonInterval::new(0, 1, 5e-2)];
-    v.push(PoissonInterval::new(0, 1, 25e-2));
-    let mut rng = Rng::new(43);
-    bench.iter(|| {
-        for _ in 0..1000 {
-            let mut b = vec![];
-            for i in &mut v {
-                b.extend_from_slice(i.generate_breakpoints2(&mut rng));
-            }
-            b.sort();
-        }
-    });
-}
-
-#[bench]
-fn test0(bench: &mut test::Bencher) {
-    let mut m = BoxedGeneticMap::default();
-    m.add_element(PoissonInterval::new(0, 1, 5e-2));
-    m.add_element(PoissonInterval::new(0, 1, 25e-2));
-    let mut rng = Rng::new(43);
-    bench.iter(|| {
-        for _ in 0..1000 {
-            m.generate_breakpoints(&mut rng);
-        }
-    });
-}
-
-#[bench]
-fn test1(bench: &mut test::Bencher) {
-    let mut v = vec![PoissonInterval::new(0, 1, 5e-2)];
-    v.push(PoissonInterval::new(0, 1, 25e-2));
-    let mut rng = Rng::new(43);
-    bench.iter(|| {
-        for _ in 0..1000 {
-            let mut b = vec![];
-            for i in &mut v {
-                i.generate_breakpoints(&mut rng, &mut b);
-            }
-            b.sort();
-        }
-    });
 }
 
 #[cfg(test)]
