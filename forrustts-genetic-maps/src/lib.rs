@@ -23,12 +23,12 @@ pub trait GeneticMap {
     fn breakpoints(&self) -> &[Position];
 }
 
-pub struct GeneralGeneticMap {
+pub struct BoxedGeneticMap {
     map: Vec<Box<dyn GeneticMapElement>>,
     breakpoints: Vec<Position>,
 }
 
-impl GeneralGeneticMap {
+impl BoxedGeneticMap {
     pub fn new() -> Self {
         Self::default()
     }
@@ -45,7 +45,7 @@ impl GeneralGeneticMap {
     }
 }
 
-impl Default for GeneralGeneticMap {
+impl Default for BoxedGeneticMap {
     fn default() -> Self {
         Self {
             map: vec![],
@@ -54,7 +54,7 @@ impl Default for GeneralGeneticMap {
     }
 }
 
-impl GeneticMap for GeneralGeneticMap {
+impl GeneticMap for BoxedGeneticMap {
     fn generate_breakpoints(&mut self, rng: &mut Rng) {
         self.breakpoints.clear();
         for i in &self.map {
@@ -132,7 +132,7 @@ fn test2(bench: &mut test::Bencher) {
 
 #[bench]
 fn test0(bench: &mut test::Bencher) {
-    let mut m = GeneralGeneticMap::default();
+    let mut m = BoxedGeneticMap::default();
     m.add_element(PoissonInterval::new(0, 1, 5e-2));
     m.add_element(PoissonInterval::new(0, 1, 25e-2));
     let mut rng = Rng::new(43);
