@@ -1,6 +1,3 @@
-#![feature(test)]
-extern crate test;
-
 use forrustts_rng::Rng;
 use forrustts_tables_trees::Position;
 
