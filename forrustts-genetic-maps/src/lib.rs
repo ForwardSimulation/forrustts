@@ -162,11 +162,3 @@ impl GeneticMapElement for BinomialInterval {
         breakpoints.push(uniform_i64(rng, self.beg.into(), self.end.into()).into());
     }
 }
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
