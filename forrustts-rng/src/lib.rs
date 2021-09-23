@@ -55,6 +55,21 @@ pub fn poisson(rng: &mut Rng, mean: f64) -> u32 {
     rng.0.poisson(mean)
 }
 
+#[inline]
+pub fn uniform_i64(rng: &mut Rng, lo: i64, hi: i64) -> i64 {
+    rng.0.flat(lo as f64, hi as f64) as i64
+}
+
+#[inline]
+pub fn binomial(rng: &mut Rng, p: f64, n: u32) -> u32 {
+    rng.0.binomial(p, n)
+}
+
+#[inline]
+pub fn bernoulli_trial(rng: &mut Rng, p: f64) -> bool {
+    binomial(rng, p, 1) > 0
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
