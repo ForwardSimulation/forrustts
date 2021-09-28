@@ -781,6 +781,9 @@ fn generate_births_v2(
                     .unwrap();
             }
         }
+        pop.parents[b.index].index = b.index;
+        pop.parents[b.index].node0 = new_node_0;
+        pop.parents[b.index].node1 = new_node_1;
     }
 }
 
