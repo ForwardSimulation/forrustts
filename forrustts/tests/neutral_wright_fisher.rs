@@ -798,6 +798,7 @@ pub fn neutral_wf_simplify_separate_thread(
         );
         if actual_simplification_interval != -1 && birth_time % actual_simplification_interval == 0
         {
+            fill_samples(&pop.parents, &mut samples);
             // consume data
             let inputs = SimplificationRoundTripData::new(
                 samples,
@@ -828,7 +829,6 @@ pub fn neutral_wf_simplify_separate_thread(
                 samples.edge_buffer_founder_nodes.push(p.node0);
                 samples.edge_buffer_founder_nodes.push(p.node1);
             }
-
             simplified = true;
         } else {
             simplified = false;
