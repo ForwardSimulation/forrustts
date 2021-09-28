@@ -734,6 +734,56 @@ fn simplify_from_edge_buffer_channel(
     ))
 }
 
+fn generate_births_v2(
+    breakpoint: BreakpointFunction,
+    birth_time: Time,
+    rng: &mut StdRng,
+    pop: &mut PopulationState,
+    next_node_id: &mut TablesIdInteger,
+) {
+    for b in &pop.births {
+        // Add the new nodes, but don't use them for recording yet
+        let _a = pop.tables.add_node(birth_time, 0).unwrap();
+        let _b = pop.tables.add_node(birth_time, 0).unwrap();
+
+        let new_node_0 = NodeId::from(*next_node_id);
+        let new_node_1 = NodeId::from(*next_node_id + 1);
+
+        assert_eq!(_a, new_node_0);
+        assert_eq!(_b, new_node_1);
+
+        *next_node_id += 2;
+
+        // replacing crossover_and_record_edges here...
+        for (p, c) in [(b.parent0, new_node_0), (b.parent1, new_node_1)] {
+            let mut pnodes = (p.node0, p.node1);
+            mendel(&mut pnodes, rng);
+            if let Some(exp) = breakpoint {
+                let mut current_pos: PositionLLType = 0;
+                loop {
+                    let next_length = (rng.sample(exp) as PositionLLType) + 1;
+                    if current_pos + next_length < pop.tables.genome_length() {
+                        pop.edge_buffer
+                            .record_edge(pnodes.0, c, current_pos, current_pos + next_length)
+                            .unwrap();
+                        current_pos += next_length;
+                        std::mem::swap(&mut pnodes.0, &mut pnodes.1);
+                    } else {
+                        pop.edge_buffer
+                            .record_edge(pnodes.0, c, current_pos, pop.tables.genome_length())
+                            .unwrap();
+                        break;
+                    }
+                }
+            } else {
+                pop.edge_buffer
+                    .record_edge(pnodes.0, c, 0, pop.tables.genome_length())
+                    .unwrap();
+            }
+        }
+    }
+}
+
 pub fn neutral_wf_simplify_separate_thread(
     params: SimulationParams,
 ) -> Result<(TableCollection, Vec<i32>), Box<dyn std::error::Error>> {
@@ -767,6 +817,7 @@ pub fn neutral_wf_simplify_separate_thread(
 
     // Record nodes for the first generation
     // Nodes will have birth time 0 in deme 0.
+    let mut next_node_id: TablesIdInteger = 0;
     for index in 0..params.popsize {
         let node0 = pop.tables.add_node(0_f64, 0).unwrap();
         let node1 = pop.tables.add_node(0_f64, 0).unwrap();
@@ -775,7 +826,9 @@ pub fn neutral_wf_simplify_separate_thread(
             node0,
             node1,
         });
+        next_node_id += 2;
     }
+    assert_eq!(next_node_id, pop.tables.nodes().len() as TablesIdInteger);
 
     for i in 0..pop.tables.num_nodes() {
         samples.edge_buffer_founder_nodes.push(i.into());
@@ -785,16 +838,15 @@ pub fn neutral_wf_simplify_separate_thread(
     let mut state = SimplificationBuffers::new();
 
     let mut output = SimplificationOutput::new();
-    let new_edge_handler = buffer_edges;
 
     for birth_time in 1..(params.nsteps + 1) {
         deaths_and_parents(params.psurvival, &mut rng, &mut pop);
-        generate_births(
+        generate_births_v2(
             breakpoint,
             birth_time.into(),
             &mut rng,
             &mut pop,
-            &new_edge_handler,
+            &mut next_node_id,
         );
         if actual_simplification_interval != -1 && birth_time % actual_simplification_interval == 0
         {
@@ -815,7 +867,7 @@ pub fn neutral_wf_simplify_separate_thread(
             output = outputs.output;
             state = outputs.state;
             samples = outputs.samples;
-
+            next_node_id = pop.tables.nodes().len() as TablesIdInteger;
             // remap parent nodes
             for p in &mut pop.parents {
                 p.node0 = output.idmap[usize::from(p.node0)];
