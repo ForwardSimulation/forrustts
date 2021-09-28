@@ -737,20 +737,29 @@ fn simplify_from_edge_buffer_channel(
 fn generate_births_v2(
     breakpoint: BreakpointFunction,
     birth_time: Time,
+    genome_length: Position,
+    births: &[Birth],
     rng: &mut StdRng,
-    pop: &mut PopulationState,
+    parents: &mut [Parent],
+    new_nodes: &mut NodeTable,
+    edge_buffer: &mut EdgeBuffer,
     next_node_id: &mut TablesIdInteger,
 ) {
-    for b in &pop.births {
+    for b in births {
         // Add the new nodes, but don't use them for recording yet
-        let _a = pop.tables.add_node(birth_time, 0).unwrap();
-        let _b = pop.tables.add_node(birth_time, 0).unwrap();
+        new_nodes.push(Node {
+            time: birth_time,
+            deme: 0.into(),
+            flags: 0,
+        });
+        new_nodes.push(Node {
+            time: birth_time,
+            deme: 0.into(),
+            flags: 0,
+        });
 
         let new_node_0 = NodeId::from(*next_node_id);
         let new_node_1 = NodeId::from(*next_node_id + 1);
-
-        assert_eq!(_a, new_node_0);
-        assert_eq!(_b, new_node_1);
 
         *next_node_id += 2;
 
@@ -762,28 +771,28 @@ fn generate_births_v2(
                 let mut current_pos: PositionLLType = 0;
                 loop {
                     let next_length = (rng.sample(exp) as PositionLLType) + 1;
-                    if current_pos + next_length < pop.tables.genome_length() {
-                        pop.edge_buffer
+                    if current_pos + next_length < genome_length {
+                        edge_buffer
                             .record_edge(pnodes.0, c, current_pos, current_pos + next_length)
                             .unwrap();
                         current_pos += next_length;
                         std::mem::swap(&mut pnodes.0, &mut pnodes.1);
                     } else {
-                        pop.edge_buffer
-                            .record_edge(pnodes.0, c, current_pos, pop.tables.genome_length())
+                        edge_buffer
+                            .record_edge(pnodes.0, c, current_pos, genome_length)
                             .unwrap();
                         break;
                     }
                 }
             } else {
-                pop.edge_buffer
-                    .record_edge(pnodes.0, c, 0, pop.tables.genome_length())
+                edge_buffer
+                    .record_edge(pnodes.0, c, 0, genome_length)
                     .unwrap();
             }
         }
-        pop.parents[b.index].index = b.index;
-        pop.parents[b.index].node0 = new_node_0;
-        pop.parents[b.index].node1 = new_node_1;
+        parents[b.index].index = b.index;
+        parents[b.index].node0 = new_node_0;
+        parents[b.index].node1 = new_node_1;
     }
 }
 
@@ -842,18 +851,30 @@ pub fn neutral_wf_simplify_separate_thread(
 
     let mut output = SimplificationOutput::new();
 
+    let mut new_nodes = NodeTable::default();
+
     for birth_time in 1..(params.nsteps + 1) {
         deaths_and_parents(params.psurvival, &mut rng, &mut pop);
         generate_births_v2(
             breakpoint,
             birth_time.into(),
+            pop.tables.genome_length(),
+            &mut pop.births,
             &mut rng,
-            &mut pop,
+            &mut pop.parents,
+            &mut new_nodes,
+            &mut pop.edge_buffer,
             &mut next_node_id,
         );
+
         if actual_simplification_interval != -1 && birth_time % actual_simplification_interval == 0
         {
             fill_samples(&pop.parents, &mut samples);
+            // transfer over our new nodes
+            let mut node_table = pop.tables.dump_node_table();
+            node_table.append(&mut new_nodes);
+            pop.tables.set_node_table(node_table);
+
             // consume data
             let inputs = SimplificationRoundTripData::new(
                 samples,
