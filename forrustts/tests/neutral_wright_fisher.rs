@@ -1,5 +1,16 @@
 use bitflags::bitflags;
 use forrustts::*;
+use rand::rngs::StdRng;
+use rand::Rng;
+use rand::SeedableRng;
+use rand_distr::{Exp, Uniform};
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum SimulationError {
+    #[error("{0:?}")]
+    ErrorMessage(String),
+}
 
 // Some of the material below seems like a candidate for a public API,
 // but we need to decide here if this package should provide that.
@@ -604,6 +615,178 @@ pub fn neutral_wf(
         deaths_and_parents(params.psurvival, &mut rng, &mut pop);
         generate_births(
             recrate,
+            birth_time.into(),
+            &mut rng,
+            &mut pop,
+            &new_edge_handler,
+        );
+        if actual_simplification_interval != -1 && birth_time % actual_simplification_interval == 0
+        {
+            simplify_and_remap_nodes(
+                params.flags,
+                params.simplification_flags,
+                &mut samples,
+                &mut state,
+                &mut pop,
+                &mut output,
+            );
+            simplified = true;
+        } else {
+            simplified = false;
+        }
+    }
+
+    if !simplified && actual_simplification_interval != -1 {
+        simplify_and_remap_nodes(
+            params.flags,
+            params.simplification_flags,
+            &mut samples,
+            &mut state,
+            &mut pop,
+            &mut output,
+        );
+    }
+
+    let mut is_alive: Vec<i32> = vec![0; pop.tables.num_nodes()];
+
+    for p in pop.parents {
+        is_alive[usize::from(p.node0)] = 1;
+        is_alive[usize::from(p.node1)] = 1;
+    }
+
+    mutate_tables(params.mutrate, &mut pop.tables, &mut rng);
+
+    for s in pop.tables.sites() {
+        match &s.ancestral_state {
+            Some(x) => {
+                assert_eq!(x.len(), 1);
+                assert_eq!(x[0], 0);
+            }
+            None => panic!("ancestral_state is None"),
+        };
+    }
+    for m in pop.tables.mutations() {
+        match &m.derived_state {
+            Some(x) => {
+                assert_eq!(x.len(), 1);
+                assert!(x[0] > 0);
+            }
+            None => panic!("derived_state is None"),
+        };
+    }
+
+    Ok((pop.tables, is_alive))
+}
+
+// Below is code for simplifying in a separate thread via channels.
+struct SimplificationRoundTripData {
+    edge_buffer: EdgeBuffer,
+    tables: TableCollection,
+    state: SimplificationBuffers,
+    output: SimplificationOutput,
+}
+
+impl SimplificationRoundTripData {
+    fn new(
+        edge_buffer: EdgeBuffer,
+        tables: TableCollection,
+        state: SimplificationBuffers,
+        output: SimplificationOutput,
+    ) -> Self {
+        Self {
+            edge_buffer,
+            tables,
+            state,
+            output,
+        }
+    }
+}
+
+// Take ownership, simplify, return ownership.
+fn simplify_from_edge_buffer_channel(
+    flags: SimplificationFlags,
+    samples: SamplesInfo,
+    inputs: SimplificationRoundTripData,
+) -> Result<SimplificationRoundTripData, Box<dyn std::error::Error>> {
+    let mut tables = inputs.tables;
+    let mut state = inputs.state;
+    let mut edge_buffer = inputs.edge_buffer;
+    let mut output = inputs.output;
+
+    simplify_from_edge_buffer(
+        &samples,
+        flags,
+        &mut state,
+        &mut edge_buffer,
+        &mut tables,
+        &mut output,
+    )?;
+
+    Ok(SimplificationRoundTripData::new(
+        edge_buffer,
+        tables,
+        state,
+        output,
+    ))
+}
+
+pub fn neutral_wf_simplify_separate_thread(
+    params: SimulationParams,
+) -> Result<(TableCollection, Vec<i32>), Box<dyn std::error::Error>> {
+    // FIXME: gotta validate input params!
+    // TODO: require a simplification interval > 0
+    if !params.flags.contains(SimulationFlags::BUFFER_EDGES) {
+        return Err(Box::new(SimulationError::ErrorMessage(
+            "simulation using threads requires edge buffering".to_string(),
+        )));
+    }
+
+    let mut actual_simplification_interval: i64 = -1;
+
+    let breakpoint: BreakpointFunction = match params.xovers.partial_cmp(&0.0) {
+        Some(std::cmp::Ordering::Greater) => Some(
+            Exp::new(params.xovers / PositionLLType::from(params.genome_length) as f64).unwrap(),
+        ),
+        Some(_) => None,
+        None => panic!("invalid xovers: {}", params.xovers),
+    };
+
+    match params.simplification_interval {
+        None => (),
+        Some(x) => actual_simplification_interval = validate_simplification_interval(x),
+    }
+
+    let mut rng = StdRng::seed_from_u64(params.seed);
+
+    let mut pop = PopulationState::new(params.genome_length);
+    let mut samples: SamplesInfo = Default::default();
+
+    // Record nodes for the first generation
+    // Nodes will have birth time 0 in deme 0.
+    for index in 0..params.popsize {
+        let node0 = pop.tables.add_node(0_f64, 0).unwrap();
+        let node1 = pop.tables.add_node(0_f64, 0).unwrap();
+        pop.parents.push(Parent {
+            index: index as usize,
+            node0,
+            node1,
+        });
+    }
+
+    for i in 0..pop.tables.num_nodes() {
+        samples.edge_buffer_founder_nodes.push(i.into());
+    }
+
+    let mut simplified = false;
+    let mut state = SimplificationBuffers::new();
+
+    let mut output = SimplificationOutput::new();
+    let new_edge_handler = buffer_edges;
+
+    for birth_time in 1..(params.nsteps + 1) {
+        deaths_and_parents(params.psurvival, &mut rng, &mut pop);
+        generate_births(
+            breakpoint,
             birth_time.into(),
             &mut rng,
             &mut pop,
