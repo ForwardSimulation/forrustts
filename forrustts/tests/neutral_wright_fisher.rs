@@ -680,6 +680,7 @@ pub fn neutral_wf(
 
 // Below is code for simplifying in a separate thread via channels.
 struct SimplificationRoundTripData {
+    samples: SamplesInfo,
     edge_buffer: EdgeBuffer,
     tables: TableCollection,
     state: SimplificationBuffers,
@@ -688,12 +689,15 @@ struct SimplificationRoundTripData {
 
 impl SimplificationRoundTripData {
     fn new(
+        samples: SamplesInfo,
+
         edge_buffer: EdgeBuffer,
         tables: TableCollection,
         state: SimplificationBuffers,
         output: SimplificationOutput,
     ) -> Self {
         Self {
+            samples,
             edge_buffer,
             tables,
             state,
@@ -705,7 +709,6 @@ impl SimplificationRoundTripData {
 // Take ownership, simplify, return ownership.
 fn simplify_from_edge_buffer_channel(
     flags: SimplificationFlags,
-    samples: SamplesInfo,
     inputs: SimplificationRoundTripData,
 ) -> Result<SimplificationRoundTripData, Box<dyn std::error::Error>> {
     let mut tables = inputs.tables;
@@ -714,7 +717,7 @@ fn simplify_from_edge_buffer_channel(
     let mut output = inputs.output;
 
     simplify_from_edge_buffer(
-        &samples,
+        &inputs.samples,
         flags,
         &mut state,
         &mut edge_buffer,
@@ -723,6 +726,7 @@ fn simplify_from_edge_buffer_channel(
     )?;
 
     Ok(SimplificationRoundTripData::new(
+        inputs.samples,
         edge_buffer,
         tables,
         state,
@@ -794,14 +798,37 @@ pub fn neutral_wf_simplify_separate_thread(
         );
         if actual_simplification_interval != -1 && birth_time % actual_simplification_interval == 0
         {
-            simplify_and_remap_nodes(
-                params.flags,
-                params.simplification_flags,
-                &mut samples,
-                &mut state,
-                &mut pop,
-                &mut output,
+            // consume data
+            let inputs = SimplificationRoundTripData::new(
+                samples,
+                pop.edge_buffer,
+                pop.tables,
+                state,
+                output,
             );
+            // send data to simplification
+            let outputs = simplify_from_edge_buffer_channel(params.simplification_flags, inputs)?;
+            // get our data back
+            pop.edge_buffer = outputs.edge_buffer;
+            pop.tables = outputs.tables;
+            output = outputs.output;
+            state = outputs.state;
+            samples = outputs.samples;
+
+            // remap parent nodes
+            for p in &mut pop.parents {
+                p.node0 = output.idmap[usize::from(p.node0)];
+                p.node1 = output.idmap[usize::from(p.node1)];
+                assert!(pop.tables.node(p.node0).flags & NodeFlags::IS_SAMPLE.bits() > 0);
+            }
+
+            // Track what (remapped) nodes are now alive.
+            samples.edge_buffer_founder_nodes.clear();
+            for p in &pop.parents {
+                samples.edge_buffer_founder_nodes.push(p.node0);
+                samples.edge_buffer_founder_nodes.push(p.node1);
+            }
+
             simplified = true;
         } else {
             simplified = false;
