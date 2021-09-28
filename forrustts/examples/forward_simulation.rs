@@ -69,6 +69,13 @@ fn main() {
                 .help("Validate all tables prior to simplification")
                 .takes_value(false),
         )
+        .arg(
+            Arg::with_name("threads")
+                .short("t")
+                .long("threads")
+                .help("Simplify in a second thread while recording data in the primary thread.")
+                .takes_value(false),
+        )
         .get_matches();
 
     // TODO: default params
@@ -82,6 +89,7 @@ fn main() {
     let seed = value_t_or_exit!(matches.value_of("seed"), usize);
     let outfile = value_t_or_exit!(matches.value_of("outfile"), String);
     let validate_tables = matches.is_present("validate_tables");
+    let use_threads = matches.is_present("threads");
 
     // TODO: parameter validation..
 
@@ -117,7 +125,10 @@ fn main() {
         simplification_flags: forrustts_tables_trees::SimplificationFlags::empty(),
     };
 
-    let (tables, is_sample) = neutral_wf(simparams).unwrap();
+    let (tables, is_sample) = match use_threads {
+        false => neutral_wf(simparams).unwrap(),
+        true => neutral_wf_simplify_separate_thread(simparams).unwrap(),
+    };
 
     let tskit_tables = forrustts_tskit::export_tables(
         tables,
