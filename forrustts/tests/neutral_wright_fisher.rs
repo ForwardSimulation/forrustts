@@ -856,6 +856,9 @@ pub fn neutral_wf_simplify_separate_thread(
     let mut birth_time: i64 = 1;
 
     loop {
+        // Step 1: check if there's work to simplify
+
+        // record new data while simplification is happening
         for _ in 1..(actual_simplification_interval + 1) {
             simplified = false;
             deaths_and_parents(params.psurvival, &mut rng, &mut pop);
@@ -872,14 +875,16 @@ pub fn neutral_wf_simplify_separate_thread(
             );
 
             birth_time += 1;
+
+            // We may exit if the simplification interval
+            // and/or the nsteps is a "funny" value
             if birth_time > params.nsteps {
                 break;
             }
         }
 
-        if birth_time > params.nsteps {
-            break;
-        }
+        // Join our simplification thread handle, if
+        // it exists
 
         fill_samples(&pop.parents, &mut samples);
         // transfer over our new nodes
@@ -913,6 +918,10 @@ pub fn neutral_wf_simplify_separate_thread(
             samples.edge_buffer_founder_nodes.push(p.node1);
         }
         simplified = true;
+
+        if birth_time > params.nsteps {
+            break;
+        }
     }
 
     // for birth_time in 1..(params.nsteps + 1) {
