@@ -1008,10 +1008,28 @@ pub fn neutral_wf_simplify_separate_thread(
             Simplifying::Yes(outputs) => {
                 simplified = true;
                 edge_buffer = outputs.edge_buffer;
+                std::mem::swap(&mut pop.edge_buffer, &mut edge_buffer);
                 tables = outputs.tables;
                 output = outputs.output;
                 state = outputs.state;
                 samples = outputs.samples;
+
+                next_node_id = tables.nodes().len() as TablesIdInteger;
+                // remap parent nodes
+                for p in &mut pop.parents {
+                    p.node0 = output.idmap[usize::from(p.node0)];
+                    p.node1 = output.idmap[usize::from(p.node1)];
+                    assert!(tables.node(p.node0).flags & NodeFlags::IS_SAMPLE.bits() > 0);
+                }
+
+                // TODO: we can save a loop by merging the pushes into
+                // the previous loop
+                // Track what (remapped) nodes are now alive.
+                samples.edge_buffer_founder_nodes.clear();
+                for p in &pop.parents {
+                    samples.edge_buffer_founder_nodes.push(p.node0);
+                    samples.edge_buffer_founder_nodes.push(p.node1);
+                }
             }
         }
         if birth_time > params.nsteps {
