@@ -853,7 +853,6 @@ fn dispatch_simplification(
                     //);
                     TablesIdInteger::from(edge.parent) + num_nodes
                         - first_child_node_after_last_simplification
-                        + 1
                 }
             };
             let c = match edge.child >= first_child_node_after_last_simplification {
@@ -869,7 +868,6 @@ fn dispatch_simplification(
                     //);
                     TablesIdInteger::from(edge.child) + num_nodes
                         - first_child_node_after_last_simplification
-                        + 1
                 }
             };
             assert!(
@@ -946,7 +944,7 @@ pub fn neutral_wf_simplify_separate_thread(
         next_node_id += 2;
     }
     assert_eq!(next_node_id, tables.nodes().len() as TablesIdInteger);
-    let mut first_child_node_after_last_simplification = 0;
+    let mut first_child_node_after_last_simplification = next_node_id;
 
     for i in 0..tables.num_nodes() {
         samples.edge_buffer_founder_nodes.push(i.into());
@@ -994,10 +992,6 @@ pub fn neutral_wf_simplify_separate_thread(
 
                 next_node_id = samples.samples.len() as TablesIdInteger;
                 first_child_node_after_last_simplification = next_node_id;
-                println!(
-                    "bananas {} {}",
-                    next_node_id, first_child_node_after_last_simplification
-                );
                 // remap parent nodes
                 for p in &mut pop.parents {
                     p.node0 = output.idmap[usize::from(p.node0)];
