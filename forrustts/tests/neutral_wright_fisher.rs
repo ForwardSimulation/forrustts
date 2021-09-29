@@ -834,9 +834,10 @@ fn dispatch_simplification(
         let mut samples = samples;
         fill_samples(&pop.parents, &mut samples);
         // transfer over our new nodes
-        let mut node_table = pop.tables.dump_node_table();
+        let mut tables = tables; // Take over ownership
+        let mut node_table = tables.dump_node_table();
         node_table.append(new_nodes);
-        pop.tables.set_node_table(node_table);
+        tables.set_node_table(node_table);
         // consume data
         let inputs = SimplificationRoundTripData::new(samples, edge_buffer, tables, state, output);
 
