@@ -743,7 +743,7 @@ fn generate_births_v2(
     rng: &mut StdRng,
     parents: &mut [Parent],
     new_nodes: &mut NodeTable,
-    edge_buffer: &mut EdgeBuffer,
+    new_edges: &mut EdgeTable,
     next_node_id: &mut TablesIdInteger,
 ) {
     for b in births {
@@ -773,22 +773,31 @@ fn generate_births_v2(
                 loop {
                     let next_length = (rng.sample(exp) as PositionLLType) + 1;
                     if current_pos + next_length < genome_length {
-                        edge_buffer
-                            .record_edge(pnodes.0, c, current_pos, current_pos + next_length)
-                            .unwrap();
+                        new_edges.push(Edge {
+                            parent: pnodes.0,
+                            child: c,
+                            left: current_pos.into(),
+                            right: (current_pos + next_length).into(),
+                        });
                         current_pos += next_length;
                         std::mem::swap(&mut pnodes.0, &mut pnodes.1);
                     } else {
-                        edge_buffer
-                            .record_edge(pnodes.0, c, current_pos, genome_length)
-                            .unwrap();
+                        new_edges.push(Edge {
+                            parent: pnodes.0,
+                            child: c,
+                            left: current_pos.into(),
+                            right: genome_length,
+                        });
                         break;
                     }
                 }
             } else {
-                edge_buffer
-                    .record_edge(pnodes.0, c, 0, genome_length)
-                    .unwrap();
+                new_edges.push(Edge {
+                    parent: pnodes.0,
+                    child: c,
+                    left: 0.into(),
+                    right: genome_length,
+                });
             }
         }
         parents[b.index].index = b.index;
@@ -903,6 +912,7 @@ pub fn neutral_wf_simplify_separate_thread(
     let mut output = SimplificationOutput::new();
 
     let mut new_nodes = NodeTable::default();
+    let mut new_edges = EdgeTable::default();
 
     let mut birth_time: i64 = 1;
 
@@ -1020,7 +1030,7 @@ pub fn neutral_wf_simplify_separate_thread(
                 &mut rng,
                 &mut pop.parents,
                 &mut new_nodes,
-                &mut pop.edge_buffer,
+                &mut new_edges,
                 &mut next_node_id,
             );
 
@@ -1032,7 +1042,6 @@ pub fn neutral_wf_simplify_separate_thread(
                 break;
             }
         }
-
     }
 
     // for birth_time in 1..(params.nsteps + 1) {
