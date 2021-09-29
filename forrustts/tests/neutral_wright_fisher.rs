@@ -894,10 +894,11 @@ pub fn neutral_wf_simplify_separate_thread(
     }
     assert_eq!(next_node_id, tables.nodes().len() as TablesIdInteger);
 
-    for i in 0..pop.tables.num_nodes() {
+    for i in 0..tables.num_nodes() {
         samples.edge_buffer_founder_nodes.push(i.into());
     }
 
+    let genome_length = tables.genome_length();
     let mut simplified = false;
     let mut edge_buffer = EdgeBuffer::default();
     let mut state = SimplificationBuffers::new();
@@ -976,7 +977,7 @@ pub fn neutral_wf_simplify_separate_thread(
             generate_births_v2(
                 breakpoint,
                 birth_time.into(),
-                pop.tables.genome_length(),
+                genome_length,
                 &mut pop.births,
                 &mut rng,
                 &mut pop.parents,
@@ -1077,9 +1078,9 @@ pub fn neutral_wf_simplify_separate_thread(
 
     if !simplified && actual_simplification_interval != -1 {
         if !new_nodes.is_empty() {
-            let mut node_table = pop.tables.dump_node_table();
+            let mut node_table = tables.dump_node_table();
             node_table.append(&mut new_nodes);
-            pop.tables.set_node_table(node_table);
+            tables.set_node_table(node_table);
         }
         simplify_and_remap_nodes(
             params.flags,
@@ -1091,16 +1092,16 @@ pub fn neutral_wf_simplify_separate_thread(
         );
     }
 
-    let mut is_alive: Vec<i32> = vec![0; pop.tables.num_nodes()];
+    let mut is_alive: Vec<i32> = vec![0; tables.num_nodes()];
 
     for p in pop.parents {
         is_alive[usize::from(p.node0)] = 1;
         is_alive[usize::from(p.node1)] = 1;
     }
 
-    mutate_tables(params.mutrate, &mut pop.tables, &mut rng);
+    mutate_tables(params.mutrate, &mut tables, &mut rng);
 
-    for s in pop.tables.sites() {
+    for s in tables.sites() {
         match &s.ancestral_state {
             Some(x) => {
                 assert_eq!(x.len(), 1);
@@ -1109,7 +1110,7 @@ pub fn neutral_wf_simplify_separate_thread(
             None => panic!("ancestral_state is None"),
         };
     }
-    for m in pop.tables.mutations() {
+    for m in tables.mutations() {
         match &m.derived_state {
             Some(x) => {
                 assert_eq!(x.len(), 1);
@@ -1119,5 +1120,5 @@ pub fn neutral_wf_simplify_separate_thread(
         };
     }
 
-    Ok((pop.tables, is_alive))
+    Ok((tables, is_alive))
 }
