@@ -857,10 +857,57 @@ pub fn neutral_wf_simplify_separate_thread(
 
     loop {
         // Step 1: check if there's work to simplify
+        if !new_nodes.is_empty() {
+            // Join our simplification thread handle, if
+            // it exists
+
+            fill_samples(&pop.parents, &mut samples);
+            // transfer over our new nodes
+            let mut node_table = pop.tables.dump_node_table();
+            node_table.append(&mut new_nodes);
+            pop.tables.set_node_table(node_table);
+
+            // consume data
+            let inputs = SimplificationRoundTripData::new(
+                samples,
+                pop.edge_buffer,
+                pop.tables,
+                state,
+                output,
+            );
+            // send data to simplification
+            let outputs = simplify_from_edge_buffer_channel(params.simplification_flags, inputs)?;
+            // get our data back
+            pop.edge_buffer = outputs.edge_buffer;
+            pop.tables = outputs.tables;
+            output = outputs.output;
+            state = outputs.state;
+            samples = outputs.samples;
+            next_node_id = pop.tables.nodes().len() as TablesIdInteger;
+            // remap parent nodes
+            for p in &mut pop.parents {
+                p.node0 = output.idmap[usize::from(p.node0)];
+                p.node1 = output.idmap[usize::from(p.node1)];
+                assert!(pop.tables.node(p.node0).flags & NodeFlags::IS_SAMPLE.bits() > 0);
+            }
+
+            // Track what (remapped) nodes are now alive.
+            samples.edge_buffer_founder_nodes.clear();
+            for p in &pop.parents {
+                samples.edge_buffer_founder_nodes.push(p.node0);
+                samples.edge_buffer_founder_nodes.push(p.node1);
+            }
+            simplified = true;
+        } else {
+            simplified = false;
+        }
+
+        if birth_time > params.nsteps {
+            break;
+        }
 
         // record new data while simplification is happening
         for _ in 1..(actual_simplification_interval + 1) {
-            simplified = false;
             deaths_and_parents(params.psurvival, &mut rng, &mut pop);
             generate_births_v2(
                 breakpoint,
@@ -881,46 +928,6 @@ pub fn neutral_wf_simplify_separate_thread(
             if birth_time > params.nsteps {
                 break;
             }
-        }
-
-        // Join our simplification thread handle, if
-        // it exists
-
-        fill_samples(&pop.parents, &mut samples);
-        // transfer over our new nodes
-        let mut node_table = pop.tables.dump_node_table();
-        node_table.append(&mut new_nodes);
-        pop.tables.set_node_table(node_table);
-
-        // consume data
-        let inputs =
-            SimplificationRoundTripData::new(samples, pop.edge_buffer, pop.tables, state, output);
-        // send data to simplification
-        let outputs = simplify_from_edge_buffer_channel(params.simplification_flags, inputs)?;
-        // get our data back
-        pop.edge_buffer = outputs.edge_buffer;
-        pop.tables = outputs.tables;
-        output = outputs.output;
-        state = outputs.state;
-        samples = outputs.samples;
-        next_node_id = pop.tables.nodes().len() as TablesIdInteger;
-        // remap parent nodes
-        for p in &mut pop.parents {
-            p.node0 = output.idmap[usize::from(p.node0)];
-            p.node1 = output.idmap[usize::from(p.node1)];
-            assert!(pop.tables.node(p.node0).flags & NodeFlags::IS_SAMPLE.bits() > 0);
-        }
-
-        // Track what (remapped) nodes are now alive.
-        samples.edge_buffer_founder_nodes.clear();
-        for p in &pop.parents {
-            samples.edge_buffer_founder_nodes.push(p.node0);
-            samples.edge_buffer_founder_nodes.push(p.node1);
-        }
-        simplified = true;
-
-        if birth_time > params.nsteps {
-            break;
         }
     }
 
