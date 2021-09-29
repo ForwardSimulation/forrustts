@@ -4,6 +4,7 @@ use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
 use rand_distr::{Exp, Uniform};
+use std::thread;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -796,6 +797,56 @@ fn generate_births_v2(
     }
 }
 
+enum Simplifying {
+    No(
+        (
+            TableCollection,
+            SamplesInfo,
+            EdgeBuffer,
+            SimplificationBuffers,
+            SimplificationOutput,
+        ),
+    ),
+    Yes(SimplificationRoundTripData),
+}
+
+fn dispatch_simplification(
+    pop: &mut PopulationState,
+    new_nodes: &mut NodeTable,
+    flags: SimplificationFlags,
+    tables: TableCollection,
+    samples: SamplesInfo,
+    edge_buffer: EdgeBuffer,
+    state: SimplificationBuffers,
+    output: SimplificationOutput,
+) -> Simplifying {
+    // If new nodes is empty, there's no work to be done
+    // and we can return consumed stuff
+    if new_nodes.is_empty() {
+        println!("no");
+        Simplifying::No((tables, samples, edge_buffer, state, output))
+    } else {
+        println!("yes");
+        // Else, we have to do some moves of the big
+        // data structures and return a JoinHandle
+        let mut edge_buffer = edge_buffer; // take ownership
+        std::mem::swap(&mut edge_buffer, &mut pop.edge_buffer); // Take the buffer from the population
+        let mut samples = samples;
+        fill_samples(&pop.parents, &mut samples);
+        // transfer over our new nodes
+        let mut node_table = pop.tables.dump_node_table();
+        node_table.append(new_nodes);
+        pop.tables.set_node_table(node_table);
+        // consume data
+        let inputs = SimplificationRoundTripData::new(samples, edge_buffer, tables, state, output);
+
+        // send data to simplification
+        let outputs = simplify_from_edge_buffer_channel(flags, inputs).unwrap();
+        println!("returning...");
+        Simplifying::Yes(outputs)
+    }
+}
+
 pub fn neutral_wf_simplify_separate_thread(
     params: SimulationParams,
 ) -> Result<(TableCollection, Vec<i32>), Box<dyn std::error::Error>> {
@@ -830,9 +881,10 @@ pub fn neutral_wf_simplify_separate_thread(
     // Record nodes for the first generation
     // Nodes will have birth time 0 in deme 0.
     let mut next_node_id: TablesIdInteger = 0;
+    let mut tables = TableCollection::new(params.genome_length).unwrap();
     for index in 0..params.popsize {
-        let node0 = pop.tables.add_node(0_f64, 0).unwrap();
-        let node1 = pop.tables.add_node(0_f64, 0).unwrap();
+        let node0 = tables.add_node(0_f64, 0).unwrap();
+        let node1 = tables.add_node(0_f64, 0).unwrap();
         pop.parents.push(Parent {
             index: index as usize,
             node0,
@@ -840,15 +892,15 @@ pub fn neutral_wf_simplify_separate_thread(
         });
         next_node_id += 2;
     }
-    assert_eq!(next_node_id, pop.tables.nodes().len() as TablesIdInteger);
+    assert_eq!(next_node_id, tables.nodes().len() as TablesIdInteger);
 
     for i in 0..pop.tables.num_nodes() {
         samples.edge_buffer_founder_nodes.push(i.into());
     }
 
     let mut simplified = false;
+    let mut edge_buffer = EdgeBuffer::default();
     let mut state = SimplificationBuffers::new();
-
     let mut output = SimplificationOutput::new();
 
     let mut new_nodes = NodeTable::default();
@@ -856,55 +908,67 @@ pub fn neutral_wf_simplify_separate_thread(
     let mut birth_time: i64 = 1;
 
     loop {
+        println!("{}", birth_time);
         // Step 1: check if there's work to simplify
-        if !new_nodes.is_empty() {
-            // Join our simplification thread handle, if
-            // it exists
 
-            fill_samples(&pop.parents, &mut samples);
-            // transfer over our new nodes
-            let mut node_table = pop.tables.dump_node_table();
-            node_table.append(&mut new_nodes);
-            pop.tables.set_node_table(node_table);
+        let simplifying = dispatch_simplification(
+            &mut pop,
+            &mut new_nodes,
+            params.simplification_flags,
+            tables,
+            samples,
+            edge_buffer,
+            state,
+            output,
+        );
+        //if !new_nodes.is_empty() {
+        //    // Join our simplification thread handle, if
+        //    // it exists
 
-            // consume data
-            let inputs = SimplificationRoundTripData::new(
-                samples,
-                pop.edge_buffer,
-                pop.tables,
-                state,
-                output,
-            );
-            // send data to simplification
-            let outputs = simplify_from_edge_buffer_channel(params.simplification_flags, inputs)?;
-            // get our data back
-            pop.edge_buffer = outputs.edge_buffer;
-            pop.tables = outputs.tables;
-            output = outputs.output;
-            state = outputs.state;
-            samples = outputs.samples;
-            next_node_id = pop.tables.nodes().len() as TablesIdInteger;
-            // remap parent nodes
-            for p in &mut pop.parents {
-                p.node0 = output.idmap[usize::from(p.node0)];
-                p.node1 = output.idmap[usize::from(p.node1)];
-                assert!(pop.tables.node(p.node0).flags & NodeFlags::IS_SAMPLE.bits() > 0);
-            }
+        //    fill_samples(&pop.parents, &mut samples);
+        //    // transfer over our new nodes
+        //    let mut node_table = pop.tables.dump_node_table();
+        //    node_table.append(&mut new_nodes);
+        //    pop.tables.set_node_table(node_table);
 
-            // Track what (remapped) nodes are now alive.
-            samples.edge_buffer_founder_nodes.clear();
-            for p in &pop.parents {
-                samples.edge_buffer_founder_nodes.push(p.node0);
-                samples.edge_buffer_founder_nodes.push(p.node1);
-            }
-            simplified = true;
-        } else {
-            simplified = false;
-        }
+        //    // consume data
+        //    let inputs = SimplificationRoundTripData::new(
+        //        samples,
+        //        pop.edge_buffer,
+        //        pop.tables,
+        //        state,
+        //        output,
+        //    );
+        //    // send data to simplification
+        //    let outputs = simplify_from_edge_buffer_channel(params.simplification_flags, inputs)?;
+        //    // get our data back
+        //    pop.edge_buffer = outputs.edge_buffer;
+        //    pop.tables = outputs.tables;
+        //    output = outputs.output;
+        //    state = outputs.state;
+        //    samples = outputs.samples;
+        //    next_node_id = pop.tables.nodes().len() as TablesIdInteger;
+        //    // remap parent nodes
+        //    for p in &mut pop.parents {
+        //        p.node0 = output.idmap[usize::from(p.node0)];
+        //        p.node1 = output.idmap[usize::from(p.node1)];
+        //        assert!(pop.tables.node(p.node0).flags & NodeFlags::IS_SAMPLE.bits() > 0);
+        //    }
 
-        if birth_time > params.nsteps {
-            break;
-        }
+        //    // Track what (remapped) nodes are now alive.
+        //    samples.edge_buffer_founder_nodes.clear();
+        //    for p in &pop.parents {
+        //        samples.edge_buffer_founder_nodes.push(p.node0);
+        //        samples.edge_buffer_founder_nodes.push(p.node1);
+        //    }
+        //    simplified = true;
+        //} else {
+        //    simplified = false;
+        //}
+
+        //if birth_time > params.nsteps {
+        //    break;
+        //}
 
         // record new data while simplification is happening
         for _ in 1..(actual_simplification_interval + 1) {
@@ -928,6 +992,28 @@ pub fn neutral_wf_simplify_separate_thread(
             if birth_time > params.nsteps {
                 break;
             }
+        }
+
+        match simplifying {
+            Simplifying::No(data) => {
+                simplified = false;
+                tables = data.0;
+                samples = data.1;
+                edge_buffer = data.2;
+                state = data.3;
+                output = data.4;
+            }
+            Simplifying::Yes(outputs) => {
+                simplified = true;
+                edge_buffer = outputs.edge_buffer;
+                tables = outputs.tables;
+                output = outputs.output;
+                state = outputs.state;
+                samples = outputs.samples;
+            }
+        }
+        if birth_time > params.nsteps {
+            break;
         }
     }
 
