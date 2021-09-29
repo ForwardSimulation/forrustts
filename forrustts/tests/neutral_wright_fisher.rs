@@ -990,6 +990,8 @@ pub fn neutral_wf_simplify_separate_thread(
                 state = outputs.state;
                 samples = outputs.samples;
 
+                // FIXME: this is probalby our issue, causing "bad" things to
+                // happen w/new node IDs?
                 next_node_id = samples.samples.len() as TablesIdInteger;
                 first_child_node_after_last_simplification = next_node_id;
                 // remap parent nodes
