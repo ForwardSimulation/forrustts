@@ -823,20 +823,14 @@ fn dispatch_simplification(
     // If new nodes is empty, there's no work to be done
     // and we can return consumed stuff
     if new_nodes.is_empty() {
-        println!("no");
         Simplifying::No((tables, samples, edge_buffer, state, output))
     } else {
-        println!("yes");
         // Else, we have to do some moves of the big
         // data structures and return a JoinHandle
         let mut edge_buffer = edge_buffer; // take ownership
         std::mem::swap(&mut edge_buffer, &mut pop.edge_buffer); // Take the buffer from the population
         let mut samples = samples;
         fill_samples(&pop.parents, &mut samples);
-        println!("{}", samples.samples.len());
-        for i in &samples.samples[0..10] {
-            println!("{}", i32::from(*i));
-        }
         // transfer over our new nodes
         let mut tables = tables; // Take over ownership
         let mut node_table = tables.dump_node_table();
@@ -847,7 +841,6 @@ fn dispatch_simplification(
 
         // send data to simplification
         let outputs = simplify_from_edge_buffer_channel(flags, inputs).unwrap();
-        println!("returning...");
         Simplifying::Yes(outputs)
     }
 }
@@ -914,7 +907,6 @@ pub fn neutral_wf_simplify_separate_thread(
     let mut birth_time: i64 = 1;
 
     loop {
-        println!("{}", birth_time);
         // Step 1: check if there's work to simplify
 
         let simplifying = dispatch_simplification(
