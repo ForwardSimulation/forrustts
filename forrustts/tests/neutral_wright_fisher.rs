@@ -691,7 +691,6 @@ struct SimplificationRoundTripData {
 impl SimplificationRoundTripData {
     fn new(
         samples: SamplesInfo,
-
         edge_buffer: EdgeBuffer,
         tables: TableCollection,
         state: SimplificationBuffers,
@@ -811,7 +810,6 @@ enum Simplifying {
         (
             TableCollection,
             SamplesInfo,
-            EdgeBuffer,
             SimplificationBuffers,
             SimplificationOutput,
         ),
@@ -822,22 +820,70 @@ enum Simplifying {
 fn dispatch_simplification(
     pop: &mut PopulationState,
     new_nodes: &mut NodeTable,
+    new_edges: &mut EdgeTable,
+    first_child_node_after_last_simplification: TablesIdInteger,
     flags: SimplificationFlags,
     tables: TableCollection,
     samples: SamplesInfo,
-    edge_buffer: EdgeBuffer,
     state: SimplificationBuffers,
     output: SimplificationOutput,
 ) -> Simplifying {
     // If new nodes is empty, there's no work to be done
     // and we can return consumed stuff
     if new_nodes.is_empty() {
-        Simplifying::No((tables, samples, edge_buffer, state, output))
+        Simplifying::No((tables, samples, state, output))
     } else {
         // Else, we have to do some moves of the big
         // data structures and return a JoinHandle
-        let mut edge_buffer = edge_buffer; // take ownership
-        std::mem::swap(&mut edge_buffer, &mut pop.edge_buffer); // Take the buffer from the population
+        let mut edge_buffer = EdgeBuffer::default();
+
+        // Transfer our edges
+        let num_nodes = tables.nodes().len() as TablesIdInteger;
+        for edge in new_edges.drain(0..) {
+            let p = match edge.parent >= first_child_node_after_last_simplification {
+                false => TablesIdInteger::from(edge.parent),
+                true => {
+                    //println!(
+                    //    "parent mapping: {}, {} {}-> {}",
+                    //    TablesIdInteger::from(edge.parent),
+                    //    num_nodes,
+                    //    first_child_node_after_last_simplification,
+                    //    TablesIdInteger::from(edge.parent) + num_nodes
+                    //        - first_child_node_after_last_simplification
+                    //);
+                    TablesIdInteger::from(edge.parent) + num_nodes
+                        - first_child_node_after_last_simplification
+                        + 1
+                }
+            };
+            let c = match edge.child >= first_child_node_after_last_simplification {
+                false => TablesIdInteger::from(edge.child),
+                true => {
+                    //println!(
+                    //    "child mapping: {}, {} {}-> {}",
+                    //    TablesIdInteger::from(edge.child),
+                    //    num_nodes,
+                    //    first_child_node_after_last_simplification,
+                    //    TablesIdInteger::from(edge.child) + num_nodes
+                    //        - first_child_node_after_last_simplification
+                    //);
+                    TablesIdInteger::from(edge.child) + num_nodes
+                        - first_child_node_after_last_simplification
+                        + 1
+                }
+            };
+            assert!(
+                (c as usize) < tables.nodes().len() + new_nodes.len(),
+                "{} {} {}",
+                c,
+                tables.nodes().len(),
+                new_nodes.len()
+            );
+            edge_buffer
+                .record_edge(p, c, edge.left, edge.right)
+                .unwrap();
+        }
+        assert!(new_edges.is_empty());
         let mut samples = samples;
         fill_samples(&pop.parents, &mut samples);
         // transfer over our new nodes
@@ -900,6 +946,7 @@ pub fn neutral_wf_simplify_separate_thread(
         next_node_id += 2;
     }
     assert_eq!(next_node_id, tables.nodes().len() as TablesIdInteger);
+    let mut first_child_node_after_last_simplification = 0;
 
     for i in 0..tables.num_nodes() {
         samples.edge_buffer_founder_nodes.push(i.into());
@@ -907,7 +954,6 @@ pub fn neutral_wf_simplify_separate_thread(
 
     let genome_length = tables.genome_length();
     let mut simplified = false;
-    let mut edge_buffer = EdgeBuffer::default();
     let mut state = SimplificationBuffers::new();
     let mut output = SimplificationOutput::new();
 
@@ -922,10 +968,11 @@ pub fn neutral_wf_simplify_separate_thread(
         let simplifying = dispatch_simplification(
             &mut pop,
             &mut new_nodes,
+            &mut new_edges,
+            first_child_node_after_last_simplification,
             params.simplification_flags,
             tables,
             samples,
-            edge_buffer,
             state,
             output,
         );
@@ -935,20 +982,22 @@ pub fn neutral_wf_simplify_separate_thread(
                 simplified = false;
                 tables = data.0;
                 samples = data.1;
-                edge_buffer = data.2;
-                state = data.3;
-                output = data.4;
+                state = data.2;
+                output = data.3;
             }
             Simplifying::Yes(outputs) => {
                 simplified = true;
-                edge_buffer = outputs.edge_buffer;
-                std::mem::swap(&mut pop.edge_buffer, &mut edge_buffer);
                 tables = outputs.tables;
                 output = outputs.output;
                 state = outputs.state;
                 samples = outputs.samples;
 
-                next_node_id = tables.nodes().len() as TablesIdInteger;
+                next_node_id = samples.samples.len() as TablesIdInteger;
+                first_child_node_after_last_simplification = next_node_id;
+                println!(
+                    "bananas {} {}",
+                    next_node_id, first_child_node_after_last_simplification
+                );
                 // remap parent nodes
                 for p in &mut pop.parents {
                     p.node0 = output.idmap[usize::from(p.node0)];
