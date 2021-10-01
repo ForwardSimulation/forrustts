@@ -631,7 +631,7 @@ pub fn neutral_wf(
                 &mut pop,
                 &mut output,
             );
-            println!("regular method: the nodes are:");
+            println!("regular method: the simplified nodes are:");
             for (i, n) in pop.tables.nodes().iter().enumerate() {
                 println!("{} {}", i, TimeLLType::from(n.time));
             }
@@ -1025,7 +1025,7 @@ pub fn neutral_wf_simplify_separate_thread(
                 next_node_id = samples.samples.len() as TablesIdInteger;
                 first_child_node_after_last_simplification = next_node_id;
                 println!("simplified node table len = {}", tables.nodes().len());
-                println!("the nodes are:");
+                println!("the simplified nodes are:");
                 for (i, n) in tables.nodes().iter().enumerate() {
                     println!("{} {}", i, TimeLLType::from(n.time));
                 }
