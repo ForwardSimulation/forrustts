@@ -631,19 +631,6 @@ pub fn neutral_wf(
                 &mut pop,
                 &mut output,
             );
-            println!("regular method: the simplified nodes are:");
-            for (i, n) in pop.tables.nodes().iter().enumerate() {
-                println!("{} {}", i, TimeLLType::from(n.time));
-            }
-            println!("regular method: the simplified edges are:");
-            for (i, n) in pop.tables.edges().iter().enumerate() {
-                println!(
-                    "{} {} {}",
-                    i,
-                    TablesIdInteger::from(n.parent),
-                    TablesIdInteger::from(n.child)
-                );
-            }
             simplified = true;
         } else {
             simplified = false;
@@ -846,15 +833,6 @@ fn dispatch_simplification(
     if new_nodes.is_empty() {
         Simplifying::No((tables, samples, state, output))
     } else {
-        println!("dispatch, yo! {} {}", new_nodes.len(), new_edges.len());
-        println!("the new edges are");
-        for i in new_edges.iter() {
-            println!(
-                "{} {}",
-                TablesIdInteger::from(i.parent),
-                TablesIdInteger::from(i.child)
-            );
-        }
         // Else, we have to do some moves of the big
         // data structures and return a JoinHandle
         let mut edge_buffer = EdgeBuffer::default();
@@ -892,13 +870,6 @@ fn dispatch_simplification(
                         - first_child_node_after_last_simplification
                 }
             };
-            println!(
-                "{} -> {}, {} -> {}",
-                TablesIdInteger::from(edge.parent),
-                p,
-                TablesIdInteger::from(edge.child),
-                c
-            );
             assert!(
                 (c as usize) < tables.nodes().len() + new_nodes.len(),
                 "{} {} {}",
@@ -950,7 +921,6 @@ fn dispatch_simplification(
 pub fn neutral_wf_simplify_separate_thread(
     params: SimulationParams,
 ) -> Result<(TableCollection, Vec<i32>), Box<dyn std::error::Error>> {
-    println!("STARTING neutral_wf_simplify_separate_thread");
     // FIXME: gotta validate input params!
     // TODO: require a simplification interval > 0
     if !params.flags.contains(SimulationFlags::BUFFER_EDGES) {
@@ -1044,33 +1014,11 @@ pub fn neutral_wf_simplify_separate_thread(
                 // happen w/new node IDs?
                 next_node_id = samples.samples.len() as TablesIdInteger;
                 first_child_node_after_last_simplification = next_node_id;
-                println!("simplified node table len = {}", tables.nodes().len());
-                println!("the simplified nodes are:");
-                for (i, n) in tables.nodes().iter().enumerate() {
-                    println!("{} {}", i, TimeLLType::from(n.time));
-                }
-                println!("the simplified edges are:");
-                for (i, n) in tables.edges().iter().enumerate() {
-                    println!(
-                        "{} {} {}",
-                        i,
-                        TablesIdInteger::from(n.parent),
-                        TablesIdInteger::from(n.child)
-                    );
-                }
-                println!("next_node_id = {}", next_node_id);
-                println!(
-                    "first_child_node_after_last_simplification = {}",
-                    first_child_node_after_last_simplification
-                );
-
                 // remap parent nodes
-                let mut zz = 0;
                 // FIXME NOTE TODO: fascinating--the idmap is coming back funky?
                 for p in &mut pop.parents {
                     p.node0 = output.idmap[usize::from(p.node0)];
                     p.node1 = output.idmap[usize::from(p.node1)];
-                    zz += 2;
                     assert!(tables.node(p.node0).flags & NodeFlags::IS_SAMPLE.bits() > 0);
                 }
 

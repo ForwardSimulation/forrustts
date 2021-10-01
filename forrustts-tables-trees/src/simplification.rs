@@ -1061,30 +1061,6 @@ pub fn simplify_from_edge_buffer(
 ) -> Result<(), SimplificationError> {
     setup_simplification(samples, tables, flags, state, output)?;
 
-    println!("The samples list is:");
-    for s in samples.samples.iter() {
-        println!("{}", s.0);
-    }
-    println!("edge_buffer contents:");
-    for (i, p) in edge_buffer.0.head_iter().enumerate() {
-        for j in edge_buffer.0.values_iter(i as i32) {
-            println!("{} -> {} {} {}", p, j.node.0, j.left.0, j.right.0);
-        }
-    }
-    println!("node IDs alive at last simplification:");
-    for i in samples.edge_buffer_founder_nodes.iter() {
-        println!("{}", i.0);
-    }
-    println!("the input edges seen in simplification are:");
-    for (i, e) in tables.edges().iter().enumerate() {
-        println!("{} {} {}", i, e.parent.0, e.child.0);
-    }
-
-    println!("the input nodes seen in simplification are:");
-    for (i, n) in tables.nodes().iter().enumerate() {
-        println!("{} {}", i, n.time.0);
-    }
-
     // Process all edges since the last simplification.
     let mut max_time = Time::MIN;
     for n in samples.edge_buffer_founder_nodes.iter() {
