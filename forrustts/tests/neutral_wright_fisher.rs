@@ -913,6 +913,19 @@ fn dispatch_simplification(
         assert!(new_edges.is_empty());
         let mut samples = samples;
         fill_samples(&pop.parents, &mut samples);
+        assert_eq!(pop.parents.len() * 2, samples.samples.len());
+        for p in pop.parents.iter_mut() {
+            if p.node0 >= first_child_node_after_last_simplification {
+                p.node0 = (TablesIdInteger::from(p.node0) + num_nodes
+                    - first_child_node_after_last_simplification)
+                    .into();
+            }
+            if p.node1 >= first_child_node_after_last_simplification {
+                p.node1 = (TablesIdInteger::from(p.node1) + num_nodes
+                    - first_child_node_after_last_simplification)
+                    .into();
+            }
+        }
         for s in samples.samples.iter_mut() {
             if *s >= first_child_node_after_last_simplification {
                 *s = (TablesIdInteger::from(*s) + num_nodes
@@ -1055,11 +1068,10 @@ pub fn neutral_wf_simplify_separate_thread(
                 let mut zz = 0;
                 // FIXME NOTE TODO: fascinating--the idmap is coming back funky?
                 for p in &mut pop.parents {
-                    p.node0 = NodeId::from(zz); //output.idmap[usize::from(p.node0)];
-                    p.node1 = NodeId::from(zz + 1); //output.idmap[usize::from(p.node1)];
+                    p.node0 = output.idmap[usize::from(p.node0)];
+                    p.node1 = output.idmap[usize::from(p.node1)];
                     zz += 2;
-                    // FIXME: restore
-                    // assert!(tables.node(p.node0).flags & NodeFlags::IS_SAMPLE.bits() > 0);
+                    assert!(tables.node(p.node0).flags & NodeFlags::IS_SAMPLE.bits() > 0);
                 }
 
                 // TODO: we can save a loop by merging the pushes into
