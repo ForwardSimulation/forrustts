@@ -930,6 +930,7 @@ fn dispatch_simplification(
 pub fn neutral_wf_simplify_separate_thread(
     params: SimulationParams,
 ) -> Result<(TableCollection, Vec<i32>), Box<dyn std::error::Error>> {
+    println!("STARTING neutral_wf_simplify_separate_thread");
     // FIXME: gotta validate input params!
     // TODO: require a simplification interval > 0
     if !params.flags.contains(SimulationFlags::BUFFER_EDGES) {

@@ -1067,6 +1067,11 @@ pub fn simplify_from_edge_buffer(
             println!("{} -> {} {} {}", p, j.node.0, j.left.0, j.right.0);
         }
     }
+    println!("node IDs alive at last simplification:");
+    for i in samples.edge_buffer_founder_nodes.iter()
+    {
+        println!("{}",i.0);
+    }
 
     // Process all edges since the last simplification.
     let mut max_time = Time::MIN;
