@@ -1052,9 +1052,12 @@ pub fn neutral_wf_simplify_separate_thread(
                 );
 
                 // remap parent nodes
+                let mut zz = 0;
+                // FIXME NOTE TODO: fascinating--the idmap is coming back funky?
                 for p in &mut pop.parents {
-                    p.node0 = output.idmap[usize::from(p.node0)];
-                    p.node1 = output.idmap[usize::from(p.node1)];
+                    p.node0 = NodeId::from(zz); //output.idmap[usize::from(p.node0)];
+                    p.node1 = NodeId::from(zz + 1); //output.idmap[usize::from(p.node1)];
+                    zz += 2;
                     // FIXME: restore
                     // assert!(tables.node(p.node0).flags & NodeFlags::IS_SAMPLE.bits() > 0);
                 }
