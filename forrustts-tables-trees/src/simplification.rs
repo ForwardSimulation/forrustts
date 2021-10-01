@@ -1061,6 +1061,13 @@ pub fn simplify_from_edge_buffer(
 ) -> Result<(), SimplificationError> {
     setup_simplification(samples, tables, flags, state, output)?;
 
+    println!("edge_buffer contents:");
+    for (i, p) in edge_buffer.0.head_iter().enumerate() {
+        for j in edge_buffer.0.values_iter(i as i32) {
+            println!("{} -> {} {} {}", p, j.node.0, j.left.0, j.right.0);
+        }
+    }
+
     // Process all edges since the last simplification.
     let mut max_time = Time::MIN;
     for n in samples.edge_buffer_founder_nodes.iter() {
