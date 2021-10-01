@@ -833,6 +833,7 @@ fn dispatch_simplification(
     if new_nodes.is_empty() {
         Simplifying::No((tables, samples, state, output))
     } else {
+        println!("dispatch, yo! {} {}", new_nodes.len(), new_edges.len());
         // Else, we have to do some moves of the big
         // data structures and return a JoinHandle
         let mut edge_buffer = EdgeBuffer::default();
@@ -870,6 +871,7 @@ fn dispatch_simplification(
                         - first_child_node_after_last_simplification
                 }
             };
+            println!("{} -> {}, {} -> {}", TablesIdInteger::from(edge.parent), p, TablesIdInteger::from(edge.child), c);
             assert!(
                 (c as usize) < tables.nodes().len() + new_nodes.len(),
                 "{} {} {}",
