@@ -683,7 +683,6 @@ pub fn neutral_wf(
 struct SimplificationRoundTripData {
     samples: SamplesInfo,
     edge_buffer: EdgeBuffer,
-    tables: TableCollection,
     state: SimplificationBuffers,
     output: SimplificationOutput,
 }
@@ -692,14 +691,12 @@ impl SimplificationRoundTripData {
     fn new(
         samples: SamplesInfo,
         edge_buffer: EdgeBuffer,
-        tables: TableCollection,
         state: SimplificationBuffers,
         output: SimplificationOutput,
     ) -> Self {
         Self {
             samples,
             edge_buffer,
-            tables,
             state,
             output,
         }
@@ -710,8 +707,9 @@ impl SimplificationRoundTripData {
 fn simplify_from_edge_buffer_channel(
     flags: SimplificationFlags,
     inputs: SimplificationRoundTripData,
+    tables: std::sync::Arc<TableCollection>,
 ) -> Result<SimplificationRoundTripData, Box<dyn std::error::Error>> {
-    let mut tables = inputs.tables;
+    let mut tables = tables;
     let mut state = inputs.state;
     let mut edge_buffer = inputs.edge_buffer;
     let mut output = inputs.output;
@@ -721,14 +719,13 @@ fn simplify_from_edge_buffer_channel(
         flags,
         &mut state,
         &mut edge_buffer,
-        &mut tables,
+        std::sync::Arc::get_mut(&mut tables).unwrap(),
         &mut output,
     )?;
 
     Ok(SimplificationRoundTripData::new(
         inputs.samples,
         edge_buffer,
-        tables,
         state,
         output,
     ))
@@ -806,15 +803,8 @@ fn generate_births_v2(
 }
 
 enum Simplifying {
-    No(
-        (
-            TableCollection,
-            SamplesInfo,
-            SimplificationBuffers,
-            SimplificationOutput,
-        ),
-    ),
-    Yes(SimplificationRoundTripData),
+    No((SamplesInfo, SimplificationBuffers, SimplificationOutput)),
+    Yes(thread::JoinHandle<SimplificationRoundTripData>),
 }
 
 fn dispatch_simplification(
@@ -823,7 +813,7 @@ fn dispatch_simplification(
     new_edges: &mut EdgeTable,
     first_child_node_after_last_simplification: TablesIdInteger,
     flags: SimplificationFlags,
-    tables: TableCollection,
+    mut tables: std::sync::Arc<TableCollection>,
     samples: SamplesInfo,
     state: SimplificationBuffers,
     output: SimplificationOutput,
@@ -831,8 +821,9 @@ fn dispatch_simplification(
     // If new nodes is empty, there's no work to be done
     // and we can return consumed stuff
     if new_nodes.is_empty() {
-        Simplifying::No((tables, samples, state, output))
+        Simplifying::No((samples, state, output))
     } else {
+        println!("{}", std::sync::Arc::strong_count(&tables));
         // Else, we have to do some moves of the big
         // data structures and return a JoinHandle
         let mut edge_buffer = EdgeBuffer::default();
@@ -855,6 +846,8 @@ fn dispatch_simplification(
                         - first_child_node_after_last_simplification
                 }
             };
+
+            // TODO: this can/should be dispatched to a thread.
             let c = match edge.child >= first_child_node_after_last_simplification {
                 false => TablesIdInteger::from(edge.child),
                 true => {
@@ -901,16 +894,22 @@ fn dispatch_simplification(
         }
         assert_eq!(pop.parents.len() * 2, samples.samples.len());
         // transfer over our new nodes
-        let mut tables = tables; // Take over ownership
-        let mut node_table = tables.dump_node_table();
+        let mut node_table = std::sync::Arc::get_mut(&mut tables)
+            .unwrap()
+            .dump_node_table();
         node_table.append(new_nodes);
-        tables.set_node_table(node_table);
-        // consume data
-        let inputs = SimplificationRoundTripData::new(samples, edge_buffer, tables, state, output);
+        std::sync::Arc::get_mut(&mut tables)
+            .unwrap()
+            .set_node_table(node_table);
+        Simplifying::Yes(thread::spawn(move || {
+            // consume data
+            let inputs = SimplificationRoundTripData::new(samples, edge_buffer, state, output);
 
-        // send data to simplification
-        let outputs = simplify_from_edge_buffer_channel(flags, inputs).unwrap();
-        Simplifying::Yes(outputs)
+            // send data to simplification
+            let outputs = simplify_from_edge_buffer_channel(flags, inputs, tables).unwrap();
+
+            outputs
+        }))
     }
 }
 
@@ -948,10 +947,10 @@ pub fn neutral_wf_simplify_separate_thread(
     // Record nodes for the first generation
     // Nodes will have birth time 0 in deme 0.
     let mut next_node_id: TablesIdInteger = 0;
-    let mut tables = TableCollection::new(params.genome_length).unwrap();
+    let mut _tables = TableCollection::new(params.genome_length).unwrap();
     for index in 0..params.popsize {
-        let node0 = tables.add_node(0_f64, 0).unwrap();
-        let node1 = tables.add_node(0_f64, 0).unwrap();
+        let node0 = _tables.add_node(0_f64, 0).unwrap();
+        let node1 = _tables.add_node(0_f64, 0).unwrap();
         pop.parents.push(Parent {
             index: index as usize,
             node0,
@@ -959,14 +958,15 @@ pub fn neutral_wf_simplify_separate_thread(
         });
         next_node_id += 2;
     }
-    assert_eq!(next_node_id, tables.nodes().len() as TablesIdInteger);
+    assert_eq!(next_node_id, _tables.nodes().len() as TablesIdInteger);
     let mut first_child_node_after_last_simplification = next_node_id;
 
-    for i in 0..tables.num_nodes() {
+    for i in 0.._tables.num_nodes() {
         samples.edge_buffer_founder_nodes.push(i.into());
     }
 
-    let genome_length = tables.genome_length();
+    let genome_length = _tables.genome_length();
+    let tables = std::sync::Arc::new(_tables);
     let mut simplified = false;
     let mut state = SimplificationBuffers::new();
     let mut output = SimplificationOutput::new();
@@ -985,49 +985,11 @@ pub fn neutral_wf_simplify_separate_thread(
             &mut new_edges,
             first_child_node_after_last_simplification,
             params.simplification_flags,
-            tables,
+            tables.clone(),
             samples,
             state,
             output,
         );
-
-        match simplifying {
-            Simplifying::No(data) => {
-                simplified = false;
-                tables = data.0;
-                samples = data.1;
-                state = data.2;
-                output = data.3;
-            }
-            Simplifying::Yes(outputs) => {
-                simplified = true;
-                tables = outputs.tables;
-                output = outputs.output;
-                state = outputs.state;
-                samples = outputs.samples;
-
-                // FIXME: this is probalby our issue, causing "bad" things to
-                // happen w/new node IDs?
-                next_node_id = samples.samples.len() as TablesIdInteger;
-                first_child_node_after_last_simplification = next_node_id;
-                // remap parent nodes
-                // FIXME NOTE TODO: fascinating--the idmap is coming back funky?
-                for p in &mut pop.parents {
-                    p.node0 = output.idmap[usize::from(p.node0)];
-                    p.node1 = output.idmap[usize::from(p.node1)];
-                    assert!(tables.node(p.node0).flags & NodeFlags::IS_SAMPLE.bits() > 0);
-                }
-
-                // TODO: we can save a loop by merging the pushes into
-                // the previous loop
-                // Track what (remapped) nodes are now alive.
-                samples.edge_buffer_founder_nodes.clear();
-                for p in &pop.parents {
-                    samples.edge_buffer_founder_nodes.push(p.node0);
-                    samples.edge_buffer_founder_nodes.push(p.node1);
-                }
-            }
-        }
 
         if birth_time > params.nsteps {
             break;
@@ -1104,6 +1066,42 @@ pub fn neutral_wf_simplify_separate_thread(
                 break;
             }
         }
+        match simplifying {
+            Simplifying::No(data) => {
+                simplified = false;
+                samples = data.0;
+                state = data.1;
+                output = data.2;
+            }
+            Simplifying::Yes(handle) => {
+                let outputs = handle.join().unwrap();
+                simplified = true;
+                output = outputs.output;
+                state = outputs.state;
+                samples = outputs.samples;
+
+                // FIXME: this is probalby our issue, causing "bad" things to
+                // happen w/new node IDs?
+                next_node_id = samples.samples.len() as TablesIdInteger;
+                first_child_node_after_last_simplification = next_node_id;
+                // remap parent nodes
+                // FIXME NOTE TODO: fascinating--the idmap is coming back funky?
+                for p in &mut pop.parents {
+                    p.node0 = output.idmap[usize::from(p.node0)];
+                    p.node1 = output.idmap[usize::from(p.node1)];
+                    assert!(tables.node(p.node0).flags & NodeFlags::IS_SAMPLE.bits() > 0);
+                }
+
+                // TODO: we can save a loop by merging the pushes into
+                // the previous loop
+                // Track what (remapped) nodes are now alive.
+                samples.edge_buffer_founder_nodes.clear();
+                for p in &pop.parents {
+                    samples.edge_buffer_founder_nodes.push(p.node0);
+                    samples.edge_buffer_founder_nodes.push(p.node1);
+                }
+            }
+        }
     }
 
     // for birth_time in 1..(params.nsteps + 1) {
@@ -1164,21 +1162,21 @@ pub fn neutral_wf_simplify_separate_thread(
     //     }
     // }
 
-    if !simplified && actual_simplification_interval != -1 {
-        if !new_nodes.is_empty() {
-            let mut node_table = tables.dump_node_table();
-            node_table.append(&mut new_nodes);
-            tables.set_node_table(node_table);
-        }
-        simplify_and_remap_nodes(
-            params.flags,
-            params.simplification_flags,
-            &mut samples,
-            &mut state,
-            &mut pop,
-            &mut output,
-        );
-    }
+    // if !simplified && actual_simplification_interval != -1 {
+    //     if !new_nodes.is_empty() {
+    //         let mut node_table = tables.dump_node_table();
+    //         node_table.append(&mut new_nodes);
+    //         tables.set_node_table(node_table);
+    //     }
+    //     simplify_and_remap_nodes(
+    //         params.flags,
+    //         params.simplification_flags,
+    //         &mut samples,
+    //         &mut state,
+    //         &mut pop,
+    //         &mut output,
+    //     );
+    // }
 
     let mut is_alive: Vec<i32> = vec![0; tables.num_nodes()];
 
@@ -1187,9 +1185,14 @@ pub fn neutral_wf_simplify_separate_thread(
         is_alive[usize::from(p.node1)] = 1;
     }
 
-    mutate_tables(params.mutrate, &mut tables, &mut rng);
+    let mut return_tables = match std::sync::Arc::try_unwrap(tables) {
+        Ok(x) => x,
+        Err(_) => panic!("multiple references to tables still in play!"),
+    };
 
-    for s in tables.sites() {
+    mutate_tables(params.mutrate, &mut return_tables, &mut rng);
+
+    for s in return_tables.sites() {
         match &s.ancestral_state {
             Some(x) => {
                 assert_eq!(x.len(), 1);
@@ -1198,7 +1201,7 @@ pub fn neutral_wf_simplify_separate_thread(
             None => panic!("ancestral_state is None"),
         };
     }
-    for m in tables.mutations() {
+    for m in return_tables.mutations() {
         match &m.derived_state {
             Some(x) => {
                 assert_eq!(x.len(), 1);
@@ -1208,5 +1211,5 @@ pub fn neutral_wf_simplify_separate_thread(
         };
     }
 
-    Ok((tables, is_alive))
+    Ok((return_tables, is_alive))
 }
