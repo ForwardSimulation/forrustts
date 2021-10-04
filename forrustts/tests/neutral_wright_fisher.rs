@@ -991,6 +991,8 @@ pub fn neutral_wf_simplify_separate_thread(
     loop {
         // Step 1: check if there's work to simplify
 
+        println!("check if we simplify at {}", birth_time);
+
         let simplifying = dispatch_simplification(
             birth_time,
             &mut pop,
