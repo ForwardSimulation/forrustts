@@ -902,6 +902,15 @@ fn dispatch_simplification(
             node_table.append(new_nodes);
             t.set_node_table(node_table);
         }
+
+        samples.edge_buffer_founder_nodes.clear();
+        for (i, p) in &mut pop.parents.iter_mut().enumerate() {
+            p.node0 = NodeId::from(2 * i); // utput.idmap[usize::from(p.node0)];
+            p.node1 = NodeId::from(2 * i + 1); // utput.idmap[usize::from(p.node0)];
+            samples.edge_buffer_founder_nodes.push(p.node0);
+            samples.edge_buffer_founder_nodes.push(p.node1);
+        }
+
         Simplifying::Yes(thread::spawn(move || {
             // consume data
             let inputs = SimplificationRoundTripData::new(samples, edge_buffer, state, output);
@@ -1075,6 +1084,7 @@ pub fn neutral_wf_simplify_separate_thread(
                 output = data.2;
             }
             Simplifying::Yes(handle) => {
+                println!("wrapping up simplification at {}", i64::from(birth_time));
                 let outputs = handle.join().unwrap();
                 simplified = true;
                 output = outputs.output;
@@ -1087,23 +1097,23 @@ pub fn neutral_wf_simplify_separate_thread(
                 first_child_node_after_last_simplification = next_node_id;
                 // remap parent nodes
                 // FIXME NOTE TODO: fascinating--the idmap is coming back funky?
-                {
-                    let t = tables.lock().unwrap();
-                    for p in &mut pop.parents {
-                        p.node0 = output.idmap[usize::from(p.node0)];
-                        p.node1 = output.idmap[usize::from(p.node1)];
-                        assert!(t.node(p.node0).flags & NodeFlags::IS_SAMPLE.bits() > 0);
-                    }
-                }
+                // {
+                //     let t = tables.lock().unwrap();
+                //     for p in &mut pop.parents {
+                //         p.node0 = output.idmap[usize::from(p.node0)];
+                //         p.node1 = output.idmap[usize::from(p.node1)];
+                //         assert!(t.node(p.node0).flags & NodeFlags::IS_SAMPLE.bits() > 0);
+                //     }
+                // }
 
-                // TODO: we can save a loop by merging the pushes into
-                // the previous loop
-                // Track what (remapped) nodes are now alive.
-                samples.edge_buffer_founder_nodes.clear();
-                for p in &pop.parents {
-                    samples.edge_buffer_founder_nodes.push(p.node0);
-                    samples.edge_buffer_founder_nodes.push(p.node1);
-                }
+                // // TODO: we can save a loop by merging the pushes into
+                // // the previous loop
+                // // Track what (remapped) nodes are now alive.
+                // samples.edge_buffer_founder_nodes.clear();
+                // for p in &pop.parents {
+                //     samples.edge_buffer_founder_nodes.push(p.node0);
+                //     samples.edge_buffer_founder_nodes.push(p.node1);
+                // }
             }
         }
     }
