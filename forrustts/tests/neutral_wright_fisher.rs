@@ -826,7 +826,7 @@ fn dispatch_simplification(
     if new_nodes.is_empty() {
         Simplifying::No((samples, state, output))
     } else {
-        println!("Firing off some simplification at {}", birth_time);
+        //println!("Firing off some simplification at {}", birth_time);
         // Else, we have to do some moves of the big
         // data structures and return a JoinHandle
         let mut edge_buffer = EdgeBuffer::default();
@@ -991,7 +991,7 @@ pub fn neutral_wf_simplify_separate_thread(
     loop {
         // Step 1: check if there's work to simplify
 
-        println!("check if we simplify at {}", birth_time);
+        //println!("check if we simplify at {}", birth_time);
 
         let simplifying = dispatch_simplification(
             birth_time,
@@ -1057,7 +1057,7 @@ pub fn neutral_wf_simplify_separate_thread(
         // record new data while simplification is happening
         match simplifying {
             Simplifying::No(data) => {
-                println!("nope at time {}", i64::from(birth_time));
+                //println!("nope at time {}", i64::from(birth_time));
                 simplified = false;
                 samples = data.0;
                 state = data.1;
@@ -1081,12 +1081,13 @@ pub fn neutral_wf_simplify_separate_thread(
                     // We may exit if the simplification interval
                     // and/or the nsteps is a "funny" value
                     if birth_time > params.nsteps {
+                        //println!("breaking in ::No");
                         break;
                     }
                 }
             }
             Simplifying::Yes(handle) => {
-                println!("wrapping up simplification at {}", i64::from(birth_time));
+                //println!("wrapping up simplification at {}", i64::from(birth_time));
                 let outputs = handle.join().unwrap();
                 simplified = true;
                 output = outputs.output;
@@ -1097,13 +1098,13 @@ pub fn neutral_wf_simplify_separate_thread(
                 // happen w/new node IDs?
                 next_node_id = samples.samples.len() as TablesIdInteger;
                 first_child_node_after_last_simplification = next_node_id;
-                println!(
-                    "{} {} {} {}",
-                    next_node_id,
-                    first_child_node_after_last_simplification,
-                    new_nodes.len(),
-                    new_edges.len()
-                );
+                // println!(
+                //     "{} {} {} {}",
+                //     next_node_id,
+                //     first_child_node_after_last_simplification,
+                //     new_nodes.len(),
+                //     new_edges.len()
+                // );
                 // remap parent nodes
                 // FIXME NOTE TODO: fascinating--the idmap is coming back funky?
                 // {
@@ -1123,12 +1124,13 @@ pub fn neutral_wf_simplify_separate_thread(
                 //     samples.edge_buffer_founder_nodes.push(p.node0);
                 //     samples.edge_buffer_founder_nodes.push(p.node1);
                 // }
+                if birth_time > params.nsteps {
+                    //println!("breaking on ::Yes");
+                    break;
+                }
+                //if !new_nodes.is_empty() {
             }
         }
-        if birth_time > params.nsteps {
-            break;
-        }
-        //if !new_nodes.is_empty() {
     }
 
     // for birth_time in 1..(params.nsteps + 1) {
