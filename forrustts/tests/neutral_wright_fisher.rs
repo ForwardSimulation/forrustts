@@ -4,6 +4,7 @@ use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
 use rand_distr::{Exp, Uniform};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use thiserror::Error;
 
@@ -707,19 +708,20 @@ impl SimplificationRoundTripData {
 fn simplify_from_edge_buffer_channel(
     flags: SimplificationFlags,
     inputs: SimplificationRoundTripData,
-    tables: std::sync::Arc<TableCollection>,
+    tables: Arc<Mutex<TableCollection>>,
 ) -> Result<SimplificationRoundTripData, Box<dyn std::error::Error>> {
-    let mut tables = tables;
     let mut state = inputs.state;
     let mut edge_buffer = inputs.edge_buffer;
     let mut output = inputs.output;
+
+    let mut t = tables.lock().unwrap();
 
     simplify_from_edge_buffer(
         &inputs.samples,
         flags,
         &mut state,
         &mut edge_buffer,
-        std::sync::Arc::get_mut(&mut tables).unwrap(),
+        &mut t,
         &mut output,
     )?;
 
@@ -813,7 +815,7 @@ fn dispatch_simplification(
     new_edges: &mut EdgeTable,
     first_child_node_after_last_simplification: TablesIdInteger,
     flags: SimplificationFlags,
-    mut tables: std::sync::Arc<TableCollection>,
+    tables: Arc<Mutex<TableCollection>>,
     samples: SamplesInfo,
     state: SimplificationBuffers,
     output: SimplificationOutput,
@@ -823,84 +825,83 @@ fn dispatch_simplification(
     if new_nodes.is_empty() {
         Simplifying::No((samples, state, output))
     } else {
-        println!("{}", std::sync::Arc::strong_count(&tables));
         // Else, we have to do some moves of the big
         // data structures and return a JoinHandle
         let mut edge_buffer = EdgeBuffer::default();
 
-        // Transfer our edges
-        let num_nodes = tables.nodes().len() as TablesIdInteger;
-        for edge in new_edges.drain(0..) {
-            let p = match edge.parent >= first_child_node_after_last_simplification {
-                false => TablesIdInteger::from(edge.parent),
-                true => {
-                    //println!(
-                    //    "parent mapping: {}, {} {}-> {}",
-                    //    TablesIdInteger::from(edge.parent),
-                    //    num_nodes,
-                    //    first_child_node_after_last_simplification,
-                    //    TablesIdInteger::from(edge.parent) + num_nodes
-                    //        - first_child_node_after_last_simplification
-                    //);
-                    TablesIdInteger::from(edge.parent) + num_nodes
-                        - first_child_node_after_last_simplification
-                }
-            };
-
-            // TODO: this can/should be dispatched to a thread.
-            let c = match edge.child >= first_child_node_after_last_simplification {
-                false => TablesIdInteger::from(edge.child),
-                true => {
-                    //println!(
-                    //    "child mapping: {}, {} {}-> {}",
-                    //    TablesIdInteger::from(edge.child),
-                    //    num_nodes,
-                    //    first_child_node_after_last_simplification,
-                    //    TablesIdInteger::from(edge.child) + num_nodes
-                    //        - first_child_node_after_last_simplification
-                    //);
-                    TablesIdInteger::from(edge.child) + num_nodes
-                        - first_child_node_after_last_simplification
-                }
-            };
-            assert!(
-                (c as usize) < tables.nodes().len() + new_nodes.len(),
-                "{} {} {}",
-                c,
-                tables.nodes().len(),
-                new_nodes.len()
-            );
-            edge_buffer
-                .record_edge(p, c, edge.left, edge.right)
-                .unwrap();
-        }
-        assert!(new_edges.is_empty());
         let mut samples = samples;
-        //fill_samples(&pop.parents, &mut samples);
-        samples.samples.clear();
-        for p in pop.parents.iter_mut() {
-            if p.node0 >= first_child_node_after_last_simplification {
-                p.node0 = (TablesIdInteger::from(p.node0) + num_nodes
-                    - first_child_node_after_last_simplification)
-                    .into();
+
+        {
+            let mut t = tables.lock().unwrap();
+            // Transfer our edges
+            let num_nodes = t.nodes().len() as TablesIdInteger;
+            for edge in new_edges.drain(0..) {
+                let p = match edge.parent >= first_child_node_after_last_simplification {
+                    false => TablesIdInteger::from(edge.parent),
+                    true => {
+                        //println!(
+                        //    "parent mapping: {}, {} {}-> {}",
+                        //    TablesIdInteger::from(edge.parent),
+                        //    num_nodes,
+                        //    first_child_node_after_last_simplification,
+                        //    TablesIdInteger::from(edge.parent) + num_nodes
+                        //        - first_child_node_after_last_simplification
+                        //);
+                        TablesIdInteger::from(edge.parent) + num_nodes
+                            - first_child_node_after_last_simplification
+                    }
+                };
+
+                // TODO: this can/should be dispatched to a thread.
+                let c = match edge.child >= first_child_node_after_last_simplification {
+                    false => TablesIdInteger::from(edge.child),
+                    true => {
+                        //println!(
+                        //    "child mapping: {}, {} {}-> {}",
+                        //    TablesIdInteger::from(edge.child),
+                        //    num_nodes,
+                        //    first_child_node_after_last_simplification,
+                        //    TablesIdInteger::from(edge.child) + num_nodes
+                        //        - first_child_node_after_last_simplification
+                        //);
+                        TablesIdInteger::from(edge.child) + num_nodes
+                            - first_child_node_after_last_simplification
+                    }
+                };
+                assert!(
+                    (c as usize) < t.nodes().len() + new_nodes.len(),
+                    "{} {} {}",
+                    c,
+                    t.nodes().len(),
+                    new_nodes.len()
+                );
+                edge_buffer
+                    .record_edge(p, c, edge.left, edge.right)
+                    .unwrap();
             }
-            if p.node1 >= first_child_node_after_last_simplification {
-                p.node1 = (TablesIdInteger::from(p.node1) + num_nodes
-                    - first_child_node_after_last_simplification)
-                    .into();
+            assert!(new_edges.is_empty());
+            //fill_samples(&pop.parents, &mut samples);
+            samples.samples.clear();
+            for p in pop.parents.iter_mut() {
+                if p.node0 >= first_child_node_after_last_simplification {
+                    p.node0 = (TablesIdInteger::from(p.node0) + num_nodes
+                        - first_child_node_after_last_simplification)
+                        .into();
+                }
+                if p.node1 >= first_child_node_after_last_simplification {
+                    p.node1 = (TablesIdInteger::from(p.node1) + num_nodes
+                        - first_child_node_after_last_simplification)
+                        .into();
+                }
+                samples.samples.push(p.node0);
+                samples.samples.push(p.node1);
             }
-            samples.samples.push(p.node0);
-            samples.samples.push(p.node1);
+            assert_eq!(pop.parents.len() * 2, samples.samples.len());
+            // transfer over our new nodes
+            let mut node_table = t.dump_node_table();
+            node_table.append(new_nodes);
+            t.set_node_table(node_table);
         }
-        assert_eq!(pop.parents.len() * 2, samples.samples.len());
-        // transfer over our new nodes
-        let mut node_table = std::sync::Arc::get_mut(&mut tables)
-            .unwrap()
-            .dump_node_table();
-        node_table.append(new_nodes);
-        std::sync::Arc::get_mut(&mut tables)
-            .unwrap()
-            .set_node_table(node_table);
         Simplifying::Yes(thread::spawn(move || {
             // consume data
             let inputs = SimplificationRoundTripData::new(samples, edge_buffer, state, output);
@@ -966,7 +967,7 @@ pub fn neutral_wf_simplify_separate_thread(
     }
 
     let genome_length = _tables.genome_length();
-    let tables = std::sync::Arc::new(_tables);
+    let tables = Arc::new(Mutex::new(_tables));
     let mut simplified = false;
     let mut state = SimplificationBuffers::new();
     let mut output = SimplificationOutput::new();
@@ -1086,10 +1087,13 @@ pub fn neutral_wf_simplify_separate_thread(
                 first_child_node_after_last_simplification = next_node_id;
                 // remap parent nodes
                 // FIXME NOTE TODO: fascinating--the idmap is coming back funky?
-                for p in &mut pop.parents {
-                    p.node0 = output.idmap[usize::from(p.node0)];
-                    p.node1 = output.idmap[usize::from(p.node1)];
-                    assert!(tables.node(p.node0).flags & NodeFlags::IS_SAMPLE.bits() > 0);
+                {
+                    let t = tables.lock().unwrap();
+                    for p in &mut pop.parents {
+                        p.node0 = output.idmap[usize::from(p.node0)];
+                        p.node1 = output.idmap[usize::from(p.node1)];
+                        assert!(t.node(p.node0).flags & NodeFlags::IS_SAMPLE.bits() > 0);
+                    }
                 }
 
                 // TODO: we can save a loop by merging the pushes into
@@ -1178,17 +1182,20 @@ pub fn neutral_wf_simplify_separate_thread(
     //     );
     // }
 
-    let mut is_alive: Vec<i32> = vec![0; tables.num_nodes()];
+    let mut return_tables = match Arc::try_unwrap(tables) {
+        Ok(x) => match x.into_inner() {
+            Ok(tables) => tables,
+            Err(_) => panic!("poisoned mutex"),
+        },
+        Err(_) => panic!("multiple references to tables still in play!"),
+    };
+
+    let mut is_alive: Vec<i32> = vec![0; return_tables.num_nodes()];
 
     for p in pop.parents {
         is_alive[usize::from(p.node0)] = 1;
         is_alive[usize::from(p.node1)] = 1;
     }
-
-    let mut return_tables = match std::sync::Arc::try_unwrap(tables) {
-        Ok(x) => x,
-        Err(_) => panic!("multiple references to tables still in play!"),
-    };
 
     mutate_tables(params.mutrate, &mut return_tables, &mut rng);
 
