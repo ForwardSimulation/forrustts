@@ -810,6 +810,7 @@ enum Simplifying {
 }
 
 fn dispatch_simplification(
+    birth_time: i64,
     pop: &mut PopulationState,
     new_nodes: &mut NodeTable,
     new_edges: &mut EdgeTable,
@@ -825,6 +826,7 @@ fn dispatch_simplification(
     if new_nodes.is_empty() {
         Simplifying::No((samples, state, output))
     } else {
+        println!("Firing off some simplification at {}", birth_time);
         // Else, we have to do some moves of the big
         // data structures and return a JoinHandle
         let mut edge_buffer = EdgeBuffer::default();
@@ -990,6 +992,7 @@ pub fn neutral_wf_simplify_separate_thread(
         // Step 1: check if there's work to simplify
 
         let simplifying = dispatch_simplification(
+            birth_time,
             &mut pop,
             &mut new_nodes,
             &mut new_edges,
@@ -1001,10 +1004,6 @@ pub fn neutral_wf_simplify_separate_thread(
             output,
         );
 
-        if birth_time > params.nsteps {
-            break;
-        }
-        //if !new_nodes.is_empty() {
         //    // Join our simplification thread handle, if
         //    // it exists
 
@@ -1054,28 +1053,6 @@ pub fn neutral_wf_simplify_separate_thread(
         //}
 
         // record new data while simplification is happening
-        for _ in 1..(actual_simplification_interval + 1) {
-            deaths_and_parents(params.psurvival, &mut rng, &mut pop);
-            generate_births_v2(
-                breakpoint,
-                birth_time.into(),
-                genome_length,
-                &mut pop.births,
-                &mut rng,
-                &mut pop.parents,
-                &mut new_nodes,
-                &mut new_edges,
-                &mut next_node_id,
-            );
-
-            birth_time += 1;
-
-            // We may exit if the simplification interval
-            // and/or the nsteps is a "funny" value
-            if birth_time > params.nsteps {
-                break;
-            }
-        }
         match simplifying {
             Simplifying::No(data) => {
                 println!("nope at time {}", i64::from(birth_time));
@@ -1083,6 +1060,28 @@ pub fn neutral_wf_simplify_separate_thread(
                 samples = data.0;
                 state = data.1;
                 output = data.2;
+                for _ in 1..(actual_simplification_interval + 1) {
+                    deaths_and_parents(params.psurvival, &mut rng, &mut pop);
+                    generate_births_v2(
+                        breakpoint,
+                        birth_time.into(),
+                        genome_length,
+                        &mut pop.births,
+                        &mut rng,
+                        &mut pop.parents,
+                        &mut new_nodes,
+                        &mut new_edges,
+                        &mut next_node_id,
+                    );
+
+                    birth_time += 1;
+
+                    // We may exit if the simplification interval
+                    // and/or the nsteps is a "funny" value
+                    if birth_time > params.nsteps {
+                        break;
+                    }
+                }
             }
             Simplifying::Yes(handle) => {
                 println!("wrapping up simplification at {}", i64::from(birth_time));
@@ -1124,6 +1123,10 @@ pub fn neutral_wf_simplify_separate_thread(
                 // }
             }
         }
+        if birth_time > params.nsteps {
+            break;
+        }
+        //if !new_nodes.is_empty() {
     }
 
     // for birth_time in 1..(params.nsteps + 1) {
