@@ -883,8 +883,8 @@ fn dispatch_simplification(
         }
         assert!(new_edges.is_empty());
         let mut samples = samples;
-        fill_samples(&pop.parents, &mut samples);
-        assert_eq!(pop.parents.len() * 2, samples.samples.len());
+        //fill_samples(&pop.parents, &mut samples);
+        samples.samples.clear();
         for p in pop.parents.iter_mut() {
             if p.node0 >= first_child_node_after_last_simplification {
                 p.node0 = (TablesIdInteger::from(p.node0) + num_nodes
@@ -896,14 +896,10 @@ fn dispatch_simplification(
                     - first_child_node_after_last_simplification)
                     .into();
             }
+            samples.samples.push(p.node0);
+            samples.samples.push(p.node1);
         }
-        for s in samples.samples.iter_mut() {
-            if *s >= first_child_node_after_last_simplification {
-                *s = (TablesIdInteger::from(*s) + num_nodes
-                    - first_child_node_after_last_simplification)
-                    .into();
-            }
-        }
+        assert_eq!(pop.parents.len() * 2, samples.samples.len());
         // transfer over our new nodes
         let mut tables = tables; // Take over ownership
         let mut node_table = tables.dump_node_table();
