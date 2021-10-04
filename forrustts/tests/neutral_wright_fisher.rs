@@ -1078,6 +1078,7 @@ pub fn neutral_wf_simplify_separate_thread(
         }
         match simplifying {
             Simplifying::No(data) => {
+                println!("nope at time {}", i64::from(birth_time));
                 simplified = false;
                 samples = data.0;
                 state = data.1;
@@ -1095,6 +1096,13 @@ pub fn neutral_wf_simplify_separate_thread(
                 // happen w/new node IDs?
                 next_node_id = samples.samples.len() as TablesIdInteger;
                 first_child_node_after_last_simplification = next_node_id;
+                println!(
+                    "{} {} {} {}",
+                    next_node_id,
+                    first_child_node_after_last_simplification,
+                    new_nodes.len(),
+                    new_edges.len()
+                );
                 // remap parent nodes
                 // FIXME NOTE TODO: fascinating--the idmap is coming back funky?
                 // {
