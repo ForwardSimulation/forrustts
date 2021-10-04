@@ -905,6 +905,7 @@ fn dispatch_simplification(
             t.set_node_table(node_table);
         }
 
+        // NOTE: this loop can be done above, once things are working
         samples.edge_buffer_founder_nodes.clear();
         for (i, p) in &mut pop.parents.iter_mut().enumerate() {
             p.node0 = NodeId::from(2 * i); // utput.idmap[usize::from(p.node0)];
@@ -1006,88 +1007,41 @@ pub fn neutral_wf_simplify_separate_thread(
             output,
         );
 
-        //    // Join our simplification thread handle, if
-        //    // it exists
+        for _ in 1..(actual_simplification_interval + 1) {
+            deaths_and_parents(params.psurvival, &mut rng, &mut pop);
+            generate_births_v2(
+                breakpoint,
+                birth_time.into(),
+                genome_length,
+                &mut pop.births,
+                &mut rng,
+                &mut pop.parents,
+                &mut new_nodes,
+                &mut new_edges,
+                &mut next_node_id,
+            );
 
-        //    fill_samples(&pop.parents, &mut samples);
-        //    // transfer over our new nodes
-        //    let mut node_table = pop.tables.dump_node_table();
-        //    node_table.append(&mut new_nodes);
-        //    pop.tables.set_node_table(node_table);
+            birth_time += 1;
 
-        //    // consume data
-        //    let inputs = SimplificationRoundTripData::new(
-        //        samples,
-        //        pop.edge_buffer,
-        //        pop.tables,
-        //        state,
-        //        output,
-        //    );
-        //    // send data to simplification
-        //    let outputs = simplify_from_edge_buffer_channel(params.simplification_flags, inputs)?;
-        //    // get our data back
-        //    pop.edge_buffer = outputs.edge_buffer;
-        //    pop.tables = outputs.tables;
-        //    output = outputs.output;
-        //    state = outputs.state;
-        //    samples = outputs.samples;
-        //    next_node_id = pop.tables.nodes().len() as TablesIdInteger;
-        //    // remap parent nodes
-        //    for p in &mut pop.parents {
-        //        p.node0 = output.idmap[usize::from(p.node0)];
-        //        p.node1 = output.idmap[usize::from(p.node1)];
-        //        assert!(pop.tables.node(p.node0).flags & NodeFlags::IS_SAMPLE.bits() > 0);
-        //    }
-
-        //    // Track what (remapped) nodes are now alive.
-        //    samples.edge_buffer_founder_nodes.clear();
-        //    for p in &pop.parents {
-        //        samples.edge_buffer_founder_nodes.push(p.node0);
-        //        samples.edge_buffer_founder_nodes.push(p.node1);
-        //    }
-        //    simplified = true;
-        //} else {
-        //    simplified = false;
-        //}
-
-        //if birth_time > params.nsteps {
-        //    break;
-        //}
+            // We may exit if the simplification interval
+            // and/or the nsteps is a "funny" value
+            if birth_time > params.nsteps {
+                println!("breaking in ::No");
+                break;
+            }
+        }
 
         // record new data while simplification is happening
         match simplifying {
             Simplifying::No(data) => {
-                //println!("nope at time {}", i64::from(birth_time));
+                println!("nope at time {}", birth_time);
                 simplified = false;
                 samples = data.0;
                 state = data.1;
                 output = data.2;
-                for _ in 1..(actual_simplification_interval + 1) {
-                    deaths_and_parents(params.psurvival, &mut rng, &mut pop);
-                    generate_births_v2(
-                        breakpoint,
-                        birth_time.into(),
-                        genome_length,
-                        &mut pop.births,
-                        &mut rng,
-                        &mut pop.parents,
-                        &mut new_nodes,
-                        &mut new_edges,
-                        &mut next_node_id,
-                    );
-
-                    birth_time += 1;
-
-                    // We may exit if the simplification interval
-                    // and/or the nsteps is a "funny" value
-                    if birth_time > params.nsteps {
-                        //println!("breaking in ::No");
-                        break;
-                    }
-                }
             }
             Simplifying::Yes(handle) => {
-                //println!("wrapping up simplification at {}", i64::from(birth_time));
+                println!("wrapping up simplification at {}", birth_time);
                 let outputs = handle.join().unwrap();
                 simplified = true;
                 output = outputs.output;
@@ -1098,13 +1052,13 @@ pub fn neutral_wf_simplify_separate_thread(
                 // happen w/new node IDs?
                 next_node_id = samples.samples.len() as TablesIdInteger;
                 first_child_node_after_last_simplification = next_node_id;
-                // println!(
-                //     "{} {} {} {}",
-                //     next_node_id,
-                //     first_child_node_after_last_simplification,
-                //     new_nodes.len(),
-                //     new_edges.len()
-                // );
+                println!(
+                    "{} {} {} {}",
+                    next_node_id,
+                    first_child_node_after_last_simplification,
+                    new_nodes.len(),
+                    new_edges.len()
+                );
                 // remap parent nodes
                 // FIXME NOTE TODO: fascinating--the idmap is coming back funky?
                 // {
