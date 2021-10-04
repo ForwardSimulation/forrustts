@@ -84,6 +84,50 @@ impl Time {
 impl_low_level_table_type!(Time, LowLevelTimeType);
 impl_low_level_table_type!(Position, LowLevelPositonType);
 
+impl std::ops::Add for Time {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self(self.0 + other.0)
+    }
+}
+
+impl std::ops::Sub for Time {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
+        Self(self.0 - other.0)
+    }
+}
+
+impl std::fmt::Display for Time {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Time({})", self.0)
+    }
+}
+
+impl std::ops::Add for Position {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self(self.0 + other.0)
+    }
+}
+
+impl std::ops::Sub for Position {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
+        Self(self.0 - other.0)
+    }
+}
+
+impl std::fmt::Display for Position {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Position({})", self.0)
+    }
+}
+
 impl PartialEq<LowLevelPositonType> for Position {
     fn eq(&self, other: &LowLevelPositonType) -> bool {
         self.0 == *other

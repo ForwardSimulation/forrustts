@@ -57,6 +57,22 @@ macro_rules! impl_table_id {
             }
         }
 
+        impl std::ops::Add for $idtype {
+            type Output = Self;
+
+            fn add(self, other: Self) -> Self {
+                Self(self.0 + other.0)
+            }
+        }
+
+        impl std::ops::Sub for $idtype {
+            type Output = Self;
+
+            fn sub(self, other: Self) -> Self {
+                Self(self.0 - other.0)
+            }
+        }
+
         impl std::fmt::Display for $idtype {
             fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
                 match *self == Self::NULL {
