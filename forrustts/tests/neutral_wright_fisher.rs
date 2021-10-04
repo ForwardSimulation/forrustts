@@ -814,7 +814,8 @@ fn dispatch_simplification(
     pop: &mut PopulationState,
     new_nodes: &mut NodeTable,
     new_edges: &mut EdgeTable,
-    first_child_node_after_last_simplification: TablesIdInteger,
+    next_node_id: &mut TablesIdInteger,
+    first_child_node_after_last_simplification: &mut TablesIdInteger,
     flags: SimplificationFlags,
     tables: Arc<Mutex<TableCollection>>,
     samples: SamplesInfo,
@@ -826,7 +827,7 @@ fn dispatch_simplification(
     if new_nodes.is_empty() {
         Simplifying::No((samples, state, output))
     } else {
-        //println!("Firing off some simplification at {}", birth_time);
+        println!("Firing off some simplification at {}", birth_time);
         // Else, we have to do some moves of the big
         // data structures and return a JoinHandle
         let mut edge_buffer = EdgeBuffer::default();
@@ -838,7 +839,7 @@ fn dispatch_simplification(
             // Transfer our edges
             let num_nodes = t.nodes().len() as TablesIdInteger;
             for edge in new_edges.drain(0..) {
-                let p = match edge.parent >= first_child_node_after_last_simplification {
+                let p = match edge.parent >= *first_child_node_after_last_simplification {
                     false => TablesIdInteger::from(edge.parent),
                     true => {
                         //println!(
@@ -850,12 +851,12 @@ fn dispatch_simplification(
                         //        - first_child_node_after_last_simplification
                         //);
                         TablesIdInteger::from(edge.parent) + num_nodes
-                            - first_child_node_after_last_simplification
+                            - *first_child_node_after_last_simplification
                     }
                 };
 
                 // TODO: this can/should be dispatched to a thread.
-                let c = match edge.child >= first_child_node_after_last_simplification {
+                let c = match edge.child >= *first_child_node_after_last_simplification {
                     false => TablesIdInteger::from(edge.child),
                     true => {
                         //println!(
@@ -867,7 +868,7 @@ fn dispatch_simplification(
                         //        - first_child_node_after_last_simplification
                         //);
                         TablesIdInteger::from(edge.child) + num_nodes
-                            - first_child_node_after_last_simplification
+                            - *first_child_node_after_last_simplification
                     }
                 };
                 assert!(
@@ -885,19 +886,21 @@ fn dispatch_simplification(
             //fill_samples(&pop.parents, &mut samples);
             samples.samples.clear();
             for p in pop.parents.iter_mut() {
-                if p.node0 >= first_child_node_after_last_simplification {
+                if p.node0 >= *first_child_node_after_last_simplification {
                     p.node0 = (TablesIdInteger::from(p.node0) + num_nodes
-                        - first_child_node_after_last_simplification)
+                        - *first_child_node_after_last_simplification)
                         .into();
                 }
-                if p.node1 >= first_child_node_after_last_simplification {
+                if p.node1 >= *first_child_node_after_last_simplification {
                     p.node1 = (TablesIdInteger::from(p.node1) + num_nodes
-                        - first_child_node_after_last_simplification)
+                        - *first_child_node_after_last_simplification)
                         .into();
                 }
                 samples.samples.push(p.node0);
                 samples.samples.push(p.node1);
             }
+            *next_node_id = samples.samples.len() as TablesIdInteger;
+            *first_child_node_after_last_simplification = *next_node_id;
             assert_eq!(pop.parents.len() * 2, samples.samples.len());
             // transfer over our new nodes
             let mut node_table = t.dump_node_table();
@@ -999,12 +1002,18 @@ pub fn neutral_wf_simplify_separate_thread(
             &mut pop,
             &mut new_nodes,
             &mut new_edges,
-            first_child_node_after_last_simplification,
+            &mut next_node_id,
+            &mut first_child_node_after_last_simplification,
             params.simplification_flags,
             tables.clone(),
             samples,
             state,
             output,
+        );
+
+        println!(
+            "after check: {} {}",
+            next_node_id, first_child_node_after_last_simplification
         );
 
         for _ in 1..(actual_simplification_interval + 1) {
@@ -1041,7 +1050,10 @@ pub fn neutral_wf_simplify_separate_thread(
                 output = data.2;
             }
             Simplifying::Yes(handle) => {
-                println!("wrapping up simplification at {}", birth_time);
+                println!(
+                    "wrapping up simplification at {} {} {}",
+                    birth_time, next_node_id, first_child_node_after_last_simplification
+                );
                 let outputs = handle.join().unwrap();
                 simplified = true;
                 output = outputs.output;
@@ -1052,13 +1064,18 @@ pub fn neutral_wf_simplify_separate_thread(
                 // happen w/new node IDs?
                 next_node_id = samples.samples.len() as TablesIdInteger;
                 first_child_node_after_last_simplification = next_node_id;
-                println!(
-                    "{} {} {} {}",
-                    next_node_id,
-                    first_child_node_after_last_simplification,
-                    new_nodes.len(),
-                    new_edges.len()
-                );
+                {
+                    let t = tables.lock().unwrap();
+                    println!(
+                        "{} {} {} {}|{} {}",
+                        next_node_id,
+                        first_child_node_after_last_simplification,
+                        new_nodes.len(),
+                        new_edges.len(),
+                        t.nodes().len(),
+                        t.edges().len(),
+                    );
+                }
                 // remap parent nodes
                 // FIXME NOTE TODO: fascinating--the idmap is coming back funky?
                 // {
