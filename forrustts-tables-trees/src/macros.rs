@@ -65,11 +65,23 @@ macro_rules! impl_table_id {
             }
         }
 
+        impl std::ops::AddAssign for $idtype {
+            fn add_assign(&mut self, other: Self) {
+                self.0 += other.0
+            }
+        }
+
         impl std::ops::Sub for $idtype {
             type Output = Self;
 
             fn sub(self, other: Self) -> Self {
                 Self(self.0 - other.0)
+            }
+        }
+
+        impl std::ops::SubAssign for $idtype {
+            fn sub_assign(&mut self, other: Self) {
+                self.0 -= other.0
             }
         }
 

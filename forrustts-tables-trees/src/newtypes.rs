@@ -57,6 +57,54 @@ impl_table_id!(SiteId, LowLevelIdType);
 impl_table_id!(MutationId, LowLevelIdType);
 impl_table_id!(DemeId, LowLevelIdType);
 
+pub struct TableIdRange<T>
+where
+    T: crate::TableId + Copy + std::cmp::Ord + std::ops::Add<Output = T> + std::ops::AddAssign,
+{
+    current: T,
+    last: T,
+    increment: T,
+}
+
+impl<T> TableIdRange<T>
+where
+    T: crate::TableId + Copy + std::cmp::Ord + std::ops::Add<Output = T> + std::ops::AddAssign,
+{
+    pub fn new(from: T, to: T, inclusive: bool) -> Self {
+        let increment = if from < to { T::new(1) } else { T::new(-1) };
+        let last = if inclusive { to + increment } else { to };
+        Self {
+            current: from,
+            last,
+            increment,
+        }
+    }
+}
+
+pub fn make_id_range<T>(from: T, to: T, inclusive: bool) -> TableIdRange<T>
+where
+    T: crate::TableId + Copy + std::cmp::Ord + std::ops::Add<Output = T> + std::ops::AddAssign,
+{
+    TableIdRange::<T>::new(from, to, inclusive)
+}
+
+impl<T> Iterator for TableIdRange<T>
+where
+    T: crate::TableId + Copy + std::cmp::Ord + std::ops::Add<Output = T> + std::ops::AddAssign,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current != self.last {
+            let rv = self.current;
+            self.current += self.increment;
+            Some(rv)
+        } else {
+            None
+        }
+    }
+}
+
 /// A position/coordinate within a genome
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, std::hash::Hash)]
 #[repr(transparent)]
@@ -199,6 +247,62 @@ impl PartialOrd<Time> for Time {
         match self.0.partial_cmp(&other.0) {
             None => panic!("fatal: partial_cmp for Time received non-finite values"),
             Some(x) => Some(x),
+        }
+    }
+}
+
+#[cfg(test)]
+mod test_newtypes {
+    use super::*;
+
+    #[test]
+    fn test_id_range() {
+        {
+            let r = TableIdRange::<NodeId>::new(NodeId::from(1), NodeId::from(3), false);
+
+            let vr: Vec<NodeId> = r.collect();
+
+            assert!(vr == vec![NodeId::from(1), NodeId::from(2)]);
+        }
+
+        {
+            let r = TableIdRange::<NodeId>::new(NodeId::from(1), NodeId::from(3), true);
+
+            let vr: Vec<NodeId> = r.collect();
+
+            assert!(vr == vec![NodeId::from(1), NodeId::from(2), NodeId::from(3)]);
+        }
+
+        {
+            let r = TableIdRange::<NodeId>::new(NodeId::from(3), NodeId::from(1), false);
+
+            let vr: Vec<NodeId> = r.collect();
+
+            assert!(vr == vec![NodeId::from(3), NodeId::from(2)]);
+        }
+
+        {
+            let r = TableIdRange::<NodeId>::new(NodeId::from(3), NodeId::from(1), true);
+
+            let vr: Vec<NodeId> = r.collect();
+
+            assert!(vr == vec![NodeId::from(3), NodeId::from(2), NodeId::from(1)]);
+        }
+
+        {
+            let r = TableIdRange::<NodeId>::new(NodeId::from(3), NodeId::from(3), false);
+
+            let vr: Vec<NodeId> = r.collect();
+
+            assert!(vr == Vec::<NodeId>::default());
+        }
+
+        {
+            let r = TableIdRange::<NodeId>::new(NodeId::from(3), NodeId::from(3), true);
+
+            let vr: Vec<NodeId> = r.collect();
+
+            assert!(vr == vec![NodeId::from(3)]);
         }
     }
 }
