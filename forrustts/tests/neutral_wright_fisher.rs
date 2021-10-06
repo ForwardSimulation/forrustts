@@ -1104,6 +1104,28 @@ pub fn neutral_wf_simplify_separate_thread(
         }
     }
 
+    println!("we are done: {} {}", new_nodes.len(), new_edges.len());
+    match dispatch_simplification(
+        birth_time,
+        &mut pop,
+        &mut new_nodes,
+        &mut new_edges,
+        &mut next_node_id,
+        &mut first_child_node_after_last_simplification,
+        params.simplification_flags,
+        tables.clone(),
+        samples,
+        state,
+        output,
+    ) {
+        Simplifying::No(_) => println!("no"),
+        Simplifying::Yes(handle) => {
+            println!("yes");
+
+            let _outputs = handle.join().unwrap();
+        }
+    }
+
     // for birth_time in 1..(params.nsteps + 1) {
     //     deaths_and_parents(params.psurvival, &mut rng, &mut pop);
     //     generate_births_v2(
