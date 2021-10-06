@@ -827,7 +827,7 @@ fn dispatch_simplification(
     if new_nodes.is_empty() {
         Simplifying::No((samples, state, output))
     } else {
-        println!("Firing off some simplification at {}", birth_time);
+        //println!("Firing off some simplification at {}", birth_time);
         // Else, we have to do some moves of the big
         // data structures and return a JoinHandle
         let mut edge_buffer = EdgeBuffer::default();
@@ -1011,10 +1011,10 @@ pub fn neutral_wf_simplify_separate_thread(
             output,
         );
 
-        println!(
-            "after check: {} {}",
-            next_node_id, first_child_node_after_last_simplification
-        );
+        // println!(
+        //     "after check: {} {}",
+        //     next_node_id, first_child_node_after_last_simplification
+        // );
 
         for _ in 1..(actual_simplification_interval + 1) {
             deaths_and_parents(params.psurvival, &mut rng, &mut pop);
@@ -1035,7 +1035,7 @@ pub fn neutral_wf_simplify_separate_thread(
             // We may exit if the simplification interval
             // and/or the nsteps is a "funny" value
             if birth_time > params.nsteps {
-                println!("breaking in ::No");
+                //println!("breaking in ::No");
                 break;
             }
         }
@@ -1043,17 +1043,17 @@ pub fn neutral_wf_simplify_separate_thread(
         // record new data while simplification is happening
         match simplifying {
             Simplifying::No(data) => {
-                println!("nope at time {}", birth_time);
+                //println!("nope at time {}", birth_time);
                 simplified = false;
                 samples = data.0;
                 state = data.1;
                 output = data.2;
             }
             Simplifying::Yes(handle) => {
-                println!(
-                    "wrapping up simplification at {} {} {}",
-                    birth_time, next_node_id, first_child_node_after_last_simplification
-                );
+                //println!(
+                //    "wrapping up simplification at {} {} {}",
+                //    birth_time, next_node_id, first_child_node_after_last_simplification
+                //);
                 let outputs = handle.join().unwrap();
                 simplified = true;
                 output = outputs.output;
@@ -1066,15 +1066,15 @@ pub fn neutral_wf_simplify_separate_thread(
                 first_child_node_after_last_simplification = next_node_id;
                 {
                     let t = tables.lock().unwrap();
-                    println!(
-                        "{} {} {} {}|{} {}",
-                        next_node_id,
-                        first_child_node_after_last_simplification,
-                        new_nodes.len(),
-                        new_edges.len(),
-                        t.nodes().len(),
-                        t.edges().len(),
-                    );
+                    //println!(
+                    //    "{} {} {} {}|{} {}",
+                    //    next_node_id,
+                    //    first_child_node_after_last_simplification,
+                    //    new_nodes.len(),
+                    //    new_edges.len(),
+                    //    t.nodes().len(),
+                    //    t.edges().len(),
+                    //);
                 }
                 // remap parent nodes
                 // FIXME NOTE TODO: fascinating--the idmap is coming back funky?
@@ -1104,7 +1104,6 @@ pub fn neutral_wf_simplify_separate_thread(
         }
     }
 
-    println!("we are done: {} {}", new_nodes.len(), new_edges.len());
     match dispatch_simplification(
         birth_time,
         &mut pop,
@@ -1118,10 +1117,8 @@ pub fn neutral_wf_simplify_separate_thread(
         state,
         output,
     ) {
-        Simplifying::No(_) => println!("no"),
+        Simplifying::No(_) => (),
         Simplifying::Yes(handle) => {
-            println!("yes");
-
             let _outputs = handle.join().unwrap();
         }
     }
