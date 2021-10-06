@@ -1191,6 +1191,147 @@ pub fn simplify_from_edge_buffer(
     Ok(())
 }
 
+pub fn simplify_from_edge_buffer_with_node_mapping<F: Fn(NodeId) -> NodeId>(
+    samples: &SamplesInfo,
+    flags: SimplificationFlags,
+    node_map: F,
+    state: &mut SimplificationBuffers,
+    edge_buffer: &mut EdgeBuffer,
+    tables: &mut TableCollection,
+    output: &mut SimplificationOutput,
+) -> Result<(), SimplificationError> {
+    setup_simplification(samples, tables, flags, state, output)?;
+
+    // Process all edges since the last simplification.
+    let mut max_time = Time::MIN;
+    for n in samples.edge_buffer_founder_nodes.iter() {
+        let nt = tables.node(*n).time;
+        max_time = match max_time.partial_cmp(&nt) {
+            Some(std::cmp::Ordering::Less) => nt,
+            Some(_) => max_time,
+            None => panic!("invalid time comparsion"),
+        };
+    }
+
+    for head in edge_buffer.0.index_rev() {
+        let ptime = tables.node(NodeId(head)).time;
+        if ptime > max_time
+        // Then this is a parent who is:
+        // 1. Born since the last simplification.
+        // 2. Left offspring
+        {
+            state.overlapper.clear_queue();
+            process_births_from_buffer(NodeId(head), edge_buffer, state)?;
+            state.overlapper.finalize_queue(tables.genome_length());
+            merge_ancestors(
+                &tables.nodes_,
+                tables.genome_length(),
+                NodeId(head),
+                state,
+                &mut output.idmap,
+            )?;
+        } else if ptime <= max_time {
+            break;
+        }
+    }
+
+    let existing_edges =
+        find_pre_existing_edges(tables, &samples.edge_buffer_founder_nodes, edge_buffer)?;
+
+    let mut edge_i = 0;
+    let num_edges = tables.num_edges();
+
+    for ex in existing_edges {
+        while edge_i < num_edges
+            && tables.nodes_[tables.edges_[edge_i].parent.0 as usize].time
+                > tables.nodes_[ex.parent.0 as usize].time
+        {
+            edge_i = process_parent(
+                tables.edges_[edge_i].parent,
+                (edge_i, num_edges),
+                tables,
+                state,
+                output,
+            )?;
+        }
+        if ex.start != usize::MAX {
+            while (edge_i as usize) < ex.start
+                && tables.nodes_[tables.edges_[edge_i].parent.0 as usize].time
+                    >= tables.nodes_[ex.parent.0 as usize].time
+            {
+                edge_i = process_parent(
+                    tables.edges_[edge_i].parent,
+                    (edge_i, num_edges),
+                    tables,
+                    state,
+                    output,
+                )?;
+            }
+        }
+        // now, handle ex.parent
+        state.overlapper.clear_queue();
+        if ex.start != usize::MAX {
+            while edge_i < ex.stop {
+                // TODO: a debug assert or regular assert?
+                if tables.edges_[edge_i].parent != ex.parent {
+                    return Err(SimplificationError::ErrorMessage(
+                        "Unexpected parent node".to_string(),
+                    ));
+                }
+                let a = &mut state.ancestry;
+                let o = &mut state.overlapper;
+                queue_children(
+                    tables.edges_[edge_i].child,
+                    tables.edges_[edge_i].left,
+                    tables.edges_[edge_i].right,
+                    a,
+                    o,
+                )?;
+                edge_i += 1;
+            }
+            if edge_i < num_edges && tables.edges_[edge_i].parent == ex.parent {
+                return Err(SimplificationError::ErrorMessage(
+                    "error traversing pre-existing edges for parent".to_string(),
+                ));
+            }
+        }
+        process_births_from_buffer(ex.parent, edge_buffer, state)?;
+        state.overlapper.finalize_queue(tables.genome_length());
+        merge_ancestors(
+            &tables.nodes_,
+            tables.genome_length(),
+            ex.parent,
+            state,
+            &mut output.idmap,
+        )?;
+    }
+
+    // Handle remaining edges.
+    while edge_i < num_edges {
+        edge_i = process_parent(
+            tables.edges_[edge_i].parent,
+            (edge_i, num_edges),
+            tables,
+            state,
+            output,
+        )?;
+    }
+
+    std::mem::swap(&mut tables.edges_, &mut state.new_edges);
+    std::mem::swap(&mut tables.nodes_, &mut state.new_nodes);
+    edge_buffer.0.reset(tables.num_nodes());
+
+    generate_output_site_mutation_tables(
+        &state.mutation_node_map,
+        &mut tables.sites_,
+        &mut tables.mutations_,
+        &mut state.new_site_table,
+        &mut output.extinct_mutations,
+    );
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod test_samples_info {
     use super::SamplesInfo;

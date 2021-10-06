@@ -716,9 +716,10 @@ fn simplify_from_edge_buffer_channel(
 
     let mut t = tables.lock().unwrap();
 
-    simplify_from_edge_buffer(
+    simplify_from_edge_buffer_with_node_mapping(
         &inputs.samples,
         flags,
+        |a: NodeId| a,
         &mut state,
         &mut edge_buffer,
         &mut t,
