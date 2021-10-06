@@ -810,7 +810,6 @@ enum Simplifying {
 }
 
 fn dispatch_simplification(
-    birth_time: i64,
     pop: &mut PopulationState,
     new_nodes: &mut NodeTable,
     new_edges: &mut EdgeTable,
@@ -827,7 +826,6 @@ fn dispatch_simplification(
     if new_nodes.is_empty() {
         Simplifying::No((samples, state, output))
     } else {
-        //println!("Firing off some simplification at {}", birth_time);
         // Else, we have to do some moves of the big
         // data structures and return a JoinHandle
         let mut edge_buffer = EdgeBuffer::default();
@@ -842,31 +840,14 @@ fn dispatch_simplification(
                 let p = match edge.parent >= *first_child_node_after_last_simplification {
                     false => TablesIdInteger::from(edge.parent),
                     true => {
-                        //println!(
-                        //    "parent mapping: {}, {} {}-> {}",
-                        //    TablesIdInteger::from(edge.parent),
-                        //    num_nodes,
-                        //    first_child_node_after_last_simplification,
-                        //    TablesIdInteger::from(edge.parent) + num_nodes
-                        //        - first_child_node_after_last_simplification
-                        //);
                         TablesIdInteger::from(edge.parent) + num_nodes
                             - *first_child_node_after_last_simplification
                     }
                 };
 
-                // TODO: this can/should be dispatched to a thread.
                 let c = match edge.child >= *first_child_node_after_last_simplification {
                     false => TablesIdInteger::from(edge.child),
                     true => {
-                        //println!(
-                        //    "child mapping: {}, {} {}-> {}",
-                        //    TablesIdInteger::from(edge.child),
-                        //    num_nodes,
-                        //    first_child_node_after_last_simplification,
-                        //    TablesIdInteger::from(edge.child) + num_nodes
-                        //        - first_child_node_after_last_simplification
-                        //);
                         TablesIdInteger::from(edge.child) + num_nodes
                             - *first_child_node_after_last_simplification
                     }
@@ -883,7 +864,6 @@ fn dispatch_simplification(
                     .unwrap();
             }
             assert!(new_edges.is_empty());
-            //fill_samples(&pop.parents, &mut samples);
             samples.samples.clear();
             for p in pop.parents.iter_mut() {
                 if p.node0 >= *first_child_node_after_last_simplification {
@@ -983,7 +963,6 @@ pub fn neutral_wf_simplify_separate_thread(
 
     let genome_length = _tables.genome_length();
     let tables = Arc::new(Mutex::new(_tables));
-    let mut simplified = false;
     let mut state = SimplificationBuffers::new();
     let mut output = SimplificationOutput::new();
 
@@ -995,10 +974,7 @@ pub fn neutral_wf_simplify_separate_thread(
     loop {
         // Step 1: check if there's work to simplify
 
-        //println!("check if we simplify at {}", birth_time);
-
         let simplifying = dispatch_simplification(
-            birth_time,
             &mut pop,
             &mut new_nodes,
             &mut new_edges,
@@ -1010,11 +986,6 @@ pub fn neutral_wf_simplify_separate_thread(
             state,
             output,
         );
-
-        // println!(
-        //     "after check: {} {}",
-        //     next_node_id, first_child_node_after_last_simplification
-        // );
 
         for _ in 1..(actual_simplification_interval + 1) {
             deaths_and_parents(params.psurvival, &mut rng, &mut pop);
@@ -1035,7 +1006,6 @@ pub fn neutral_wf_simplify_separate_thread(
             // We may exit if the simplification interval
             // and/or the nsteps is a "funny" value
             if birth_time > params.nsteps {
-                //println!("breaking in ::No");
                 break;
             }
         }
@@ -1043,69 +1013,27 @@ pub fn neutral_wf_simplify_separate_thread(
         // record new data while simplification is happening
         match simplifying {
             Simplifying::No(data) => {
-                //println!("nope at time {}", birth_time);
-                simplified = false;
                 samples = data.0;
                 state = data.1;
                 output = data.2;
             }
             Simplifying::Yes(handle) => {
-                //println!(
-                //    "wrapping up simplification at {} {} {}",
-                //    birth_time, next_node_id, first_child_node_after_last_simplification
-                //);
                 let outputs = handle.join().unwrap();
-                simplified = true;
                 output = outputs.output;
                 state = outputs.state;
                 samples = outputs.samples;
 
-                // FIXME: this is probalby our issue, causing "bad" things to
-                // happen w/new node IDs?
                 next_node_id = samples.samples.len() as TablesIdInteger;
                 first_child_node_after_last_simplification = next_node_id;
-                {
-                    let t = tables.lock().unwrap();
-                    //println!(
-                    //    "{} {} {} {}|{} {}",
-                    //    next_node_id,
-                    //    first_child_node_after_last_simplification,
-                    //    new_nodes.len(),
-                    //    new_edges.len(),
-                    //    t.nodes().len(),
-                    //    t.edges().len(),
-                    //);
-                }
-                // remap parent nodes
-                // FIXME NOTE TODO: fascinating--the idmap is coming back funky?
-                // {
-                //     let t = tables.lock().unwrap();
-                //     for p in &mut pop.parents {
-                //         p.node0 = output.idmap[usize::from(p.node0)];
-                //         p.node1 = output.idmap[usize::from(p.node1)];
-                //         assert!(t.node(p.node0).flags & NodeFlags::IS_SAMPLE.bits() > 0);
-                //     }
-                // }
 
-                // // TODO: we can save a loop by merging the pushes into
-                // // the previous loop
-                // // Track what (remapped) nodes are now alive.
-                // samples.edge_buffer_founder_nodes.clear();
-                // for p in &pop.parents {
-                //     samples.edge_buffer_founder_nodes.push(p.node0);
-                //     samples.edge_buffer_founder_nodes.push(p.node1);
-                // }
                 if birth_time > params.nsteps {
-                    //println!("breaking on ::Yes");
                     break;
                 }
-                //if !new_nodes.is_empty() {
             }
         }
     }
 
     match dispatch_simplification(
-        birth_time,
         &mut pop,
         &mut new_nodes,
         &mut new_edges,
@@ -1122,80 +1050,6 @@ pub fn neutral_wf_simplify_separate_thread(
             let _outputs = handle.join().unwrap();
         }
     }
-
-    // for birth_time in 1..(params.nsteps + 1) {
-    //     deaths_and_parents(params.psurvival, &mut rng, &mut pop);
-    //     generate_births_v2(
-    //         breakpoint,
-    //         birth_time.into(),
-    //         pop.tables.genome_length(),
-    //         &mut pop.births,
-    //         &mut rng,
-    //         &mut pop.parents,
-    //         &mut new_nodes,
-    //         &mut pop.edge_buffer,
-    //         &mut next_node_id,
-    //     );
-
-    //     if actual_simplification_interval != -1 && birth_time % actual_simplification_interval == 0
-    //     {
-    //         fill_samples(&pop.parents, &mut samples);
-    //         // transfer over our new nodes
-    //         let mut node_table = pop.tables.dump_node_table();
-    //         node_table.append(&mut new_nodes);
-    //         pop.tables.set_node_table(node_table);
-
-    //         // consume data
-    //         let inputs = SimplificationRoundTripData::new(
-    //             samples,
-    //             pop.edge_buffer,
-    //             pop.tables,
-    //             state,
-    //             output,
-    //         );
-    //         // send data to simplification
-    //         let outputs = simplify_from_edge_buffer_channel(params.simplification_flags, inputs)?;
-    //         // get our data back
-    //         pop.edge_buffer = outputs.edge_buffer;
-    //         pop.tables = outputs.tables;
-    //         output = outputs.output;
-    //         state = outputs.state;
-    //         samples = outputs.samples;
-    //         next_node_id = pop.tables.nodes().len() as TablesIdInteger;
-    //         // remap parent nodes
-    //         for p in &mut pop.parents {
-    //             p.node0 = output.idmap[usize::from(p.node0)];
-    //             p.node1 = output.idmap[usize::from(p.node1)];
-    //             assert!(pop.tables.node(p.node0).flags & NodeFlags::IS_SAMPLE.bits() > 0);
-    //         }
-
-    //         // Track what (remapped) nodes are now alive.
-    //         samples.edge_buffer_founder_nodes.clear();
-    //         for p in &pop.parents {
-    //             samples.edge_buffer_founder_nodes.push(p.node0);
-    //             samples.edge_buffer_founder_nodes.push(p.node1);
-    //         }
-    //         simplified = true;
-    //     } else {
-    //         simplified = false;
-    //     }
-    // }
-
-    // if !simplified && actual_simplification_interval != -1 {
-    //     if !new_nodes.is_empty() {
-    //         let mut node_table = tables.dump_node_table();
-    //         node_table.append(&mut new_nodes);
-    //         tables.set_node_table(node_table);
-    //     }
-    //     simplify_and_remap_nodes(
-    //         params.flags,
-    //         params.simplification_flags,
-    //         &mut samples,
-    //         &mut state,
-    //         &mut pop,
-    //         &mut output,
-    //     );
-    // }
 
     let mut return_tables = match Arc::try_unwrap(tables) {
         Ok(x) => match x.into_inner() {
