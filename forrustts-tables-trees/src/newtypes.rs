@@ -81,7 +81,7 @@ where
     }
 }
 
-pub fn make_id_range<T>(from: T, to: T, inclusive: bool) -> TableIdRange<T>
+pub fn make_id_range<T>(from: T, to: T, inclusive: bool) -> impl Iterator<Item=T>
 where
     T: crate::TableId + Copy + std::cmp::Ord + std::ops::Add<Output = T> + std::ops::AddAssign,
 {
@@ -259,6 +259,14 @@ mod test_newtypes {
     fn test_id_range() {
         {
             let r = TableIdRange::<NodeId>::new(NodeId::from(1), NodeId::from(3), false);
+
+            let vr: Vec<NodeId> = r.collect();
+
+            assert!(vr == vec![NodeId::from(1), NodeId::from(2)]);
+        }
+
+        {
+            let r = make_id_range(NodeId::from(1), NodeId::from(3), false);
 
             let vr: Vec<NodeId> = r.collect();
 
