@@ -12,6 +12,30 @@ macro_rules! iterator_for_nodeiterator {
     };
 }
 
+macro_rules! impl_low_level_table_type {
+    ($idtype: ident, $integer_type: ty) => {
+        impl $crate::traits::private_traits::LowLevelTableType for $idtype {
+            type Type = $integer_type;
+
+            fn new(value: Self::Type) -> Self {
+                Self(value)
+            }
+
+            fn raw(&self) -> Self::Type {
+                self.0
+            }
+        }
+
+        impl $crate::traits::TableType for $idtype {
+            type LowLevelType = $integer_type;
+
+            fn into_raw(self) -> Self::LowLevelType {
+                self.0
+            }
+        }
+    };
+}
+
 macro_rules! impl_table_id {
     ($idtype: ident, $integer_type: ty) => {
         impl $idtype {
@@ -19,34 +43,17 @@ macro_rules! impl_table_id {
             pub const NULL: $idtype = Self(-1);
         }
 
-        impl $crate::traits::private_traits::TableIdPrivate for $idtype {
-            fn new(value: $crate::newtypes::TablesIdInteger) -> Self {
-                Self(value)
-            }
+        impl_low_level_table_type!($idtype, $integer_type);
 
+        impl $crate::traits::private_traits::NullableLowLevelTableType for $idtype {
             fn new_null() -> Self {
                 Self(-1)
             }
-
-            fn raw(&self) -> $crate::newtypes::TablesIdInteger {
-                self.0
-            }
         }
-
-        impl $crate::traits::private_traits::TableTypePrivate for $idtype {}
-
-        impl $crate::traits::TableType for $idtype {}
 
         impl $crate::traits::TableId for $idtype {
             fn is_null(&self) -> bool {
                 *self == Self::NULL
-            }
-        }
-
-        impl $crate::traits::TableTypeIntoRaw for $idtype {
-            type RawType = $integer_type;
-            fn into_raw(self) -> Self::RawType {
-                self.0
             }
         }
 
@@ -63,7 +70,7 @@ macro_rules! impl_table_id {
         impl From<usize> for $idtype {
             fn from(value: usize) -> Self {
                 use num_traits::ToPrimitive;
-                use $crate::traits::private_traits::TableIdPrivate;
+                use $crate::traits::private_traits::LowLevelTableType;
                 match value.to_i32() {
                     Some(x) => Self::new(x),
                     None => Self::NULL,
@@ -77,7 +84,7 @@ macro_rules! impl_table_id {
             }
         }
 
-        impl From<$idtype> for $crate::newtypes::TablesIdInteger {
+        impl From<$idtype> for $integer_type {
             fn from(item: $idtype) -> Self {
                 item.0
             }
@@ -86,13 +93,9 @@ macro_rules! impl_table_id {
         impl From<i64> for $idtype {
             fn from(value: i64) -> Self {
                 use num_traits::ToPrimitive;
-                use $crate::traits::private_traits::TableIdPrivate;
+                use $crate::traits::private_traits::LowLevelTableType;
                 match value.to_i32() {
-                    Some(x) => Self::new(num_traits::clamp(
-                        x,
-                        -1,
-                        $crate::newtypes::TablesIdInteger::MAX,
-                    )),
+                    Some(x) => Self::new(num_traits::clamp(x, -1, <$integer_type>::MAX)),
                     None => Self::NULL,
                 }
             }

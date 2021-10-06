@@ -36,8 +36,8 @@ impl std::fmt::Display for Segment {
         write!(
             f,
             "Segment({},{})",
-            PositionLLType::from(self.left),
-            PositionLLType::from(self.right)
+            <Position as TableType>::LowLevelType::from(self.left),
+            <Position as TableType>::LowLevelType::from(self.right)
         )
     }
 }
@@ -249,7 +249,8 @@ fn crossover_breakpoints(
                     let mut rv = vec![];
                     for _ in 0..n {
                         rv.push(Position::from(
-                            rng.0.flat(0.0, i64::from(genome_length) as f64) as PositionLLType,
+                            rng.0.flat(0.0, i64::from(genome_length) as f64)
+                                as <Position as TableType>::LowLevelType,
                         ));
                     }
                     rv.sort_unstable();
@@ -496,8 +497,10 @@ fn mutate_tables(mutrate: f64, tables: &mut TableCollection, rng: &mut Rng) {
         Some(_) => return,
         None => panic!("bad mutation rate"),
     };
-    let mut posmap = std::collections::HashMap::<PositionLLType, SiteId>::new();
-    let mut derived_map = std::collections::HashMap::<PositionLLType, u8>::new();
+    let mut posmap =
+        std::collections::HashMap::<<Position as TableType>::LowLevelType, SiteId>::new();
+    let mut derived_map =
+        std::collections::HashMap::<<Position as TableType>::LowLevelType, u8>::new();
 
     let num_edges = tables.edges().len();
     for i in 0..num_edges {
@@ -507,17 +510,18 @@ fn mutate_tables(mutrate: f64, tables: &mut TableCollection, rng: &mut Rng) {
         let blen = ctime - ptime;
         assert!((blen as i64) > 0, "{} {} {}", blen, ptime, ctime,);
 
-        let pedge = ((PositionLLType::from(e.right) - PositionLLType::from(e.left)) as f64)
-            / (PositionLLType::from(tables.genome_length()) as f64);
+        let pedge = ((<Position as TableType>::LowLevelType::from(e.right)
+            - <Position as TableType>::LowLevelType::from(e.left)) as f64)
+            / (<Position as TableType>::LowLevelType::from(tables.genome_length()) as f64);
 
         let mutrate_edge = (mutrate * blen as f64) * pedge;
         let nmuts = rng.0.poisson(mutrate_edge);
         for _ in 0..nmuts {
             let t = ((rng.0.flat(ptime as f64, ctime as f64) as i64) + 1) as f64;
-            let pos = rng.0.flat(
-                PositionLLType::from(e.left) as f64,
-                PositionLLType::from(e.right) as f64,
-            ) as PositionLLType;
+            let pos = rng
+                .0
+                .flat(e.left.into_raw() as f64, e.right.into_raw() as f64)
+                as <Position as TableType>::LowLevelType;
 
             match posmap.get(&pos) {
                 Some(x) => {

@@ -1,4 +1,4 @@
-use crate::newtypes::{NodeId, Position, TablesIdInteger, Time};
+use crate::newtypes::{NodeId, Position, Time};
 use bitflags::bitflags;
 
 bitflags! {
@@ -316,7 +316,7 @@ impl<'treeseq> Tree<'treeseq> {
             if self.sample_index_map[s.0 as usize] != NodeId::NULL {
                 panic!("Duplicate samples passed to Tree!");
             }
-            self.sample_index_map[s.0 as usize] = NodeId(i as TablesIdInteger);
+            self.sample_index_map[s.0 as usize] = NodeId::from(i);
             if let Some(row) = self.topology.get_mut(s.0 as usize) {
                 row.left_sample = self.sample_index_map[s.0 as usize];
                 row.right_sample = self.sample_index_map[s.0 as usize];
@@ -880,7 +880,7 @@ impl TreeSequence {
         let mut samples = vec![];
         for (i, n) in tables.nodes_.iter().enumerate() {
             if n.flags & crate::NodeFlags::IS_SAMPLE.bits() > 0 {
-                samples.push(NodeId(i as TablesIdInteger));
+                samples.push(NodeId::from(i));
             }
         }
         if samples.is_empty() {
@@ -1034,7 +1034,7 @@ impl TreeSequence {
             None => {
                 for (i, n) in self.tables.nodes_.iter().enumerate() {
                     if n.flags | crate::NodeFlags::IS_SAMPLE.bits() > 0 {
-                        si.samples.push(NodeId(i as TablesIdInteger));
+                        si.samples.push(NodeId::from(i));
                     }
                 }
             }
