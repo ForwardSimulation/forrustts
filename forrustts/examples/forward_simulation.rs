@@ -134,8 +134,8 @@ fn main() {
         Err(e) => panic!("{}", e),
     };
 
-    for (i, j) in ts.sample_nodes().iter().zip(is_sample.iter()) {
-        assert_eq!(*i, *j);
+    for i in ts.sample_nodes().iter() {
+        assert!(is_sample[usize::from(*i)] > 0);
     }
 
     ts.dump(&outfile, tskit::TableOutputOptions::default())
