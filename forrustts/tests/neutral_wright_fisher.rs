@@ -1,20 +1,173 @@
 use bitflags::bitflags;
 use forrustts::*;
-use rand::rngs::StdRng;
-use rand::Rng;
-use rand::SeedableRng;
-use rand_distr::{Exp, Uniform};
 
 // Some of the material below seems like a candidate for a public API,
 // but we need to decide here if this package should provide that.
 // If so, then many of these types should not be here, as they have nothing
 // to do with Wright-Fisher itself, and are instead more general.
 
-// Even though Position is an integer, we will use
-// an exponential distribution to get the distance to
-// the next crossover position.  The reason for this is
-// that rand_distr::Geometric has really poor performance.
-type BreakpointFunction = Option<Exp<f64>>;
+#[repr(transparent)]
+pub(crate) struct Rng(pub(crate) rgsl::Rng);
+
+impl Rng {
+    /// Create a new [`Rng`] with a seed.
+    pub fn new(seed: usize) -> Self {
+        let mut rng = rgsl::rng::Rng::new(rgsl::rng::algorithms::mt19937()).unwrap();
+        rng.set(seed);
+
+        Self(rng)
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+struct Segment {
+    left: Position,
+    right: Position,
+}
+
+impl Segment {
+    fn new(left: Position, right: Position) -> Self {
+        Self { left, right }
+    }
+}
+
+impl std::fmt::Display for Segment {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "Segment({},{})",
+            PositionLLType::from(self.left),
+            PositionLLType::from(self.right)
+        )
+    }
+}
+
+struct BreakpointIterator<'bp> {
+    breakpoints: &'bp [Position],
+    left: Option<Position>,
+    sequence_length: Position,
+    index: usize,
+}
+
+enum NextBreakpointIndex {
+    Swap,
+    Index(usize),
+    Done,
+}
+
+impl<'bp> BreakpointIterator<'bp> {
+    fn new(breakpoints: &'bp [Position], sequence_length: Position) -> Self {
+        Self {
+            breakpoints,
+            left: None,
+            sequence_length,
+            index: 0,
+        }
+    }
+
+    fn next_breakpoint(&mut self) -> NextBreakpointIndex {
+        let mut t = self.index;
+
+        loop {
+            if t < self.breakpoints.len() {
+                let candidate = self.breakpoints[t];
+                match self.breakpoints[t..].iter().position(|y| *y != candidate) {
+                    Some(distance) => {
+                        if distance % 2 != 0 {
+                            self.index = t + distance;
+                            if candidate == 0 {
+                                return NextBreakpointIndex::Swap;
+                            }
+                            return NextBreakpointIndex::Index(t);
+                        }
+                        t += distance;
+                        self.index = t;
+                        // Crappy corner case...
+                        if candidate == 0 {
+                            self.left = Some(candidate);
+                            return self.next_breakpoint();
+                        }
+                    }
+                    None => {
+                        if self.left.is_some() {
+                            self.index = self.breakpoints.len();
+                            return NextBreakpointIndex::Done;
+                        } else {
+                            assert_eq!(self.index, self.breakpoints.len() - 1);
+                            self.index = self.breakpoints.len();
+                            return NextBreakpointIndex::Index(self.index - 1);
+                        }
+                    }
+                };
+            } else {
+                return NextBreakpointIndex::Done;
+            }
+        }
+    }
+}
+
+// At the start of processing:
+// If breakpoints[0] == 0, and it
+// occurs an odd number of times,
+// Swap.
+// If it occurs an even number of times,
+// we process from 0, first odd.
+// Same if it does not occur.
+// We may need to generate this above,
+// in next_index_for_breakpoint
+#[derive(Debug, Eq, PartialEq)]
+enum SegmentAction {
+    Swap,
+    Process(Segment),
+}
+
+impl std::fmt::Display for SegmentAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Swap => write!(f, "SegmentAction::Swap"),
+            Self::Process(segment) => write!(f, "SegmentAction::Process({})", segment),
+        }
+    }
+}
+
+impl<'bp> Iterator for BreakpointIterator<'bp> {
+    type Item = SegmentAction;
+
+    fn next(&mut self) -> Option<SegmentAction> {
+        match self.next_breakpoint() {
+            NextBreakpointIndex::Swap => Some(SegmentAction::Swap),
+            NextBreakpointIndex::Index(index) => match self.left {
+                Some(value) => {
+                    self.left = Some(self.breakpoints[index]);
+                    Some(SegmentAction::Process(Segment::new(
+                        value,
+                        self.breakpoints[index],
+                    )))
+                }
+                None => {
+                    // TODO: is this the best logic here?
+                    if self.index < self.breakpoints.len() {
+                        self.left = Some(self.breakpoints[index]);
+                    }
+                    Some(SegmentAction::Process(Segment::new(
+                        0.into(),
+                        self.breakpoints[index],
+                    )))
+                }
+            },
+            NextBreakpointIndex::Done => match self.left {
+                Some(left) => {
+                    self.left = None;
+                    Some(SegmentAction::Process(Segment::new(
+                        left,
+                        self.sequence_length,
+                    )))
+                }
+                None => None,
+            },
+        }
+    }
+}
 
 #[derive(Copy, Clone)]
 struct Parent {
@@ -50,15 +203,16 @@ impl PopulationState {
     }
 }
 
-fn deaths_and_parents(psurvival: f64, rng: &mut StdRng, pop: &mut PopulationState) {
+fn deaths_and_parents(psurvival: f64, rng: &mut Rng, pop: &mut PopulationState) {
     pop.births.clear();
-    let random_parents = Uniform::new(0_usize, pop.parents.len() as usize);
     for i in 0..pop.parents.len() {
-        let x: f64 = rng.gen();
+        let x = rng.0.uniform();
         match x.partial_cmp(&psurvival) {
             Some(std::cmp::Ordering::Greater) => {
-                let parent0 = pop.parents[rng.sample(random_parents)];
-                let parent1 = pop.parents[rng.sample(random_parents)];
+                let random_index = rng.0.flat(0.0, pop.parents.len() as f64) as usize;
+                let parent0 = pop.parents[random_index];
+                let random_index = rng.0.flat(0.0, pop.parents.len() as f64) as usize;
+                let parent1 = pop.parents[random_index];
                 pop.births.push(Birth {
                     index: i,
                     parent0,
@@ -71,8 +225,8 @@ fn deaths_and_parents(psurvival: f64, rng: &mut StdRng, pop: &mut PopulationStat
     }
 }
 
-fn mendel(pnodes: &mut (NodeId, NodeId), rng: &mut StdRng) {
-    let x: f64 = rng.gen();
+fn mendel(pnodes: &mut (NodeId, NodeId), rng: &mut Rng) {
+    let x: f64 = rng.0.uniform();
     match x.partial_cmp(&0.5) {
         Some(std::cmp::Ordering::Less) => {
             std::mem::swap(&mut pnodes.0, &mut pnodes.1);
@@ -82,61 +236,80 @@ fn mendel(pnodes: &mut (NodeId, NodeId), rng: &mut StdRng) {
     }
 }
 
+fn crossover_breakpoints(
+    recrate: Option<f64>,
+    genome_length: Position,
+    rng: &mut Rng,
+) -> Option<Vec<Position>> {
+    match recrate {
+        Some(x) => {
+            let n = rng.0.poisson(x);
+            match n > 0 {
+                true => {
+                    let mut rv = vec![];
+                    for _ in 0..n {
+                        rv.push(Position::from(
+                            rng.0.flat(0.0, i64::from(genome_length) as f64) as PositionLLType,
+                        ));
+                    }
+                    rv.sort_unstable();
+                    rv.push(genome_length); // Sentinel value
+                    Some(rv)
+                }
+                false => None,
+            }
+        }
+        None => None,
+    }
+}
+
 fn crossover_and_record_edges(
     parent: Parent,
     child: NodeId,
-    breakpoint: BreakpointFunction,
+    recrate: Option<f64>,
     recorder: &impl Fn(NodeId, NodeId, (Position, Position), &mut TableCollection, &mut EdgeBuffer),
-    rng: &mut StdRng,
+    rng: &mut Rng,
     tables: &mut TableCollection,
     edge_buffer: &mut EdgeBuffer,
 ) {
     let mut pnodes = (parent.node0, parent.node1);
     mendel(&mut pnodes, rng);
 
-    if let Some(exp) = breakpoint {
-        let mut current_pos: PositionLLType = 0;
-        loop {
-            // TODO: gotta justify the next line...
-            let next_length = (rng.sample(exp) as PositionLLType) + 1;
-            assert!(next_length > 0);
-            if current_pos + next_length < tables.genome_length() {
-                recorder(
-                    pnodes.0,
-                    child,
-                    (current_pos.into(), (current_pos + next_length).into()),
-                    tables,
-                    edge_buffer,
-                );
-                current_pos += next_length;
+    match crossover_breakpoints(recrate, tables.genome_length(), rng) {
+        Some(x) => {
+            let bpiter = BreakpointIterator::new(&x, tables.genome_length());
+            for action in bpiter {
+                match action {
+                    SegmentAction::Swap => (),
+                    SegmentAction::Process(segment) => {
+                        recorder(
+                            pnodes.0,
+                            child,
+                            (segment.left, segment.right),
+                            tables,
+                            edge_buffer,
+                        );
+                    }
+                }
                 std::mem::swap(&mut pnodes.0, &mut pnodes.1);
-            } else {
-                recorder(
-                    pnodes.0,
-                    child,
-                    (current_pos.into(), tables.genome_length()),
-                    tables,
-                    edge_buffer,
-                );
-
-                break;
             }
         }
-    } else {
-        recorder(
-            pnodes.0,
-            child,
-            (0.into(), tables.genome_length()),
-            tables,
-            edge_buffer,
-        );
+        None => {
+            recorder(
+                pnodes.0,
+                child,
+                (0.into(), tables.genome_length()),
+                tables,
+                edge_buffer,
+            );
+        }
     }
 }
 
 fn generate_births(
-    breakpoint: BreakpointFunction,
+    recrate: Option<f64>,
     birth_time: Time,
-    rng: &mut StdRng,
+    rng: &mut Rng,
     pop: &mut PopulationState,
     recorder: &impl Fn(NodeId, NodeId, (Position, Position), &mut TableCollection, &mut EdgeBuffer),
 ) {
@@ -148,7 +321,7 @@ fn generate_births(
         crossover_and_record_edges(
             b.parent0,
             new_node_0,
-            breakpoint,
+            recrate,
             recorder,
             rng,
             &mut pop.tables,
@@ -157,7 +330,7 @@ fn generate_births(
         crossover_and_record_edges(
             b.parent1,
             new_node_1,
-            breakpoint,
+            recrate,
             recorder,
             rng,
             &mut pop.tables,
@@ -293,7 +466,7 @@ pub struct SimulationParams {
     pub genome_length: Position,
     pub buffer_edges: bool,
     pub simplification_interval: Option<i64>,
-    pub seed: u64,
+    pub seed: usize,
     pub nsteps: i64,
     pub flags: SimulationFlags,
     pub simplification_flags: SimplificationFlags,
@@ -317,7 +490,7 @@ impl Default for SimulationParams {
     }
 }
 
-fn mutate_tables(mutrate: f64, tables: &mut TableCollection, rng: &mut StdRng) {
+fn mutate_tables(mutrate: f64, tables: &mut TableCollection, rng: &mut Rng) {
     match mutrate.partial_cmp(&0.0) {
         Some(std::cmp::Ordering::Greater) => (),
         Some(_) => return,
@@ -333,16 +506,19 @@ fn mutate_tables(mutrate: f64, tables: &mut TableCollection, rng: &mut StdRng) {
         let ctime = i64::from(tables.node(e.child).time);
         let blen = ctime - ptime;
         assert!((blen as i64) > 0, "{} {} {}", blen, ptime, ctime,);
-        let mutrate_edge = (mutrate * blen as f64)
-            / (PositionLLType::from(e.right) - PositionLLType::from(e.left)) as f64;
-        let exp = Exp::new(mutrate_edge).unwrap();
-        let mut pos = PositionLLType::from(e.left) + (rng.sample(exp) as PositionLLType) + 1;
-        let make_time = Uniform::new(ptime, ctime);
-        while pos < e.right {
-            assert!(ctime > ptime);
-            let t = rng.sample(make_time) + 1;
-            assert!(t <= ctime);
-            assert!(t > ptime);
+
+        let pedge = ((PositionLLType::from(e.right) - PositionLLType::from(e.left)) as f64)
+            / (PositionLLType::from(tables.genome_length()) as f64);
+
+        let mutrate_edge = (mutrate * blen as f64) * pedge;
+        let nmuts = rng.0.poisson(mutrate_edge);
+        for _ in 0..nmuts {
+            let t = ((rng.0.flat(ptime as f64, ctime as f64) as i64) + 1) as f64;
+            let pos = rng.0.flat(
+                PositionLLType::from(e.left) as f64,
+                PositionLLType::from(e.right) as f64,
+            ) as PositionLLType;
+
             match posmap.get(&pos) {
                 Some(x) => {
                     // Get a new derived state for this site
@@ -369,7 +545,6 @@ fn mutate_tables(mutrate: f64, tables: &mut TableCollection, rng: &mut StdRng) {
                     }
                 }
             }
-            pos += (rng.sample(exp) as PositionLLType) + 1;
         }
     }
     tables.sort_tables(TableSortingFlags::SKIP_EDGE_TABLE);
@@ -382,20 +557,12 @@ pub fn neutral_wf(
 
     let mut actual_simplification_interval: i64 = -1;
 
-    let breakpoint: BreakpointFunction = match params.xovers.partial_cmp(&0.0) {
-        Some(std::cmp::Ordering::Greater) => Some(
-            Exp::new(params.xovers / PositionLLType::from(params.genome_length) as f64).unwrap(),
-        ),
-        Some(_) => None,
-        None => panic!("invalid xovers: {}", params.xovers),
-    };
-
     match params.simplification_interval {
         None => (),
         Some(x) => actual_simplification_interval = validate_simplification_interval(x),
     }
 
-    let mut rng = StdRng::seed_from_u64(params.seed);
+    let mut rng = Rng::new(params.seed);
 
     let mut pop = PopulationState::new(params.genome_length);
     let mut samples: SamplesInfo = Default::default();
@@ -427,10 +594,16 @@ pub fn neutral_wf(
         record_edges
     };
 
+    let recrate = match params.xovers.partial_cmp(&0.0) {
+        Some(std::cmp::Ordering::Greater) => Some(params.xovers),
+        Some(std::cmp::Ordering::Equal) => None,
+        Some(std::cmp::Ordering::Less) | None => panic!("invalid recombination rate"),
+    };
+
     for birth_time in 1..(params.nsteps + 1) {
         deaths_and_parents(params.psurvival, &mut rng, &mut pop);
         generate_births(
-            breakpoint,
+            recrate,
             birth_time.into(),
             &mut rng,
             &mut pop,

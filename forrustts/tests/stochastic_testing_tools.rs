@@ -3,16 +3,11 @@ mod neutral_wright_fisher;
 
 use forrustts::*;
 pub use neutral_wright_fisher::*;
-use rand::rngs::StdRng;
-use rand::Rng;
-use rand::SeedableRng;
-use rand_distr::Uniform;
 use std::convert::TryInto;
 
 pub struct SimulatorIterator {
-    rng: StdRng,
+    rng: Rng,
     params: SimulationParams,
-    make_seed: Uniform<u64>,
     nreps: i32,
     rep: i32,
 }
@@ -26,9 +21,8 @@ pub struct SimResults {
 impl SimulatorIterator {
     fn new(params: SimulationParams, nreps: i32) -> Self {
         Self {
-            rng: StdRng::seed_from_u64(params.seed),
+            rng: Rng::new(params.seed),
             params,
-            make_seed: Uniform::new(0_u64, u32::MAX as u64),
             nreps,
             rep: 0,
         }
@@ -40,7 +34,7 @@ impl Iterator for SimulatorIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.rep < self.nreps {
-            let seed = self.rng.sample(self.make_seed);
+            let seed = self.rng.0.flat(0., usize::MAX as f64) as usize;
             let mut params = self.params;
             params.seed = seed;
             let (mut tables, is_sample) = neutral_wf(params).unwrap();
