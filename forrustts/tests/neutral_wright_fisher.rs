@@ -763,36 +763,32 @@ fn generate_births_v2(
         for (p, c) in [(b.parent0, new_node_0), (b.parent1, new_node_1)] {
             let mut pnodes = (p.node0, p.node1);
             mendel(&mut pnodes, rng);
-            if let Some(exp) = breakpoint {
-                let mut current_pos: PositionLLType = 0;
-                loop {
-                    let next_length = (rng.sample(exp) as PositionLLType) + 1;
-                    if current_pos + next_length < genome_length {
-                        new_edges.push(Edge {
-                            parent: pnodes.0,
-                            child: c,
-                            left: current_pos.into(),
-                            right: (current_pos + next_length).into(),
-                        });
-                        current_pos += next_length;
+            match crossover_breakpoints(recrate, genome_length, rng) {
+                Some(x) => {
+                    let bpiter = BreakpointIterator::new(&x, genome_length);
+                    for action in bpiter {
+                        match action {
+                            SegmentAction::Swap => (),
+                            SegmentAction::Process(segment) => {
+                                new_edges.push(Edge {
+                                    parent: pnodes.0,
+                                    child: c,
+                                    left: segment.left,
+                                    right: segment.right,
+                                });
+                            }
+                        }
                         std::mem::swap(&mut pnodes.0, &mut pnodes.1);
-                    } else {
-                        new_edges.push(Edge {
-                            parent: pnodes.0,
-                            child: c,
-                            left: current_pos.into(),
-                            right: genome_length,
-                        });
-                        break;
                     }
                 }
-            } else {
-                new_edges.push(Edge {
-                    parent: pnodes.0,
-                    child: c,
-                    left: 0.into(),
-                    right: genome_length,
-                });
+                None => {
+                    new_edges.push(Edge {
+                        parent: pnodes.0,
+                        child: c,
+                        left: 0.into(),
+                        right: genome_length,
+                    });
+                }
             }
         }
         parents[b.index].index = b.index;
