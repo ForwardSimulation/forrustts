@@ -984,7 +984,7 @@ pub fn neutral_wf_simplify_separate_thread(
                 recrate,
                 birth_time.into(),
                 genome_length,
-                &mut pop.births,
+                &pop.births,
                 &mut rng,
                 &mut pop.parents,
                 &mut new_nodes,
