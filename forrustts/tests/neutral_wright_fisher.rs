@@ -918,7 +918,11 @@ pub fn neutral_wf_simplify_separate_thread(
     let recrate = match params.xovers.partial_cmp(&0.0) {
         Some(std::cmp::Ordering::Greater) => Some(params.xovers),
         Some(std::cmp::Ordering::Equal) => None,
-        Some(std::cmp::Ordering::Less) | None => panic!("invalid recombination rate"),
+        Some(std::cmp::Ordering::Less) | None => {
+            return Err(Box::new(SimulationError::ErrorMessage(
+                "recombination rate must be >= 0.0".to_string(),
+            )))
+        }
     };
 
     match params.simplification_interval {
@@ -1045,9 +1049,17 @@ pub fn neutral_wf_simplify_separate_thread(
     let mut return_tables = match Arc::try_unwrap(tables) {
         Ok(x) => match x.into_inner() {
             Ok(tables) => tables,
-            Err(_) => panic!("poisoned mutex"),
+            Err(_) => {
+                return Err(Box::new(SimulationError::ErrorMessage(
+                    "poisoned mutex".to_string(),
+                )))
+            }
         },
-        Err(_) => panic!("multiple references to tables still in play!"),
+        Err(_) => {
+            return Err(Box::new(SimulationError::ErrorMessage(
+                "multiple references to tables still in play!".to_string(),
+            )))
+        }
     };
 
     let mut is_alive: Vec<i32> = vec![0; return_tables.num_nodes()];
@@ -1065,7 +1077,11 @@ pub fn neutral_wf_simplify_separate_thread(
                 assert_eq!(x.len(), 1);
                 assert_eq!(x[0], 0);
             }
-            None => panic!("ancestral_state is None"),
+            None => {
+                return Err(Box::new(SimulationError::ErrorMessage(
+                    "ancestral_state is None".to_string(),
+                )))
+            }
         };
     }
     for m in return_tables.mutations() {
@@ -1074,7 +1090,11 @@ pub fn neutral_wf_simplify_separate_thread(
                 assert_eq!(x.len(), 1);
                 assert!(x[0] > 0);
             }
-            None => panic!("derived_state is None"),
+            None => {
+                return Err(Box::new(SimulationError::ErrorMessage(
+                    "derived_state is None".to_string(),
+                )))
+            }
         };
     }
 
