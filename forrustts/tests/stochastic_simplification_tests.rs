@@ -4,10 +4,6 @@ mod stochastic_testing_tools;
 use forrustts::NodeId;
 use forrustts::TableTypeIntoRaw;
 use forrustts::*;
-use rand::rngs::StdRng;
-use rand::Rng;
-use rand::SeedableRng;
-use rand_distr::Uniform;
 use stochastic_testing_tools::*;
 use streaming_iterator::StreamingIterator;
 use tskit::TableAccess;
@@ -361,7 +357,7 @@ fn simplify_to_arbitrary_nodes() {
 
     let sims = Simulator::new(params, 25);
 
-    let mut rng = StdRng::seed_from_u64(588512852);
+    let mut rng = Rng::new(588512852);
 
     let subsample_size = 50;
 
@@ -376,12 +372,13 @@ fn simplify_to_arbitrary_nodes() {
                     candidate_sample.push(NodeId::from(idx));
                 }
             }
-            let node_sampler = Uniform::new(0_usize, candidate_sample.len());
+            //let node_sampler = Uniform::new(0_usize, candidate_sample.len());
             let mut subsample = vec![0; candidate_sample.len()];
             for _ in 0..subsample_size {
-                let mut x = rng.sample(node_sampler);
+                //let mut x = rng.sample(node_sampler);
+                let mut x = rng.0.flat(0., candidate_sample.len() as f64) as usize;
                 while subsample[x] == 1 {
-                    x = rng.sample(node_sampler);
+                    x = rng.0.flat(0., candidate_sample.len() as f64) as usize;
                 }
                 subsample[x] = 1;
             }
@@ -459,7 +456,7 @@ fn simplify_to_arbitrary_nodes() {
 fn test_mutation_tables() {
     use tskit::TableAccess;
 
-    let seeds: Vec<u64> = vec![18822, 6699, 173, 14199, 5046, 32637, 25950];
+    let seeds: Vec<usize> = vec![18822, 6699, 173, 14199, 5046, 32637, 25950];
     for seed in seeds {
         let nsteps = 1000;
         let simparams = SimulationParams {

@@ -79,7 +79,7 @@ fn main() {
     let mutrate = value_t_or_exit!(matches.value_of("mutrate"), f64);
     let simplify_input = value_t!(matches.value_of("simplification_interval"), u64).unwrap_or(100);
     let psurvival = value_t!(matches.value_of("psurvival"), f64).unwrap_or(0.0);
-    let seed = value_t_or_exit!(matches.value_of("seed"), u64);
+    let seed = value_t_or_exit!(matches.value_of("seed"), usize);
     let outfile = value_t_or_exit!(matches.value_of("outfile"), String);
     let validate_tables = matches.is_present("validate_tables");
 
