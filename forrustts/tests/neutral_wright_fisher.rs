@@ -884,8 +884,8 @@ fn dispatch_simplification(
         // NOTE: this loop can be done above, once things are working
         samples.edge_buffer_founder_nodes.clear();
         for (i, p) in &mut pop.parents.iter_mut().enumerate() {
-            p.node0 = NodeId::from(2 * i); // utput.idmap[usize::from(p.node0)];
-            p.node1 = NodeId::from(2 * i + 1); // utput.idmap[usize::from(p.node0)];
+            p.node0 = NodeId::from(2 * i);
+            p.node1 = NodeId::from(2 * i + 1);
             samples.edge_buffer_founder_nodes.push(p.node0);
             samples.edge_buffer_founder_nodes.push(p.node1);
         }
