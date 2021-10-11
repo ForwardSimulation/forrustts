@@ -1,9 +1,5 @@
 use bitflags::bitflags;
 use forrustts::*;
-use rand::rngs::StdRng;
-use rand::Rng;
-use rand::SeedableRng;
-use rand_distr::{Exp, Uniform};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use thiserror::Error;
@@ -735,11 +731,11 @@ fn simplify_from_edge_buffer_channel(
 }
 
 fn generate_births_v2(
-    breakpoint: BreakpointFunction,
+    recrate: Option<f64>,
     birth_time: Time,
     genome_length: Position,
     births: &[Birth],
-    rng: &mut StdRng,
+    rng: &mut Rng,
     parents: &mut [Parent],
     new_nodes: &mut NodeTable,
     new_edges: &mut EdgeTable,
@@ -923,12 +919,10 @@ pub fn neutral_wf_simplify_separate_thread(
 
     let mut actual_simplification_interval: i64 = -1;
 
-    let breakpoint: BreakpointFunction = match params.xovers.partial_cmp(&0.0) {
-        Some(std::cmp::Ordering::Greater) => Some(
-            Exp::new(params.xovers / PositionLLType::from(params.genome_length) as f64).unwrap(),
-        ),
-        Some(_) => None,
-        None => panic!("invalid xovers: {}", params.xovers),
+    let recrate = match params.xovers.partial_cmp(&0.0) {
+        Some(std::cmp::Ordering::Greater) => Some(params.xovers),
+        Some(std::cmp::Ordering::Equal) => None,
+        Some(std::cmp::Ordering::Less) | None => panic!("invalid recombination rate"),
     };
 
     match params.simplification_interval {
@@ -936,7 +930,7 @@ pub fn neutral_wf_simplify_separate_thread(
         Some(x) => actual_simplification_interval = validate_simplification_interval(x),
     }
 
-    let mut rng = StdRng::seed_from_u64(params.seed);
+    let mut rng = Rng::new(params.seed);
 
     let mut pop = PopulationState::new(params.genome_length);
     let mut samples: SamplesInfo = Default::default();
@@ -991,7 +985,7 @@ pub fn neutral_wf_simplify_separate_thread(
         for _ in 1..(actual_simplification_interval + 1) {
             deaths_and_parents(params.psurvival, &mut rng, &mut pop);
             generate_births_v2(
-                breakpoint,
+                recrate,
                 birth_time.into(),
                 genome_length,
                 &mut pop.births,
