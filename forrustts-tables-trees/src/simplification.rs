@@ -1191,6 +1191,92 @@ pub fn simplify_from_edge_buffer(
     Ok(())
 }
 
+// Everything below here is an experimental/provisional part of the public API
+
+fn process_births_from_buffer_with_node_mapping<F: Fn(NodeId) -> NodeId>(
+    head: NodeId,
+    node_map: &F,
+    edge_buffer: &EdgeBuffer,
+    state: &mut SimplificationBuffers,
+) -> Result<(), SimplificationError> {
+    // Have to take references here to
+    // make the borrow checker happy.
+    let a = &mut state.ancestry;
+    let o = &mut state.overlapper;
+    for seg in edge_buffer.0.values_iter(head.0) {
+        queue_children(node_map(seg.node), seg.left, seg.right, a, o).unwrap();
+    }
+    Ok(())
+}
+
+fn find_pre_existing_edges_with_node_mapping<F: Fn(NodeId) -> NodeId>(
+    tables: &TableCollection,
+    node_map: &F,
+    edge_buffer_founder_nodes: &[NodeId],
+    edge_buffer: &EdgeBuffer,
+) -> Result<Vec<ParentLocation>, SimplificationError> {
+    let mut alive_with_new_edges: Vec<i32> = vec![];
+
+    // TODO: Is this right?
+    for a in edge_buffer_founder_nodes {
+        if edge_buffer.0.head(a.0)? != NULL_INDEX {
+            alive_with_new_edges.push(node_map(*a).into());
+        }
+    }
+    if alive_with_new_edges.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let mut starts = vec![usize::MAX; tables.num_nodes()];
+    let mut stops = vec![usize::MAX; tables.num_nodes()];
+
+    for (i, e) in tables.enumerate_edges() {
+        if starts[e.parent.0 as usize] == usize::MAX {
+            starts[e.parent.0 as usize] = i;
+        }
+        stops[e.parent.0 as usize] = i + 1;
+    }
+
+    let mut rv = vec![];
+    for a in alive_with_new_edges {
+        rv.push(ParentLocation::new(
+            NodeId::new(a),
+            starts[a as usize],
+            stops[a as usize],
+        ));
+    }
+
+    rv.sort_by(|a, b| {
+        let ta = tables.nodes_[a.parent.0 as usize].time;
+        let tb = tables.nodes_[b.parent.0 as usize].time;
+        match ta.partial_cmp(&tb) {
+            Some(std::cmp::Ordering::Equal) => {
+                if a.start == b.start {
+                    a.parent.cmp(&b.parent)
+                } else {
+                    a.start.cmp(&b.start)
+                }
+            }
+            Some(x) => x.reverse(),
+            None => panic!("invalid node times"),
+        }
+    });
+
+    // TODO: this could eventually be called in a debug_assert
+    if !rv.is_empty() {
+        for (i, _) in rv.iter().enumerate().skip(1) {
+            let t0 = tables.nodes_[rv[i - 1].parent.0 as usize].time;
+            let t1 = tables.nodes_[rv[i].parent.0 as usize].time;
+            if t0 < t1 {
+                return Err(SimplificationError::ErrorMessage(
+                    "existing edges not properly sorted by time".to_string(),
+                ));
+            }
+        }
+    }
+    Ok(rv)
+}
+
 pub fn simplify_from_edge_buffer_with_node_mapping<F: Fn(NodeId) -> NodeId>(
     samples: &SamplesInfo,
     flags: SimplificationFlags,
@@ -1221,12 +1307,17 @@ pub fn simplify_from_edge_buffer_with_node_mapping<F: Fn(NodeId) -> NodeId>(
         // 2. Left offspring
         {
             state.overlapper.clear_queue();
-            process_births_from_buffer(NodeId(head), edge_buffer, state)?;
+            process_births_from_buffer_with_node_mapping(
+                NodeId(head),
+                &node_map,
+                edge_buffer,
+                state,
+            )?;
             state.overlapper.finalize_queue(tables.genome_length());
             merge_ancestors(
                 &tables.nodes_,
                 tables.genome_length(),
-                NodeId(head),
+                node_map(head.into()),
                 state,
                 &mut output.idmap,
             )?;
@@ -1235,8 +1326,12 @@ pub fn simplify_from_edge_buffer_with_node_mapping<F: Fn(NodeId) -> NodeId>(
         }
     }
 
-    let existing_edges =
-        find_pre_existing_edges(tables, &samples.edge_buffer_founder_nodes, edge_buffer)?;
+    let existing_edges = find_pre_existing_edges_with_node_mapping(
+        tables,
+        &node_map,
+        &samples.edge_buffer_founder_nodes,
+        edge_buffer,
+    )?;
 
     let mut edge_i = 0;
     let num_edges = tables.num_edges();
@@ -1295,12 +1390,12 @@ pub fn simplify_from_edge_buffer_with_node_mapping<F: Fn(NodeId) -> NodeId>(
                 ));
             }
         }
-        process_births_from_buffer(ex.parent, edge_buffer, state)?;
+        process_births_from_buffer_with_node_mapping(ex.parent, &node_map, edge_buffer, state)?;
         state.overlapper.finalize_queue(tables.genome_length());
         merge_ancestors(
             &tables.nodes_,
             tables.genome_length(),
-            ex.parent,
+            node_map(ex.parent.into()),
             state,
             &mut output.idmap,
         )?;
