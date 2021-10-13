@@ -679,7 +679,6 @@ pub fn neutral_wf(
 // Below is code for simplifying in a separate thread via channels.
 struct SimplificationRoundTripData {
     samples: SamplesInfo,
-    edge_buffer: EdgeBuffer,
     state: SimplificationBuffers,
     output: SimplificationOutput,
 }
@@ -687,13 +686,11 @@ struct SimplificationRoundTripData {
 impl SimplificationRoundTripData {
     fn new(
         samples: SamplesInfo,
-        edge_buffer: EdgeBuffer,
         state: SimplificationBuffers,
         output: SimplificationOutput,
     ) -> Self {
         Self {
             samples,
-            edge_buffer,
             state,
             output,
         }
@@ -701,13 +698,15 @@ impl SimplificationRoundTripData {
 }
 
 // Take ownership, simplify, return ownership.
-fn simplify_from_edge_buffer_channel(
+fn simplify_from_edge_buffer_channel<F: Fn(NodeId) -> NodeId>(
     flags: SimplificationFlags,
     inputs: SimplificationRoundTripData,
     tables: Arc<Mutex<TableCollection>>,
+    edge_buffer: EdgeBuffer,
+    node_map: F,
 ) -> Result<SimplificationRoundTripData, Box<dyn std::error::Error>> {
     let mut state = inputs.state;
-    let mut edge_buffer = inputs.edge_buffer;
+    let mut edge_buffer = edge_buffer;
     let mut output = inputs.output;
 
     let mut t = tables.lock().unwrap();
@@ -715,7 +714,7 @@ fn simplify_from_edge_buffer_channel(
     simplify_from_edge_buffer_with_node_mapping(
         &inputs.samples,
         flags,
-        |a: NodeId| a,
+        node_map,
         &mut state,
         &mut edge_buffer,
         &mut t,
@@ -724,7 +723,6 @@ fn simplify_from_edge_buffer_channel(
 
     Ok(SimplificationRoundTripData::new(
         inputs.samples,
-        edge_buffer,
         state,
         output,
     ))
@@ -738,7 +736,6 @@ fn generate_births_v2(
     rng: &mut Rng,
     parents: &mut [Parent],
     new_nodes: &mut NodeTable,
-    new_edges: &mut EdgeTable,
     edge_buffer: &mut EdgeBuffer,
     next_node_id: &mut TablesIdInteger,
 ) {
@@ -774,12 +771,6 @@ fn generate_births_v2(
                                 edge_buffer
                                     .record_edge(pnodes.0, c, segment.left, segment.right)
                                     .unwrap();
-                                new_edges.push(Edge {
-                                    parent: pnodes.0,
-                                    child: c,
-                                    left: segment.left,
-                                    right: segment.right,
-                                });
                             }
                         }
                         std::mem::swap(&mut pnodes.0, &mut pnodes.1);
@@ -789,12 +780,6 @@ fn generate_births_v2(
                     edge_buffer
                         .record_edge(pnodes.0, c, 0, genome_length)
                         .unwrap();
-                    new_edges.push(Edge {
-                        parent: pnodes.0,
-                        child: c,
-                        left: 0.into(),
-                        right: genome_length,
-                    });
                 }
             }
         }
@@ -812,12 +797,12 @@ enum Simplifying {
 fn dispatch_simplification(
     pop: &mut PopulationState,
     new_nodes: &mut NodeTable,
-    new_edges: &mut EdgeTable,
     next_node_id: &mut TablesIdInteger,
     first_child_node_after_last_simplification: &mut TablesIdInteger,
     flags: SimplificationFlags,
     tables: Arc<Mutex<TableCollection>>,
     samples: SamplesInfo,
+    edge_buffer: EdgeBuffer,
     state: SimplificationBuffers,
     output: SimplificationOutput,
 ) -> Simplifying {
@@ -828,45 +813,40 @@ fn dispatch_simplification(
     } else {
         // Else, we have to do some moves of the big
         // data structures and return a JoinHandle
-        let mut edge_buffer = EdgeBuffer::default();
+        //let mut edge_buffer = EdgeBuffer::default();
 
         let mut samples = samples;
 
+        let num_nodes: TablesIdInteger;
+        let first = *first_child_node_after_last_simplification;
+
+        // transfer over our new nodes
         {
             let mut t = tables.lock().unwrap();
-            // Transfer our edges
-            let num_nodes = t.nodes().len() as TablesIdInteger;
-            let node_map = |u: NodeId| -> NodeId {
-                match u >= *first_child_node_after_last_simplification {
-                    false => u,
-                    true => (TablesIdInteger::from(u) + num_nodes
-                        - *first_child_node_after_last_simplification)
-                        .into(),
-                }
-            };
-            for edge in new_edges.drain(0..) {
-                let p = node_map(edge.parent);
-                let c = node_map(edge.child);
-                edge_buffer
-                    .record_edge(p, c, edge.left, edge.right)
-                    .unwrap();
-            }
-            assert!(new_edges.is_empty());
-            samples.samples.clear();
-            for p in pop.parents.iter_mut() {
-                p.node0 = node_map(p.node0);
-                p.node1 = node_map(p.node1);
-                samples.samples.push(p.node0);
-                samples.samples.push(p.node1);
-            }
-            *next_node_id = samples.samples.len() as TablesIdInteger;
-            *first_child_node_after_last_simplification = *next_node_id;
-            assert_eq!(pop.parents.len() * 2, samples.samples.len());
-            // transfer over our new nodes
+            num_nodes = t.nodes().len() as TablesIdInteger;
             let mut node_table = t.dump_node_table();
             node_table.append(new_nodes);
             t.set_node_table(node_table);
         }
+
+        let node_map = move |u: NodeId| -> NodeId {
+            match u >= first {
+                false => u,
+                true => (TablesIdInteger::from(u) + num_nodes - first).into(),
+            }
+        };
+
+        samples.samples.clear();
+        for p in pop.parents.iter_mut() {
+            p.node0 = node_map(p.node0);
+            p.node1 = node_map(p.node1);
+            samples.samples.push(p.node0);
+            samples.samples.push(p.node1);
+        }
+
+        *next_node_id = samples.samples.len() as TablesIdInteger;
+        *first_child_node_after_last_simplification = *next_node_id;
+        assert_eq!(pop.parents.len() * 2, samples.samples.len());
 
         // NOTE: this loop can be done above, once things are working
         samples.edge_buffer_founder_nodes.clear();
@@ -879,10 +859,12 @@ fn dispatch_simplification(
 
         Simplifying::Yes(thread::spawn(move || {
             // consume data
-            let inputs = SimplificationRoundTripData::new(samples, edge_buffer, state, output);
+            let inputs = SimplificationRoundTripData::new(samples, state, output);
 
             // send data to simplification
-            let outputs = simplify_from_edge_buffer_channel(flags, inputs, tables).unwrap();
+            let outputs =
+                simplify_from_edge_buffer_channel(flags, inputs, tables, edge_buffer, node_map)
+                    .unwrap();
 
             outputs
         }))
@@ -949,9 +931,9 @@ pub fn neutral_wf_simplify_separate_thread(
     let mut output = SimplificationOutput::new();
 
     let mut new_nodes = NodeTable::default();
-    let mut new_edges = EdgeTable::default();
 
     let mut birth_time: i64 = 1;
+    let mut edge_buffer = EdgeBuffer::default();
 
     loop {
         // Step 1: check if there's work to simplify
@@ -959,17 +941,17 @@ pub fn neutral_wf_simplify_separate_thread(
         let simplifying = dispatch_simplification(
             &mut pop,
             &mut new_nodes,
-            &mut new_edges,
             &mut next_node_id,
             &mut first_child_node_after_last_simplification,
             params.simplification_flags,
             tables.clone(),
             samples,
+            edge_buffer,
             state,
             output,
         );
 
-        let mut edge_buffer = EdgeBuffer::default();
+        edge_buffer = EdgeBuffer::default();
 
         for _ in 1..(actual_simplification_interval + 1) {
             deaths_and_parents(params.psurvival, &mut rng, &mut pop);
@@ -981,7 +963,6 @@ pub fn neutral_wf_simplify_separate_thread(
                 &mut rng,
                 &mut pop.parents,
                 &mut new_nodes,
-                &mut new_edges,
                 &mut edge_buffer,
                 &mut next_node_id,
             );
@@ -1021,12 +1002,12 @@ pub fn neutral_wf_simplify_separate_thread(
     match dispatch_simplification(
         &mut pop,
         &mut new_nodes,
-        &mut new_edges,
         &mut next_node_id,
         &mut first_child_node_after_last_simplification,
         params.simplification_flags,
         tables.clone(),
         samples,
+        edge_buffer,
         state,
         output,
     ) {
