@@ -739,6 +739,7 @@ fn generate_births_v2(
     parents: &mut [Parent],
     new_nodes: &mut NodeTable,
     new_edges: &mut EdgeTable,
+    edge_buffer: &mut EdgeBuffer,
     next_node_id: &mut TablesIdInteger,
 ) {
     for b in births {
@@ -770,6 +771,9 @@ fn generate_births_v2(
                         match action {
                             SegmentAction::Swap => (),
                             SegmentAction::Process(segment) => {
+                                edge_buffer
+                                    .record_edge(pnodes.0, c, segment.left, segment.right)
+                                    .unwrap();
                                 new_edges.push(Edge {
                                     parent: pnodes.0,
                                     child: c,
@@ -782,6 +786,9 @@ fn generate_births_v2(
                     }
                 }
                 None => {
+                    edge_buffer
+                        .record_edge(pnodes.0, c, 0, genome_length)
+                        .unwrap();
                     new_edges.push(Edge {
                         parent: pnodes.0,
                         child: c,
@@ -962,6 +969,8 @@ pub fn neutral_wf_simplify_separate_thread(
             output,
         );
 
+        let mut edge_buffer = EdgeBuffer::default();
+
         for _ in 1..(actual_simplification_interval + 1) {
             deaths_and_parents(params.psurvival, &mut rng, &mut pop);
             generate_births_v2(
@@ -973,6 +982,7 @@ pub fn neutral_wf_simplify_separate_thread(
                 &mut pop.parents,
                 &mut new_nodes,
                 &mut new_edges,
+                &mut edge_buffer,
                 &mut next_node_id,
             );
 
