@@ -829,29 +829,17 @@ fn dispatch_simplification(
             let mut t = tables.lock().unwrap();
             // Transfer our edges
             let num_nodes = t.nodes().len() as TablesIdInteger;
+            let node_map = |u: NodeId| -> NodeId {
+                match u >= *first_child_node_after_last_simplification {
+                    false => u,
+                    true => (TablesIdInteger::from(u) + num_nodes
+                        - *first_child_node_after_last_simplification)
+                        .into(),
+                }
+            };
             for edge in new_edges.drain(0..) {
-                let p = match edge.parent >= *first_child_node_after_last_simplification {
-                    false => TablesIdInteger::from(edge.parent),
-                    true => {
-                        TablesIdInteger::from(edge.parent) + num_nodes
-                            - *first_child_node_after_last_simplification
-                    }
-                };
-
-                let c = match edge.child >= *first_child_node_after_last_simplification {
-                    false => TablesIdInteger::from(edge.child),
-                    true => {
-                        TablesIdInteger::from(edge.child) + num_nodes
-                            - *first_child_node_after_last_simplification
-                    }
-                };
-                assert!(
-                    (c as usize) < t.nodes().len() + new_nodes.len(),
-                    "{} {} {}",
-                    c,
-                    t.nodes().len(),
-                    new_nodes.len()
-                );
+                let p = node_map(edge.parent);
+                let c = node_map(edge.child);
                 edge_buffer
                     .record_edge(p, c, edge.left, edge.right)
                     .unwrap();
@@ -859,16 +847,8 @@ fn dispatch_simplification(
             assert!(new_edges.is_empty());
             samples.samples.clear();
             for p in pop.parents.iter_mut() {
-                if p.node0 >= *first_child_node_after_last_simplification {
-                    p.node0 = (TablesIdInteger::from(p.node0) + num_nodes
-                        - *first_child_node_after_last_simplification)
-                        .into();
-                }
-                if p.node1 >= *first_child_node_after_last_simplification {
-                    p.node1 = (TablesIdInteger::from(p.node1) + num_nodes
-                        - *first_child_node_after_last_simplification)
-                        .into();
-                }
+                p.node0 = node_map(p.node0);
+                p.node1 = node_map(p.node1);
                 samples.samples.push(p.node0);
                 samples.samples.push(p.node1);
             }
