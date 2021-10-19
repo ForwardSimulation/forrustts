@@ -59,7 +59,11 @@ impl_table_id!(DemeId, LowLevelIdType);
 
 pub struct TableIdRange<T>
 where
-    T: crate::TableId + Copy + std::cmp::Ord + std::ops::Add<Output = T> + std::ops::AddAssign,
+    T: crate::TableId<Type = i32>
+        + Copy
+        + std::cmp::Ord
+        + std::ops::Add<Output = T>
+        + std::ops::AddAssign,
 {
     current: T,
     last: T,
@@ -68,7 +72,11 @@ where
 
 impl<T> TableIdRange<T>
 where
-    T: crate::TableId + Copy + std::cmp::Ord + std::ops::Add<Output = T> + std::ops::AddAssign,
+    T: crate::TableId<Type = i32>
+        + Copy
+        + std::cmp::Ord
+        + std::ops::Add<Output = T>
+        + std::ops::AddAssign,
 {
     pub fn new(from: T, to: T, inclusive: bool) -> Self {
         let increment = if from < to { T::new(1) } else { T::new(-1) };
@@ -81,16 +89,24 @@ where
     }
 }
 
-pub fn make_id_range<T>(from: T, to: T, inclusive: bool) -> impl Iterator<Item=T>
+pub fn make_id_range<T>(from: T, to: T, inclusive: bool) -> impl Iterator<Item = T>
 where
-    T: crate::TableId + Copy + std::cmp::Ord + std::ops::Add<Output = T> + std::ops::AddAssign,
+    T: crate::TableId<Type = i32>
+        + Copy
+        + std::cmp::Ord
+        + std::ops::Add<Output = T>
+        + std::ops::AddAssign,
 {
     TableIdRange::<T>::new(from, to, inclusive)
 }
 
 impl<T> Iterator for TableIdRange<T>
 where
-    T: crate::TableId + Copy + std::cmp::Ord + std::ops::Add<Output = T> + std::ops::AddAssign,
+    T: crate::TableId<Type = i32>
+        + Copy
+        + std::cmp::Ord
+        + std::ops::Add<Output = T>
+        + std::ops::AddAssign,
 {
     type Item = T;
 
