@@ -33,7 +33,7 @@
 
 use bitflags::bitflags;
 use forrustts_tables_trees::TableCollection;
-use forrustts_tables_trees::TableTypeIntoRaw;
+use forrustts_tables_trees::TableType;
 use forrustts_tables_trees::Time;
 use thiserror::Error;
 
@@ -223,7 +223,7 @@ pub fn export_tables<F: Into<Option<TableCollectionExportFlags>>>(
 ///
 /// ```
 /// use forrustts_tables_trees::TableCollection;
-/// use forrustts_tables_trees::TableTypeIntoRaw;
+/// use forrustts_tables_trees::TableType;
 /// use forrustts_tskit::TskTableCollection;
 /// use tskit::TableAccess;
 ///
@@ -273,7 +273,7 @@ pub fn export_edges(
 ///
 /// ```
 /// use forrustts_tables_trees::TableCollection;
-/// use forrustts_tables_trees::TableTypeIntoRaw;
+/// use forrustts_tables_trees::TableType;
 /// use forrustts_tskit::TskTableCollection;
 /// use tskit::TableAccess;
 ///
@@ -389,7 +389,7 @@ where
 ///
 /// ```
 /// use forrustts_tables_trees::TableCollection;
-/// use forrustts_tables_trees::TableTypeIntoRaw;
+/// use forrustts_tables_trees::TableType;
 /// use forrustts_tskit::TskTableCollection;
 /// use tskit::TableAccess;
 ///
@@ -438,7 +438,7 @@ pub fn export_nodes(
 ///
 /// ```
 /// use forrustts_tables_trees::TableCollection;
-/// use forrustts_tables_trees::TableTypeIntoRaw;
+/// use forrustts_tables_trees::TableType;
 /// use forrustts_tskit::TskTableCollection;
 /// use serde::{Serialize, Deserialize};
 /// use tskit::TableAccess;

@@ -73,7 +73,7 @@ macro_rules! build_metadata_roundtrip_test {
     ($testfn: ident, $input_table: ident, $output_table: ident, $export_fn: ident) => {
         #[test]
         fn $testfn() {
-            use forrustts_tables_trees::TableTypeIntoRaw;
+            use forrustts_tables_trees::TableType;
             use tskit::TableAccess;
             let data = TablesWithMetadata::default();
 
@@ -118,7 +118,7 @@ macro_rules! build_metadata_roundtrip_test {
     ($testfn: ident, $input_table: ident, $output_table: ident, $export_fn: ident, $callback: ident) => {
         #[test]
         fn $testfn() {
-            use forrustts_tables_trees::TableTypeIntoRaw;
+            use forrustts_tables_trees::TableType;
             use tskit::TableAccess;
             let data = TablesWithMetadata::default();
 

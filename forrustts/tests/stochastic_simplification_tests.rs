@@ -2,7 +2,7 @@
 mod stochastic_testing_tools;
 
 use forrustts::NodeId;
-use forrustts::TableTypeIntoRaw;
+use forrustts::TableType;
 use forrustts::*;
 use stochastic_testing_tools::*;
 use streaming_iterator::StreamingIterator;
@@ -48,11 +48,13 @@ fn compare_edge_table_indexes(
         );
         assert_eq!(
             tables.edges()[*val].left.into_raw(),
-            tsk_tables.edges().left(tsk_edge_input[idx]).unwrap() as PositionLLType
+            tsk_tables.edges().left(tsk_edge_input[idx]).unwrap()
+                as <Position as TableType>::LowLevelType
         );
         assert_eq!(
             tables.edges()[*val].right.into_raw(),
-            tsk_tables.edges().right(tsk_edge_input[idx]).unwrap() as PositionLLType
+            tsk_tables.edges().right(tsk_edge_input[idx]).unwrap()
+                as <Position as TableType>::LowLevelType
         );
     }
 
@@ -67,11 +69,13 @@ fn compare_edge_table_indexes(
         );
         assert_eq!(
             tables.edges()[*val].left.into_raw(),
-            tsk_tables.edges().left(tsk_edge_output[idx]).unwrap() as PositionLLType
+            tsk_tables.edges().left(tsk_edge_output[idx]).unwrap()
+                as <Position as TableType>::LowLevelType
         );
         assert_eq!(
             tables.edges()[*val].right.into_raw(),
-            tsk_tables.edges().right(tsk_edge_output[idx]).unwrap() as PositionLLType
+            tsk_tables.edges().right(tsk_edge_output[idx]).unwrap()
+                as <Position as TableType>::LowLevelType
         );
     }
     true
@@ -420,7 +424,7 @@ fn simplify_to_arbitrary_nodes() {
                     .sites()
                     .position(i as tskit::tsk_id_t)
                     .unwrap()
-                    .partial_cmp(&(PositionLLType::from(s.position) as f64))
+                    .partial_cmp(&(<Position as TableType>::LowLevelType::from(s.position) as f64))
                 {
                     None => panic!("bad cmp"),
                     Some(std::cmp::Ordering::Equal) => (),

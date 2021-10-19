@@ -1,8 +1,9 @@
 use crate::nested_forward_list::NestedForwardList;
 use crate::nested_forward_list::NULL_INDEX;
-use crate::newtypes::{NodeId, Position, SiteId, TablesIdInteger, Time};
+use crate::newtypes::{NodeId, Position, SiteId, Time};
 use crate::tables::*;
-use crate::traits::private_traits::TableIdPrivate;
+use crate::traits::private_traits::LowLevelTableType;
+use crate::traits::TableType;
 use crate::Segment;
 use bitflags::bitflags;
 use thiserror::Error;
@@ -188,7 +189,7 @@ fn record_site(
         new_site_table.push(sites[mutation.site.0 as usize].clone());
     }
 
-    mutation.site = SiteId((new_site_table.len() - 1) as TablesIdInteger);
+    mutation.site = SiteId::from(new_site_table.len() - 1);
 }
 
 // This behavior is equivalent to tskit's FILTER_SITES
@@ -205,7 +206,7 @@ fn generate_output_site_mutation_tables(
 
     let mut current_input_mutation: usize = 0;
 
-    for site_id in 0..input_sites.len() as TablesIdInteger {
+    for site_id in 0..input_sites.len() as <SiteId as TableType>::LowLevelType {
         while current_input_mutation < input_mutations.len() {
             let input_mutation = &input_mutations[current_input_mutation];
             if input_mutation.site != site_id {
@@ -387,7 +388,7 @@ fn record_node(
         deme: input_nodes[id.0 as usize].deme,
         flags,
     });
-    idmap[id.0 as usize] = NodeId((output_nodes.len() - 1) as TablesIdInteger);
+    idmap[id.0 as usize] = NodeId::from(output_nodes.len() - 1);
 }
 
 fn merge_ancestors(
@@ -484,7 +485,7 @@ fn merge_ancestors(
         let n = output_buffered_edges(&mut state.temp_edge_buffer, &mut state.new_edges);
 
         if n == 0 && !is_sample {
-            assert!(output_id < state.new_nodes.len() as TablesIdInteger);
+            assert!(output_id < state.new_nodes.len() as <NodeId as TableType>::LowLevelType);
             state.new_nodes.truncate(output_id.0 as usize);
             idmap[parent_input_id.0 as usize] = NodeId::NULL;
         }
@@ -519,7 +520,7 @@ fn record_sample_nodes(
             *sample,
             Position(0),
             tables.genome_length(),
-            NodeId((new_nodes.len() - 1) as TablesIdInteger),
+            NodeId::from(new_nodes.len() - 1),
             mutation_node_map,
             ancestry,
         )?;

@@ -1,6 +1,4 @@
-use crate::newtypes::{
-    DemeId, EdgeId, MutationId, NodeId, Position, SiteId, TablesIdInteger, Time,
-};
+use crate::newtypes::{DemeId, EdgeId, MutationId, NodeId, Position, SiteId, Time};
 use bitflags::bitflags;
 use std::cmp::Ordering;
 use thiserror::Error;
@@ -297,7 +295,7 @@ fn record_site(sites: &[Site], mutation: &mut MutationRecord, new_site_table: &m
         new_site_table.push(sites[mutation.site.0 as usize].clone());
     }
 
-    mutation.site = SiteId((new_site_table.len() - 1) as TablesIdInteger);
+    mutation.site = SiteId::from(new_site_table.len() - 1);
 }
 
 fn sort_mutation_table(sites: &[Site], mutations: &mut [MutationRecord]) {
@@ -1191,10 +1189,10 @@ impl TableCollection {
             if e.child == NodeId::NULL {
                 return Err(TablesError::NullChild);
             }
-            if e.parent >= self.nodes_.len() as TablesIdInteger {
+            if e.parent >= NodeId::from(self.nodes_.len()) {
                 return Err(TablesError::NodeOutOfBounds);
             }
-            if e.child >= self.nodes_.len() as TablesIdInteger {
+            if e.child >= NodeId::from(self.nodes_.len()) {
                 return Err(TablesError::NodeOutOfBounds);
             }
             self.edge_input_order.push(i);
