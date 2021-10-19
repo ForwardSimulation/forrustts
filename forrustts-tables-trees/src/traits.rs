@@ -19,7 +19,7 @@ pub(crate) mod private_traits {
 /// impl forrustts::TableType for i32 {
 ///     type LowLevelType = i32;
 ///
-///     fn into_raw(self) -> Self::LowLevelType }
+///     fn into_raw(self) -> Self::LowLevelType {
 ///         self
 ///     }
 /// }
@@ -30,7 +30,7 @@ pub(crate) mod private_traits {
 /// impl forrustts::TableType for X {
 ///     type LowLevelType = f64;
 ///
-///     fn into_raw(self) -> Self::LowLevelType }
+///     fn into_raw(self) -> Self::LowLevelType {
 ///         self.0
 ///     }
 /// }
