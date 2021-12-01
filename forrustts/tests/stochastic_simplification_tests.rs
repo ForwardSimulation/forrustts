@@ -284,7 +284,7 @@ fn simplify_to_samples() {
         let ts = TreeSequence::new(i.tables, TreeSequenceFlags::empty()).unwrap();
         let tsk_ts =
             tskit::TreeSequence::new(i.tsk_tables, tskit::TreeSequenceFlags::empty()).unwrap();
-        assert_eq!(ts.num_trees(), tsk_ts.num_trees());
+        assert_eq!(ts.num_trees(), tsk_ts.num_trees() as u32);
 
         let mut ti = ts.tree_iterator(TreeFlags::TRACK_SAMPLES);
         let mut tsk_ti = tsk_ts
