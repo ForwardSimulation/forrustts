@@ -96,15 +96,20 @@ impl NodeIterator for PreorderNodeIterator<'_> {
         self.current_node_ = self.node_stack.pop();
         match self.current_node_ {
             Some(u) => {
-                let mut c = self.tree.left_child(u).unwrap();
+                let mut c = self.tree.right_child(u).unwrap();
                 while c != NodeId::NULL {
                     self.node_stack.push(c);
-                    c = self.tree.right_sib(c).unwrap();
+                    c = self.tree.left_sib(c).unwrap();
                 }
             }
             None => {
                 if let Some(r) = self.root_stack.pop() {
                     self.current_node_ = Some(r);
+                    let mut c = self.tree.right_child(r).unwrap();
+                    while c != NodeId::NULL {
+                        self.node_stack.push(c);
+                        c = self.tree.left_sib(c).unwrap();
+                    }
                 }
             }
         };
@@ -1144,7 +1149,23 @@ mod test_trees {
 
         let mut tree_iter = treeseq.tree_iterator(TreeFlags::TRACK_SAMPLES);
         let mut ntrees = 0;
+        // NOTE: all of these expected outputs will
+        // change if/when we update to a tree structure
+        // using virtual roots.
+        let expected_number_of_roots = vec![2, 1];
+        let mut expected_root_ids = vec![
+            vec![NodeId::from(0)],
+            vec![NodeId::from(0), NodeId::from(1)],
+        ];
+        let mut expected_preorders = vec![vec![], vec![]];
+        for i in &[0, 2, 3, 1, 4, 5] {
+            expected_preorders[1].push(NodeId::from(*i));
+        }
+        for i in &[0, 3, 1, 4, 5, 2] {
+            expected_preorders[0].push(NodeId::from(*i));
+        }
         while let Some(tree) = tree_iter.next() {
+            println!("{}", tree.left_root.0);
             if ntrees == 0 {
                 let mut nodes = vec![0; tree.num_nodes()];
                 for c in tree.children(0).unwrap() {
@@ -1250,6 +1271,22 @@ mod test_trees {
                 for s in &[2, 4, 5] {
                     assert_eq!(nodes[*s as usize], 1);
                 }
+            }
+            let mut num_roots = 0;
+            let eroot_ids = expected_root_ids.pop().unwrap();
+            for (i, r) in tree.roots().enumerate() {
+                num_roots += 1;
+                assert_eq!(r, eroot_ids[i]);
+            }
+            assert_eq!(expected_number_of_roots[ntrees as usize], num_roots);
+
+            let expected_preorder = expected_preorders.pop().unwrap();
+
+            for (i, n) in tree
+                .traverse_nodes(NodeTraversalOrder::Preorder)
+                .enumerate()
+            {
+                assert_eq!(expected_preorder[i], n);
             }
 
             // Check that each sample node contains itself
