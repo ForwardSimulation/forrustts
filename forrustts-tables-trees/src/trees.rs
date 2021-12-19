@@ -69,7 +69,6 @@ pub enum NodeTraversalOrder {
 }
 
 struct PreorderNodeIterator<'a> {
-    root_stack: Vec<NodeId>,
     node_stack: Vec<NodeId>,
     tree: &'a Tree<'a>,
     current_node_: Option<NodeId>,
@@ -78,15 +77,11 @@ struct PreorderNodeIterator<'a> {
 impl<'a> PreorderNodeIterator<'a> {
     fn new(tree: &'a Tree) -> Self {
         let mut rv = PreorderNodeIterator {
-            root_stack: tree.roots_to_vec(),
-            node_stack: vec![],
+            node_stack: tree.roots_to_vec(),
             tree,
             current_node_: None,
         };
-        rv.root_stack.reverse();
-        if let Some(root) = rv.root_stack.pop() {
-            rv.node_stack.push(root);
-        }
+        rv.node_stack.reverse();
         rv
     }
 }
@@ -94,23 +89,11 @@ impl<'a> PreorderNodeIterator<'a> {
 impl NodeIterator for PreorderNodeIterator<'_> {
     fn next_node(&mut self) {
         self.current_node_ = self.node_stack.pop();
-        match self.current_node_ {
-            Some(u) => {
-                let mut c = self.tree.right_child(u).unwrap();
-                while c != NodeId::NULL {
-                    self.node_stack.push(c);
-                    c = self.tree.left_sib(c).unwrap();
-                }
-            }
-            None => {
-                if let Some(r) = self.root_stack.pop() {
-                    self.current_node_ = Some(r);
-                    let mut c = self.tree.right_child(r).unwrap();
-                    while c != NodeId::NULL {
-                        self.node_stack.push(c);
-                        c = self.tree.left_sib(c).unwrap();
-                    }
-                }
+        if let Some(u) = self.current_node_ {
+            let mut c = self.tree.right_child(u).unwrap();
+            while c != NodeId::NULL {
+                self.node_stack.push(c);
+                c = self.tree.left_sib(c).unwrap();
             }
         };
     }
