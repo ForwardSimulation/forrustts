@@ -1,19 +1,22 @@
 #[path = "./stochastic_testing_tools.rs"]
 mod stochastic_testing_tools;
 
+use std::convert::TryFrom;
+
 use forrustts::NodeId;
 use forrustts::TableType;
 use forrustts::*;
 use stochastic_testing_tools::*;
 use streaming_iterator::StreamingIterator;
+use tskit::bindings::tsk_id_t;
 use tskit::TableAccess;
 use tskit::TskitTypeAccess;
 
-struct VecTskId(Vec<tskit::tsk_id_t>);
+struct VecTskId(Vec<tsk_id_t>);
 
 impl From<Vec<NodeId>> for VecTskId {
     fn from(value: Vec<NodeId>) -> Self {
-        let mut rv: Vec<tskit::tsk_id_t> = vec![];
+        let mut rv: Vec<tsk_id_t> = vec![];
         for v in &value {
             rv.push(v.into_raw());
         }
@@ -28,13 +31,13 @@ fn compare_edge_table_indexes(
     let tsk_edge_input = unsafe {
         std::slice::from_raw_parts(
             (*tsk_tables.as_ptr()).indexes.edge_insertion_order,
-            tsk_tables.edges().num_rows() as usize,
+            usize::from(tsk_tables.edges().num_rows()),
         )
     };
     let tsk_edge_output = unsafe {
         std::slice::from_raw_parts(
             (*tsk_tables.as_ptr()).indexes.edge_removal_order,
-            tsk_tables.edges().num_rows() as usize,
+            usize::from(tsk_tables.edges().num_rows()),
         )
     };
     for (idx, val) in tables.edge_input_order().unwrap().iter().enumerate() {
@@ -48,12 +51,12 @@ fn compare_edge_table_indexes(
         );
         assert_eq!(
             tables.edges()[*val].left.into_raw(),
-            tsk_tables.edges().left(tsk_edge_input[idx]).unwrap()
+            f64::from(tsk_tables.edges().left(tsk_edge_input[idx]).unwrap())
                 as <Position as TableType>::LowLevelType
         );
         assert_eq!(
             tables.edges()[*val].right.into_raw(),
-            tsk_tables.edges().right(tsk_edge_input[idx]).unwrap()
+            f64::from(tsk_tables.edges().right(tsk_edge_input[idx]).unwrap())
                 as <Position as TableType>::LowLevelType
         );
     }
@@ -69,12 +72,12 @@ fn compare_edge_table_indexes(
         );
         assert_eq!(
             tables.edges()[*val].left.into_raw(),
-            tsk_tables.edges().left(tsk_edge_output[idx]).unwrap()
+            f64::from(tsk_tables.edges().left(tsk_edge_output[idx]).unwrap())
                 as <Position as TableType>::LowLevelType
         );
         assert_eq!(
             tables.edges()[*val].right.into_raw(),
-            tsk_tables.edges().right(tsk_edge_output[idx]).unwrap()
+            f64::from(tsk_tables.edges().right(tsk_edge_output[idx]).unwrap())
                 as <Position as TableType>::LowLevelType
         );
     }
@@ -221,25 +224,25 @@ fn simplify_to_samples() {
 
         assert_eq!(
             i.tables.edges().len(),
-            i.tsk_tables.edges().num_rows() as usize
+            usize::from(i.tsk_tables.edges().num_rows())
         );
         assert_eq!(
             i.tables.nodes().len(),
-            i.tsk_tables.nodes().num_rows() as usize
+            usize::from(i.tsk_tables.nodes().num_rows())
         );
         assert_eq!(
             i.tables.sites().len(),
-            i.tsk_tables.sites().num_rows() as usize
+            usize::from(i.tsk_tables.sites().num_rows())
         );
         assert_eq!(
             i.tables.mutations().len(),
-            i.tsk_tables.mutations().num_rows() as usize
+            usize::from(i.tsk_tables.mutations().num_rows())
         );
         for (idx, s) in i.tables.enumerate_sites() {
             match i
                 .tsk_tables
                 .sites()
-                .position(idx as tskit::tsk_id_t)
+                .position(idx as tsk_id_t)
                 .unwrap()
                 .partial_cmp(&(s.position.into_raw() as f64))
             {
@@ -252,10 +255,7 @@ fn simplify_to_samples() {
         for (idx, m) in i.tables.enumerate_mutations() {
             assert_eq!(
                 m.node.into_raw(),
-                i.tsk_tables
-                    .mutations()
-                    .node(idx as tskit::tsk_id_t)
-                    .unwrap()
+                i.tsk_tables.mutations().node(idx as tsk_id_t).unwrap()
             );
         }
 
@@ -263,12 +263,7 @@ fn simplify_to_samples() {
             let tpos = i
                 .tsk_tables
                 .sites()
-                .position(
-                    i.tsk_tables
-                        .mutations()
-                        .site(idx as tskit::tsk_id_t)
-                        .unwrap(),
-                )
+                .position(i.tsk_tables.mutations().site(idx as tsk_id_t).unwrap())
                 .unwrap();
             match tpos.partial_cmp(&(i.tables.site(m.site).position.into_raw() as f64)) {
                 Some(std::cmp::Ordering::Equal) => (),
@@ -284,7 +279,10 @@ fn simplify_to_samples() {
         let ts = TreeSequence::new(i.tables, TreeSequenceFlags::empty()).unwrap();
         let tsk_ts =
             tskit::TreeSequence::new(i.tsk_tables, tskit::TreeSequenceFlags::empty()).unwrap();
-        assert_eq!(ts.num_trees(), tsk_ts.num_trees() as u32);
+        assert_eq!(
+            ts.num_trees(),
+            usize::try_from(tsk_ts.num_trees()).unwrap() as u32
+        );
 
         let mut ti = ts.tree_iterator(TreeFlags::TRACK_SAMPLES);
         let mut tsk_ti = tsk_ts
@@ -412,17 +410,26 @@ fn simplify_to_arbitrary_nodes() {
                 )
                 .unwrap();
 
-            assert_eq!(tables.edges().len(), tsk_tables.edges().num_rows() as usize);
-            assert_eq!(tables.nodes().len(), tsk_tables.nodes().num_rows() as usize);
-            assert_eq!(tables.sites().len(), tsk_tables.sites().num_rows() as usize);
+            assert_eq!(
+                tables.edges().len(),
+                usize::try_from(tsk_tables.edges().num_rows()).unwrap()
+            );
+            assert_eq!(
+                tables.nodes().len(),
+                usize::try_from(tsk_tables.nodes().num_rows()).unwrap()
+            );
+            assert_eq!(
+                tables.sites().len(),
+                usize::try_from(tsk_tables.sites().num_rows()).unwrap()
+            );
             assert_eq!(
                 tables.mutations().len(),
-                tsk_tables.mutations().num_rows() as usize
+                usize::from(tsk_tables.mutations().num_rows())
             );
             for (i, s) in tables.enumerate_sites() {
                 match tsk_tables
                     .sites()
-                    .position(i as tskit::tsk_id_t)
+                    .position(i as tsk_id_t)
                     .unwrap()
                     .partial_cmp(&(<Position as TableType>::LowLevelType::from(s.position) as f64))
                 {
@@ -435,14 +442,14 @@ fn simplify_to_arbitrary_nodes() {
             for (i, m) in tables.enumerate_mutations() {
                 assert_eq!(
                     m.node.into_raw(),
-                    tsk_tables.mutations().node(i as tskit::tsk_id_t).unwrap()
+                    tsk_tables.mutations().node(i as tsk_id_t).unwrap()
                 );
             }
 
             for (i, m) in tables.enumerate_mutations() {
                 match tsk_tables
                     .sites()
-                    .position(tsk_tables.mutations().site(i as tskit::tsk_id_t).unwrap())
+                    .position(tsk_tables.mutations().site(i as tsk_id_t).unwrap())
                     .unwrap()
                     .partial_cmp(&(tables.site(m.site).position.into_raw() as f64))
                 {
