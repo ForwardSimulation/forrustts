@@ -1,70 +1,70 @@
 #[path = "../tests/neutral_wright_fisher.rs"]
 mod neutral_wright_fisher;
 
-use clap::{value_t, value_t_or_exit, App, Arg};
+use clap::{Arg, Command};
 use neutral_wright_fisher::*;
 
 fn main() {
-    let matches = App::new("forward_simulation")
+    let matches = Command::new("forward_simulation")
         .arg(
-            Arg::with_name("popsize")
-                .short("N")
+            Arg::new("popsize")
+                .short('N')
                 .long("popsize")
                 .help("Diploid population size")
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("nsteps")
-                .short("n")
+            Arg::new("nsteps")
+                .short('n')
                 .long("nsteps")
                 .help("number of birth steps to simulate")
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("xovers")
-                .short("x")
+            Arg::new("xovers")
+                .short('x')
                 .long("xovers")
                 .help("Mean number of crossovers per meiosis.")
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("mutrate")
-                .short("m")
+            Arg::new("mutrate")
+                .short('m')
                 .long("mutrate")
                 .help("Mean number of mutations per new gamete.")
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("simplification_interval")
-                .short("s")
+            Arg::new("simplification_interval")
+                .short('s')
                 .long("simplify")
                 .help("number of generations between simplifications")
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("outfile")
-                .short("o")
+            Arg::new("outfile")
+                .short('o')
                 .long("outfile")
                 .help("Name of output file. The format is a tskit \"trees\" file")
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("seed")
-                .short("S")
+            Arg::new("seed")
+                .short('S')
                 .long("seed")
                 .help("Random number seed")
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("psurvival")
-                .short("P")
+            Arg::new("psurvival")
+                .short('P')
                 .long("psurvival")
                 .help("Survival probability")
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("validate_tables")
-                .short("v")
+            Arg::new("validate_tables")
+                .short('v')
                 .long("validate_tables")
                 .help("Validate all tables prior to simplification")
                 .takes_value(false),
@@ -73,14 +73,14 @@ fn main() {
 
     // TODO: default params
 
-    let popsize = value_t_or_exit!(matches.value_of("popsize"), u32);
-    let nsteps = value_t_or_exit!(matches.value_of("nsteps"), i64);
-    let xovers = value_t_or_exit!(matches.value_of("xovers"), f64);
-    let mutrate = value_t_or_exit!(matches.value_of("mutrate"), f64);
-    let simplify_input = value_t!(matches.value_of("simplification_interval"), u64).unwrap_or(100);
-    let psurvival = value_t!(matches.value_of("psurvival"), f64).unwrap_or(0.0);
-    let seed = value_t_or_exit!(matches.value_of("seed"), usize);
-    let outfile = value_t_or_exit!(matches.value_of("outfile"), String);
+    let popsize = matches.value_of_t("popsize").unwrap();
+    let nsteps = matches.value_of_t("nsteps").unwrap();
+    let xovers = matches.value_of_t("xovers").unwrap();
+    let mutrate = matches.value_of_t("mutrate").unwrap();
+    let simplify_input = matches.value_of_t("simplification_interval").unwrap_or(100);
+    let psurvival = matches.value_of_t("psurvival").unwrap_or(0.0);
+    let seed = matches.value_of_t("seed").unwrap();
+    let outfile: String = matches.value_of_t("outfile").unwrap();
     let validate_tables = matches.is_present("validate_tables");
 
     // TODO: parameter validation..
