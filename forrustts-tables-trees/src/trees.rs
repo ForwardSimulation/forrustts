@@ -815,7 +815,7 @@ impl<'treeseq> streaming_iterator::StreamingIterator for Tree<'treeseq> {
 }
 
 /// Error type related to [``TreeSequence``] and [``Tree``].
-#[derive(thiserror::Error, Debug, PartialEq)]
+#[derive(thiserror::Error, Debug, PartialEq, Eq)]
 pub enum TreesError {
     /// Returned by [``TreeSequence::new``].
     #[error("Tables not indexed.")]
@@ -1233,7 +1233,8 @@ mod test_trees {
                 for r in &roots {
                     nodes[usize::from(*r)] = 1;
                 }
-                for i in &[0] {
+                {
+                    let i = &0;
                     assert_eq!(nodes[*i as usize], 1);
                 }
                 for x in &mut nodes {

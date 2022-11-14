@@ -54,5 +54,5 @@ pub mod prelude;
 
 /// Get the forrustts version number.
 pub fn version() -> &'static str {
-    return env!("CARGO_PKG_VERSION");
+    env!("CARGO_PKG_VERSION")
 }
