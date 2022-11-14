@@ -11,7 +11,7 @@
 use thiserror::Error;
 
 /// Errror type for [``NestedForwardList``] operations.
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum NestedForwardListError {
     /// Tail of a list is unexpectedly null.
     #[error("Tail is null")]

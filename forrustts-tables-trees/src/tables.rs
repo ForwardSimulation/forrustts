@@ -1109,7 +1109,7 @@ impl TableCollection {
     }
 
     // SAFETY: the bounds are guaranteed by build_indexes
-    fn sort_edge_output_order(edges: &[Edge], nodes: &[Node], edge_input_order: &mut Vec<usize>) {
+    fn sort_edge_output_order(edges: &[Edge], nodes: &[Node], edge_input_order: &mut [usize]) {
         edge_input_order.sort_by(|a, b| {
             let ea = unsafe { edges.get_unchecked(*a) };
             let eb = unsafe { edges.get_unchecked(*b) };
@@ -1135,7 +1135,7 @@ impl TableCollection {
     }
 
     // SAFETY: the bounds are guaranteed by build_indexes
-    fn sort_edge_input_order(edges: &[Edge], nodes: &[Node], edge_output_order: &mut Vec<usize>) {
+    fn sort_edge_input_order(edges: &[Edge], nodes: &[Node], edge_output_order: &mut [usize]) {
         edge_output_order.sort_by(|a, b| {
             let ea = unsafe { edges.get_unchecked(*a) };
             let eb = unsafe { edges.get_unchecked(*b) };
@@ -1398,7 +1398,7 @@ mod test_tables {
 
     #[test]
     fn test_bad_genome_length() {
-        let _ = TableCollection::new(Position(0)).map_or_else(
+        TableCollection::new(Position(0)).map_or_else(
             |x: TablesError| assert_eq!(x, TablesError::InvalidGenomeLength),
             |_| panic!(),
         );
@@ -1425,7 +1425,7 @@ mod test_tables {
     fn test_add_edge_bad_positions() {
         let mut tables = TableCollection::new(10).unwrap();
 
-        let _ = tables.add_edge(-1, 1, 1, 2).map_or_else(
+        tables.add_edge(-1, 1, 1, 2).map_or_else(
             |x: TablesError| {
                 assert_eq!(
                     x,
@@ -1437,7 +1437,7 @@ mod test_tables {
             |_| panic!(),
         );
 
-        let _ = tables.add_edge(1, -1, 1, 2).map_or_else(
+        tables.add_edge(1, -1, 1, 2).map_or_else(
             |x: TablesError| {
                 assert_eq!(
                     x,
@@ -1454,7 +1454,7 @@ mod test_tables {
     fn test_add_edge_bad_nodes() {
         let mut tables = TableCollection::new(10).unwrap();
 
-        let _ = tables.add_edge(0, 1, -1, 2).map_or_else(
+        tables.add_edge(0, 1, -1, 2).map_or_else(
             |x: TablesError| {
                 assert_eq!(
                     x,
@@ -1466,7 +1466,7 @@ mod test_tables {
             |_| panic!(),
         );
 
-        let _ = tables.add_edge(0, 1, 1, -2).map_or_else(
+        tables.add_edge(0, 1, 1, -2).map_or_else(
             |x: TablesError| {
                 assert_eq!(
                     x,
@@ -1496,7 +1496,7 @@ mod test_tables {
     #[test]
     fn test_add_site_with_ancestral_state() {
         let mut tables = TableCollection::new(10).unwrap();
-        let _ = tables
+        tables
             .add_site(1, Some(b"0".to_vec()))
             .map_or_else(|_: TablesError| panic!(), |_| ());
         let s = tables.site(0);
@@ -1524,7 +1524,7 @@ mod test_tables {
         a.append(&mut astate_part1.to_le_bytes().to_vec());
         a.append(&mut astate_part2.to_le_bytes().to_vec());
         assert_eq!(a.len(), 8);
-        let _ = tables
+        tables
             .add_site(1, Some(a))
             .map_or_else(|_: TablesError| panic!(), |_| ());
 
@@ -1547,7 +1547,7 @@ mod test_tables {
     #[test]
     fn test_add_site_without_ancestral_state() {
         let mut tables = TableCollection::new(10).unwrap();
-        let _ = tables
+        tables
             .add_site(1, None)
             .map_or_else(|_: TablesError| panic!(), |_| ());
         let s = tables.site(0);

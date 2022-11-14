@@ -1246,7 +1246,7 @@ mod test_simpify_tables {
         let mut samples = SamplesInfo::new();
         samples.samples.push(1.into());
 
-        let _ = simplify_tables_without_state(
+        simplify_tables_without_state(
             &samples,
             SimplificationFlags::VALIDATE_ALL,
             &mut tables,
