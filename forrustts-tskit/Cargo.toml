@@ -1,7 +1,7 @@
 [package]
 name = "forrustts-tskit"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 description = "Data interchange with tskit"
 authors = ["molpopgen <krthornt@uci.edu>"]
 license = "GPL-3.0-or-later"
