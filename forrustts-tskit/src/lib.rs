@@ -157,7 +157,6 @@ pub fn simple_time_reverser<T: Into<Time>>(x: T) -> impl Fn(Time) -> f64 {
 /// # Example
 ///
 /// ```
-/// use tskit::TableAccess;
 /// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
 /// // Add 2 sample nodes
 /// tables.add_node_with_flags(0., 0,
@@ -225,7 +224,6 @@ pub fn export_tables<F: Into<Option<TableCollectionExportFlags>>>(
 /// use forrustts_tables_trees::TableCollection;
 /// use forrustts_tables_trees::TableType;
 /// use forrustts_tskit::TskTableCollection;
-/// use tskit::TableAccess;
 ///
 /// let mut tables = TableCollection::new(100).unwrap();
 /// tables.add_edge(25, 50, 0, 1).unwrap();
@@ -275,7 +273,6 @@ pub fn export_edges(
 /// use forrustts_tables_trees::TableCollection;
 /// use forrustts_tables_trees::TableType;
 /// use forrustts_tskit::TskTableCollection;
-/// use tskit::TableAccess;
 ///
 /// let mut tables = TableCollection::new(100).unwrap();
 /// tables.add_node(1, 2).unwrap();
@@ -327,8 +324,6 @@ pub fn build_population_table(
 /// # Examples
 ///
 /// ```
-/// use tskit::TableAccess;
-///
 /// #[derive(serde::Serialize, serde::Deserialize, tskit::metadata::PopulationMetadata)]
 /// #[serializer("serde_json")]
 /// struct PopulationName(String);
@@ -391,7 +386,6 @@ where
 /// use forrustts_tables_trees::TableCollection;
 /// use forrustts_tables_trees::TableType;
 /// use forrustts_tskit::TskTableCollection;
-/// use tskit::TableAccess;
 ///
 /// let mut tables = TableCollection::new(100).unwrap();
 /// tables.add_node(1, 2).unwrap();
@@ -441,7 +435,6 @@ pub fn export_nodes(
 /// use forrustts_tables_trees::TableType;
 /// use forrustts_tskit::TskTableCollection;
 /// use serde::{Serialize, Deserialize};
-/// use tskit::TableAccess;
 /// use tskit::metadata::NodeMetadata;
 ///
 /// #[derive(Serialize, Deserialize, NodeMetadata)]
@@ -495,7 +488,6 @@ where
 /// # Examples
 ///
 /// ```
-/// use tskit::TableAccess;
 /// use forrustts_tskit::simple_time_reverser;
 ///
 /// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
@@ -531,7 +523,6 @@ pub fn export_mutations(
 /// ```
 /// use serde::{Serialize, Deserialize};
 /// use tskit::metadata::MutationMetadata;
-/// use tskit::TableAccess;
 /// use forrustts_tskit::simple_time_reverser;
 ///
 /// #[derive(Serialize, Deserialize, MutationMetadata)]
@@ -598,7 +589,6 @@ where
 /// # Examples
 ///
 /// ```
-/// use tskit::TableAccess;
 /// use forrustts_tskit::simple_time_reverser;
 ///
 /// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
@@ -630,7 +620,6 @@ pub fn export_sites(
 /// ```
 /// use serde::{Serialize, Deserialize};
 /// use tskit::metadata::SiteMetadata;
-/// use tskit::TableAccess;
 /// use forrustts_tskit::simple_time_reverser;
 ///
 /// #[derive(Serialize, Deserialize, SiteMetadata)]

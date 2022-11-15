@@ -74,7 +74,6 @@ macro_rules! build_metadata_roundtrip_test {
         #[test]
         fn $testfn() {
             use forrustts_tables_trees::TableType;
-            use tskit::TableAccess;
             let data = TablesWithMetadata::default();
 
             {
@@ -119,7 +118,6 @@ macro_rules! build_metadata_roundtrip_test {
         #[test]
         fn $testfn() {
             use forrustts_tables_trees::TableType;
-            use tskit::TableAccess;
             let data = TablesWithMetadata::default();
 
             {
@@ -198,8 +196,8 @@ macro_rules! validate_metadata {
             .metadata::<Metadata>($index.into())
             .unwrap()
         {
-            Some(x) => assert_eq!(x, $object.$container[$index_two]),
-            None => panic!("expeced Some(metadata)"),
+            Ok(x) => assert_eq!(x, $object.$container[$index_two]),
+            Err(_) => panic!("expected Ok(metadata)"),
         }
     };
 }
