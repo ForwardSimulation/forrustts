@@ -11,7 +11,6 @@ use rand::SeedableRng;
 use stochastic_testing_tools::*;
 use streaming_iterator::StreamingIterator;
 use tskit::bindings::tsk_id_t;
-use tskit::TableAccess;
 use tskit::TskitTypeAccess;
 
 struct VecTskId(Vec<tsk_id_t>);
@@ -33,13 +32,13 @@ fn compare_edge_table_indexes(
     let tsk_edge_input = unsafe {
         std::slice::from_raw_parts(
             (*tsk_tables.as_ptr()).indexes.edge_insertion_order,
-            usize::from(tsk_tables.edges().num_rows()),
+            usize::try_from(tsk_tables.edges().num_rows()).unwrap(),
         )
     };
     let tsk_edge_output = unsafe {
         std::slice::from_raw_parts(
             (*tsk_tables.as_ptr()).indexes.edge_removal_order,
-            usize::from(tsk_tables.edges().num_rows()),
+            usize::try_from(tsk_tables.edges().num_rows()).unwrap(),
         )
     };
     for (idx, val) in tables.edge_input_order().unwrap().iter().enumerate() {
@@ -226,19 +225,19 @@ fn simplify_to_samples() {
 
         assert_eq!(
             i.tables.edges().len(),
-            usize::from(i.tsk_tables.edges().num_rows())
+            usize::try_from(i.tsk_tables.edges().num_rows()).unwrap()
         );
         assert_eq!(
             i.tables.nodes().len(),
-            usize::from(i.tsk_tables.nodes().num_rows())
+            usize::try_from(i.tsk_tables.nodes().num_rows()).unwrap()
         );
         assert_eq!(
             i.tables.sites().len(),
-            usize::from(i.tsk_tables.sites().num_rows())
+            usize::try_from(i.tsk_tables.sites().num_rows()).unwrap()
         );
         assert_eq!(
             i.tables.mutations().len(),
-            usize::from(i.tsk_tables.mutations().num_rows())
+            usize::try_from(i.tsk_tables.mutations().num_rows()).unwrap()
         );
         for (idx, s) in i.tables.enumerate_sites() {
             match i
@@ -329,8 +328,10 @@ fn simplify_to_samples() {
                 for s in tree.samples(node).unwrap() {
                     samples.push(s);
                 }
-                for s in tsk_tree.samples(node.into_raw().into()).unwrap() {
-                    tsk_samples.push(s);
+                if let Some(Ok(s)) = tsk_tree.samples(node.into_raw().into()) {
+                    for i in s {
+                        tsk_samples.push(i);
+                    }
                 }
                 samples.sort_unstable();
                 tsk_samples.sort_unstable();
@@ -427,7 +428,7 @@ fn simplify_to_arbitrary_nodes() {
             );
             assert_eq!(
                 tables.mutations().len(),
-                usize::from(tsk_tables.mutations().num_rows())
+                usize::try_from(tsk_tables.mutations().num_rows()).unwrap()
             );
             for (i, s) in tables.enumerate_sites() {
                 match tsk_tables
@@ -468,8 +469,6 @@ fn simplify_to_arbitrary_nodes() {
 #[test]
 #[ignore]
 fn test_mutation_tables() {
-    use tskit::TableAccess;
-
     let seeds: Vec<u64> = vec![18822, 6699, 173, 14199, 5046, 32637, 25950];
     for seed in seeds {
         let nsteps = 1000;
@@ -511,9 +510,9 @@ fn test_mutation_tables() {
         for (i, j) in is_sample.iter().enumerate() {
             let flags = ts.nodes().flags(tskit::NodeId::from(i as i32)).unwrap();
             if *j == 1 {
-                assert!((flags & tskit::TSK_NODE_IS_SAMPLE) != 0);
+                assert!(flags.contains(tskit::NodeFlags::IS_SAMPLE));
             } else {
-                assert!((flags & tskit::TSK_NODE_IS_SAMPLE) == 0);
+                assert!(!flags.contains(tskit::NodeFlags::IS_SAMPLE));
             }
         }
     }

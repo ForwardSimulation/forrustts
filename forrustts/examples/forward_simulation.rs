@@ -1,3 +1,5 @@
+use std::convert::TryFrom;
+
 #[path = "../tests/neutral_wright_fisher.rs"]
 mod neutral_wright_fisher;
 
@@ -135,7 +137,7 @@ fn main() {
     };
 
     for i in ts.sample_nodes().iter() {
-        assert!(is_sample[usize::from(*i)] > 0);
+        assert!(is_sample[usize::try_from(*i).unwrap()] > 0);
     }
 
     ts.dump(&outfile, tskit::TableOutputOptions::default())
