@@ -1511,7 +1511,6 @@ mod test_tables {
     }
 
     fn decode_complex_state<T>(v: &[T]) -> &[T; 4] {
-        use std::convert::TryInto;
         v.try_into().unwrap_or_else(|_| panic!())
     }
 
