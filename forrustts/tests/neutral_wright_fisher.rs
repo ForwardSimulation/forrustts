@@ -1,23 +1,12 @@
 use bitflags::bitflags;
 use forrustts::*;
+use rand::SeedableRng;
+use rand_distr::Poisson;
 
 // Some of the material below seems like a candidate for a public API,
 // but we need to decide here if this package should provide that.
 // If so, then many of these types should not be here, as they have nothing
 // to do with Wright-Fisher itself, and are instead more general.
-
-#[repr(transparent)]
-pub(crate) struct Rng(pub(crate) rgsl::Rng);
-
-impl Rng {
-    /// Create a new [`Rng`] with a seed.
-    pub fn new(seed: usize) -> Self {
-        let mut rng = rgsl::rng::Rng::new(rgsl::rng::algorithms::mt19937()).unwrap();
-        rng.set(seed);
-
-        Self(rng)
-    }
-}
 
 #[derive(Debug, Eq, PartialEq)]
 struct Segment {
@@ -203,15 +192,17 @@ impl PopulationState {
     }
 }
 
-fn deaths_and_parents(psurvival: f64, rng: &mut Rng, pop: &mut PopulationState) {
+fn deaths_and_parents<R: rand::Rng>(psurvival: f64, rng: &mut R, pop: &mut PopulationState) {
+    let u = rand::distributions::Uniform::new(0.0, 1.0);
+    let uparents = rand::distributions::Uniform::new(0_usize, pop.parents.len());
     pop.births.clear();
     for i in 0..pop.parents.len() {
-        let x = rng.0.uniform();
+        let x = rng.sample(u);
         match x.partial_cmp(&psurvival) {
             Some(std::cmp::Ordering::Greater) => {
-                let random_index = rng.0.flat(0.0, pop.parents.len() as f64) as usize;
+                let random_index = rng.sample(uparents);
                 let parent0 = pop.parents[random_index];
-                let random_index = rng.0.flat(0.0, pop.parents.len() as f64) as usize;
+                let random_index = rng.sample(uparents);
                 let parent1 = pop.parents[random_index];
                 pop.births.push(Birth {
                     index: i,
@@ -225,8 +216,9 @@ fn deaths_and_parents(psurvival: f64, rng: &mut Rng, pop: &mut PopulationState) 
     }
 }
 
-fn mendel(pnodes: &mut (NodeId, NodeId), rng: &mut Rng) {
-    let x: f64 = rng.0.uniform();
+fn mendel<R: rand::Rng>(pnodes: &mut (NodeId, NodeId), rng: &mut R) {
+    let u = rand::distributions::Uniform::new(0.0, 1.0);
+    let x: f64 = rng.sample(u);
     match x.partial_cmp(&0.5) {
         Some(std::cmp::Ordering::Less) => {
             std::mem::swap(&mut pnodes.0, &mut pnodes.1);
@@ -236,22 +228,21 @@ fn mendel(pnodes: &mut (NodeId, NodeId), rng: &mut Rng) {
     }
 }
 
-fn crossover_breakpoints(
+fn crossover_breakpoints<R: rand::Rng>(
     recrate: Option<f64>,
     genome_length: Position,
-    rng: &mut Rng,
+    rng: &mut R,
 ) -> Option<Vec<Position>> {
     match recrate {
         Some(x) => {
-            let n = rng.0.poisson(x);
+            let poiss = Poisson::new(x).unwrap();
+            let rpos = rand::distributions::Uniform::new(0, i64::from(genome_length));
+            let n = rng.sample(poiss) as u32;
             match n > 0 {
                 true => {
                     let mut rv = vec![];
                     for _ in 0..n {
-                        rv.push(Position::from(
-                            rng.0.flat(0.0, i64::from(genome_length) as f64)
-                                as <Position as TableType>::LowLevelType,
-                        ));
+                        rv.push(Position::from(rng.sample(rpos)));
                     }
                     rv.sort_unstable();
                     rv.push(genome_length); // Sentinel value
@@ -264,12 +255,12 @@ fn crossover_breakpoints(
     }
 }
 
-fn crossover_and_record_edges(
+fn crossover_and_record_edges<R: rand::Rng>(
     parent: Parent,
     child: NodeId,
     recrate: Option<f64>,
     recorder: &impl Fn(NodeId, NodeId, (Position, Position), &mut TableCollection, &mut EdgeBuffer),
-    rng: &mut Rng,
+    rng: &mut R,
     tables: &mut TableCollection,
     edge_buffer: &mut EdgeBuffer,
 ) {
@@ -307,10 +298,10 @@ fn crossover_and_record_edges(
     }
 }
 
-fn generate_births(
+fn generate_births<R: rand::Rng>(
     recrate: Option<f64>,
     birth_time: Time,
-    rng: &mut Rng,
+    rng: &mut R,
     pop: &mut PopulationState,
     recorder: &impl Fn(NodeId, NodeId, (Position, Position), &mut TableCollection, &mut EdgeBuffer),
 ) {
@@ -467,7 +458,7 @@ pub struct SimulationParams {
     pub genome_length: Position,
     pub buffer_edges: bool,
     pub simplification_interval: Option<i64>,
-    pub seed: usize,
+    pub seed: u64,
     pub nsteps: i64,
     pub flags: SimulationFlags,
     pub simplification_flags: SimplificationFlags,
@@ -491,7 +482,7 @@ impl Default for SimulationParams {
     }
 }
 
-fn mutate_tables(mutrate: f64, tables: &mut TableCollection, rng: &mut Rng) {
+fn mutate_tables<R: rand::Rng>(mutrate: f64, tables: &mut TableCollection, rng: &mut R) {
     match mutrate.partial_cmp(&0.0) {
         Some(std::cmp::Ordering::Greater) => (),
         Some(_) => return,
@@ -515,13 +506,14 @@ fn mutate_tables(mutrate: f64, tables: &mut TableCollection, rng: &mut Rng) {
             / (<Position as TableType>::LowLevelType::from(tables.genome_length()) as f64);
 
         let mutrate_edge = (mutrate * blen as f64) * pedge;
-        let nmuts = rng.0.poisson(mutrate_edge);
+        let nmut_generator = Poisson::new(mutrate_edge).unwrap();
+        let nmuts = rng.sample(nmut_generator) as u32;
+        let pos_generator =
+            rand::distributions::Uniform::new(e.left.into_raw(), e.right.into_raw());
+        let time_generator = rand::distributions::Uniform::new(ptime, ctime);
         for _ in 0..nmuts {
-            let t = ((rng.0.flat(ptime as f64, ctime as f64) as i64) + 1) as f64;
-            let pos = rng
-                .0
-                .flat(e.left.into_raw() as f64, e.right.into_raw() as f64)
-                as <Position as TableType>::LowLevelType;
+            let t = rng.sample(time_generator) + 1;
+            let pos = rng.sample(pos_generator);
 
             match posmap.get(&pos) {
                 Some(x) => {
@@ -566,8 +558,7 @@ pub fn neutral_wf(
         Some(x) => actual_simplification_interval = validate_simplification_interval(x),
     }
 
-    let mut rng = Rng::new(params.seed);
-
+    let mut rng = rand::rngs::StdRng::seed_from_u64(params.seed);
     let mut pop = PopulationState::new(params.genome_length);
     let mut samples: SamplesInfo = Default::default();
 

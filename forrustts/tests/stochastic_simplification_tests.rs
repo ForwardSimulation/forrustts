@@ -6,6 +6,8 @@ use std::convert::TryFrom;
 use forrustts::NodeId;
 use forrustts::TableType;
 use forrustts::*;
+use rand::Rng;
+use rand::SeedableRng;
 use stochastic_testing_tools::*;
 use streaming_iterator::StreamingIterator;
 use tskit::bindings::tsk_id_t;
@@ -359,7 +361,7 @@ fn simplify_to_arbitrary_nodes() {
 
     let sims = Simulator::new(params, 25);
 
-    let mut rng = Rng::new(588512852);
+    let mut rng = rand::rngs::StdRng::seed_from_u64(588512852);
 
     let subsample_size = 50;
 
@@ -376,11 +378,12 @@ fn simplify_to_arbitrary_nodes() {
             }
             //let node_sampler = Uniform::new(0_usize, candidate_sample.len());
             let mut subsample = vec![0; candidate_sample.len()];
+            let flat = rand::distributions::Uniform::new(0, candidate_sample.len());
             for _ in 0..subsample_size {
                 //let mut x = rng.sample(node_sampler);
-                let mut x = rng.0.flat(0., candidate_sample.len() as f64) as usize;
+                let mut x = rng.sample(flat);
                 while subsample[x] == 1 {
-                    x = rng.0.flat(0., candidate_sample.len() as f64) as usize;
+                    x = rng.sample(flat);
                 }
                 subsample[x] = 1;
             }
@@ -467,12 +470,12 @@ fn simplify_to_arbitrary_nodes() {
 fn test_mutation_tables() {
     use tskit::TableAccess;
 
-    let seeds: Vec<usize> = vec![18822, 6699, 173, 14199, 5046, 32637, 25950];
+    let seeds: Vec<u64> = vec![18822, 6699, 173, 14199, 5046, 32637, 25950];
     for seed in seeds {
         let nsteps = 1000;
         let simparams = SimulationParams {
             popsize: 100,
-            mutrate: 1e-3,
+            mutrate: 2e-3,
             psurvival: 0.0,
             xovers: 3e-2,
             genome_length: 10000000.into(),
