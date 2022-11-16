@@ -2,6 +2,7 @@
 
 members = [
     "forrustts",
+    "forrustts-core",
     "forrustts-tables-trees",
     "forrustts-tskit",
 ]

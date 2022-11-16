@@ -1,5 +1,6 @@
-use crate::newtypes::{NodeId, Position, Time};
 use bitflags::bitflags;
+use forrustts_core::newtypes::{NodeId, Position, Time};
+use forrustts_core::traits::TableType;
 
 bitflags! {
     /// Modify the behavior of [`TreeSequence::tree_iterator`].
@@ -239,13 +240,13 @@ impl NodeIterator for SamplesIterator<'_> {
             NodeId::NULL => None,
             r => {
                 if r == self.last_sample_index {
-                    let cr = Some(self.tree.samples[r.0 as usize]);
+                    let cr = Some(self.tree.samples[r.into_raw() as usize]);
                     self.next_sample_index = NodeId::NULL;
                     cr
                 } else {
                     assert!(r >= 0);
-                    let cr = Some(self.tree.samples[r.0 as usize]);
-                    self.next_sample_index = self.tree.topology[r.0 as usize].next_sample;
+                    let cr = Some(self.tree.samples[r.into_raw() as usize]);
+                    self.next_sample_index = self.tree.topology[r.into_raw() as usize].next_sample;
                     cr
                 }
             }
@@ -294,22 +295,22 @@ impl<'treeseq> Tree<'treeseq> {
             treeseq,
             input_edge_index: 0,
             output_edge_index: 0,
-            x: Position(0),
+            x: Position::from(0),
             advanced: false,
         }
     }
 
     fn init_samples(&mut self) {
         for (i, s) in self.samples.iter().enumerate() {
-            if self.sample_index_map[s.0 as usize] != NodeId::NULL {
+            if self.sample_index_map[s.into_raw() as usize] != NodeId::NULL {
                 panic!("Duplicate samples passed to Tree!");
             }
-            self.sample_index_map[s.0 as usize] = NodeId::from(i);
-            if let Some(row) = self.topology.get_mut(s.0 as usize) {
-                row.left_sample = self.sample_index_map[s.0 as usize];
-                row.right_sample = self.sample_index_map[s.0 as usize];
+            self.sample_index_map[s.into_raw() as usize] = NodeId::from(i);
+            if let Some(row) = self.topology.get_mut(s.into_raw() as usize) {
+                row.left_sample = self.sample_index_map[s.into_raw() as usize];
+                row.right_sample = self.sample_index_map[s.into_raw() as usize];
                 row.leaf_counts = 1;
-                self.above_sample[s.0 as usize] = 1;
+                self.above_sample[s.into_raw() as usize] = 1;
 
                 // Initialize roots
                 if i < self.samples.len() - 1 {
@@ -326,29 +327,29 @@ impl<'treeseq> Tree<'treeseq> {
 
     fn update_incoming_leaf_count(&mut self, parent: NodeId, child: NodeId) {
         let mut u = parent;
-        let lc = self.topology[child.0 as usize].leaf_counts;
+        let lc = self.topology[child.into_raw() as usize].leaf_counts;
         if lc == 0 {
             return;
         }
         while u != NodeId::NULL {
-            self.topology[u.0 as usize].leaf_counts += lc;
-            u = self.topology[u.0 as usize].parent;
+            self.topology[u.into_raw() as usize].leaf_counts += lc;
+            u = self.topology[u.into_raw() as usize].parent;
         }
     }
 
     fn update_incoming_roots(&mut self, parent: NodeId, child: NodeId, lsib: NodeId, rsib: NodeId) {
-        if self.above_sample[child.0 as usize] > 0 {
+        if self.above_sample[child.into_raw() as usize] > 0 {
             let mut x = parent;
             let mut root = x;
             let mut above_sample = false;
 
             while x != NodeId::NULL && !above_sample {
-                above_sample = self.above_sample[x.0 as usize] > 0;
+                above_sample = self.above_sample[x.into_raw() as usize] > 0;
                 // c is above_sample and p is c's parent.
                 // Thus, all parents to p are above_sample, too.
-                self.above_sample[x.0 as usize] = 1;
+                self.above_sample[x.into_raw() as usize] = 1;
                 root = x;
-                x = self.topology[x.0 as usize].parent;
+                x = self.topology[x.into_raw() as usize].parent;
             }
 
             if !above_sample {
@@ -360,13 +361,13 @@ impl<'treeseq> Tree<'treeseq> {
                 // replaces c in the root list.
 
                 if lsib != NodeId::NULL {
-                    self.topology[lsib.0 as usize].right_sib = root;
+                    self.topology[lsib.into_raw() as usize].right_sib = root;
                 }
                 if rsib != NodeId::NULL {
-                    self.topology[rsib.0 as usize].left_sib = root;
+                    self.topology[rsib.into_raw() as usize].left_sib = root;
                 }
-                self.topology[root.0 as usize].left_sib = lsib;
-                self.topology[root.0 as usize].right_sib = rsib;
+                self.topology[root.into_raw() as usize].left_sib = lsib;
+                self.topology[root.into_raw() as usize].right_sib = rsib;
                 self.left_root = root;
             } else {
                 // If we are here, then we encountered a node
@@ -376,11 +377,11 @@ impl<'treeseq> Tree<'treeseq> {
                 // it may also be removed, etc..
                 self.left_root = NodeId::NULL;
                 if lsib != NodeId::NULL {
-                    self.topology[lsib.0 as usize].right_sib = rsib;
+                    self.topology[lsib.into_raw() as usize].right_sib = rsib;
                     self.left_root = lsib;
                 }
                 if rsib != NodeId::NULL {
-                    self.topology[rsib.0 as usize].left_sib = lsib;
+                    self.topology[rsib.into_raw() as usize].left_sib = lsib;
                     self.left_root = rsib;
                 }
             }
@@ -389,63 +390,63 @@ impl<'treeseq> Tree<'treeseq> {
 
     fn update_outgoing_leaf_count(&mut self, parent: NodeId, child: NodeId) {
         let mut u = parent;
-        let lc = self.topology[child.0 as usize].leaf_counts;
+        let lc = self.topology[child.into_raw() as usize].leaf_counts;
         if lc == 0 {
             return;
         }
         while u != NodeId::NULL {
-            self.topology[u.0 as usize].leaf_counts -= lc;
-            u = self.topology[u.0 as usize].parent;
+            self.topology[u.into_raw() as usize].leaf_counts -= lc;
+            u = self.topology[u.into_raw() as usize].parent;
         }
     }
 
     fn update_outgoing_roots(&mut self, parent: NodeId, child: NodeId) {
-        if self.above_sample[child.0 as usize] == 1 {
+        if self.above_sample[child.into_raw() as usize] == 1 {
             let mut x = parent;
             let mut root = x;
             let mut above_sample = false;
 
             while x != NodeId::NULL && !above_sample {
-                above_sample = self.sample_index_map[x.0 as usize] != NodeId::NULL;
-                let mut lc = self.topology[x.0 as usize].left_child;
+                above_sample = self.sample_index_map[x.into_raw() as usize] != NodeId::NULL;
+                let mut lc = self.topology[x.into_raw() as usize].left_child;
                 while lc != NodeId::NULL && !above_sample {
-                    above_sample = above_sample || self.above_sample[lc.0 as usize] > 0;
-                    lc = self.topology[lc.0 as usize].left_sib;
+                    above_sample = above_sample || self.above_sample[lc.into_raw() as usize] > 0;
+                    lc = self.topology[lc.into_raw() as usize].left_sib;
                 }
                 if above_sample {
-                    self.above_sample[x.0 as usize] = 1;
+                    self.above_sample[x.into_raw() as usize] = 1;
                 }
                 root = x;
-                x = self.topology[x.0 as usize].parent;
+                x = self.topology[x.into_raw() as usize].parent;
             }
 
             // Now, root refers to the most ancient
             // ancestor of parent found in the above loop
             if !above_sample {
                 // remove root from list of roots
-                let lroot = self.topology[root.0 as usize].left_sib;
-                let rroot = self.topology[root.0 as usize].right_sib;
+                let lroot = self.topology[root.into_raw() as usize].left_sib;
+                let rroot = self.topology[root.into_raw() as usize].right_sib;
                 self.left_root = NodeId::NULL;
                 if lroot != NodeId::NULL {
-                    self.topology[lroot.0 as usize].right_sib = rroot;
+                    self.topology[lroot.into_raw() as usize].right_sib = rroot;
                     self.left_root = lroot;
                 }
                 if rroot != NodeId::NULL {
-                    self.topology[rroot.0 as usize].left_sib = lroot;
+                    self.topology[rroot.into_raw() as usize].left_sib = lroot;
                     self.left_root = rroot;
                 }
-                self.topology[root.0 as usize].left_sib = NodeId::NULL;
-                self.topology[root.0 as usize].right_sib = NodeId::NULL;
+                self.topology[root.into_raw() as usize].left_sib = NodeId::NULL;
+                self.topology[root.into_raw() as usize].right_sib = NodeId::NULL;
             }
             if self.left_root != NodeId::NULL {
-                let lroot = self.topology[self.left_root.0 as usize].left_sib;
+                let lroot = self.topology[self.left_root.into_raw() as usize].left_sib;
                 if lroot != NodeId::NULL {
-                    self.topology[lroot.0 as usize].right_sib = child;
+                    self.topology[lroot.into_raw() as usize].right_sib = child;
                 }
-                self.topology[child.0 as usize].left_sib = lroot;
-                self.topology[self.left_root.0 as usize].left_sib = child;
+                self.topology[child.into_raw() as usize].left_sib = lroot;
+                self.topology[self.left_root.into_raw() as usize].left_sib = child;
             }
-            self.topology[child.0 as usize].right_sib = self.left_root;
+            self.topology[child.into_raw() as usize].right_sib = self.left_root;
             self.left_root = child;
         }
     }
@@ -458,36 +459,38 @@ impl<'treeseq> Tree<'treeseq> {
         let mut n = node;
 
         while n != NodeId::NULL {
-            let sample_index = sample_map[n.0 as usize];
+            let sample_index = sample_map[n.into_raw() as usize];
             if sample_index != NodeId::NULL {
-                topo[n.0 as usize].right_sample = topo[n.0 as usize].left_sample;
+                topo[n.into_raw() as usize].right_sample = topo[n.into_raw() as usize].left_sample;
             } else {
-                topo[n.0 as usize].left_sample = NodeId::NULL;
-                topo[n.0 as usize].right_sample = NodeId::NULL;
+                topo[n.into_raw() as usize].left_sample = NodeId::NULL;
+                topo[n.into_raw() as usize].right_sample = NodeId::NULL;
             }
 
-            let mut v = topo[n.0 as usize].left_child;
+            let mut v = topo[n.into_raw() as usize].left_child;
             while v != NodeId::NULL {
-                if topo[v.0 as usize].left_sample != NodeId::NULL {
-                    assert!(topo[v.0 as usize].right_sample != NodeId::NULL);
-                    if topo[n.0 as usize].left_sample == NodeId::NULL {
-                        topo[n.0 as usize].left_sample = topo[v.0 as usize].left_sample;
+                if topo[v.into_raw() as usize].left_sample != NodeId::NULL {
+                    assert!(topo[v.into_raw() as usize].right_sample != NodeId::NULL);
+                    if topo[n.into_raw() as usize].left_sample == NodeId::NULL {
+                        topo[n.into_raw() as usize].left_sample =
+                            topo[v.into_raw() as usize].left_sample;
                     } else {
-                        let nright = topo[n.0 as usize].right_sample.0 as usize;
-                        let vleft = topo[v.0 as usize].left_sample;
+                        let nright = topo[n.into_raw() as usize].right_sample.into_raw() as usize;
+                        let vleft = topo[v.into_raw() as usize].left_sample;
                         topo[nright].next_sample = vleft;
                     }
-                    topo[n.0 as usize].right_sample = topo[v.0 as usize].right_sample;
+                    topo[n.into_raw() as usize].right_sample =
+                        topo[v.into_raw() as usize].right_sample;
                 }
-                v = topo[v.0 as usize].right_sib;
+                v = topo[v.into_raw() as usize].right_sib;
             }
-            n = topo[n.0 as usize].parent;
+            n = topo[n.into_raw() as usize].parent;
         }
     }
 
     fn id_in_range<N: Into<NodeId>>(&self, u: N) -> TreesResult<()> {
         let n = u.into();
-        if n < 0 || (n.0 as usize) >= self.num_nodes() {
+        if n < 0 || (n.into_raw() as usize) >= self.num_nodes() {
             Err(TreesError::NodeIdOutOfRange)
         } else {
             Ok(())
@@ -524,7 +527,7 @@ impl<'treeseq> Tree<'treeseq> {
 
     /// Return the length of this tree along the genome.
     pub fn span(&self) -> i64 {
-        self.right.0 - self.left.0
+        self.right.into_raw() - self.left.into_raw()
     }
 
     /// Return the `[left, right)` [`Position`] for
@@ -540,16 +543,18 @@ impl<'treeseq> Tree<'treeseq> {
     /// * `by_span`: if `true`, multiply the return value by [`Tree::span`].
     pub fn total_branch_length(&self, by_span: bool) -> Result<Time, TreesError> {
         let nt = self.treeseq.tables.nodes_.as_slice();
-        let mut b: Time = Time(0.);
+        let mut b: Time = Time::from(0.);
         for n in self.traverse_nodes(NodeTraversalOrder::Preorder) {
             let p = self.parent(n)?;
             if p != NodeId::NULL {
-                b.0 += nt[n.0 as usize].time.0 - nt[p.0 as usize].time.0;
+                b = (b.into_raw() + nt[n.into_raw() as usize].time.into_raw()
+                    - nt[p.into_raw() as usize].time.into_raw())
+                .into();
             }
         }
 
         match by_span {
-            true => Ok(Time(b.0 * (self.span() as f64))),
+            true => Ok(Time::from(b.into_raw() * (self.span() as f64))),
             false => Ok(b),
         }
     }
@@ -641,35 +646,35 @@ impl<'treeseq> Tree<'treeseq> {
     pub fn parent<N: Into<NodeId> + Copy>(&self, u: N) -> TreesResult<NodeId> {
         self.id_in_range(u)?;
         // SAFETY: just checked the range.
-        Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.parent)
+        Ok(unsafe { self.topology.get_unchecked(u.into().into_raw() as usize) }.parent)
     }
 
     /// Return the left child of node `u`.
     pub fn left_child<N: Into<NodeId> + Copy>(&self, u: N) -> TreesResult<NodeId> {
         self.id_in_range(u)?;
         // SAFETY: just checked the range.
-        Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.left_child)
+        Ok(unsafe { self.topology.get_unchecked(u.into().into_raw() as usize) }.left_child)
     }
 
     /// Return the right child of node `u`.
     pub fn right_child<N: Into<NodeId> + Copy>(&self, u: N) -> TreesResult<NodeId> {
         self.id_in_range(u)?;
         // SAFETY: just checked the range.
-        Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.right_child)
+        Ok(unsafe { self.topology.get_unchecked(u.into().into_raw() as usize) }.right_child)
     }
 
     /// Return the left sibling of node `u`.
     pub fn left_sib<N: Into<NodeId> + Copy>(&self, u: N) -> TreesResult<NodeId> {
         self.id_in_range(u)?;
         // SAFETY: just checked the range.
-        Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.left_sib)
+        Ok(unsafe { self.topology.get_unchecked(u.into().into_raw() as usize) }.left_sib)
     }
 
     /// Return the right sibling of node `u`.
     pub fn right_sib<N: Into<NodeId> + Copy>(&self, u: N) -> TreesResult<NodeId> {
         self.id_in_range(u)?;
         // SAFETY: just checked the range.
-        Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.right_sib)
+        Ok(unsafe { self.topology.get_unchecked(u.into().into_raw() as usize) }.right_sib)
     }
 
     /// Return the left sample of node `u`.
@@ -679,7 +684,7 @@ impl<'treeseq> Tree<'treeseq> {
         }
         self.id_in_range(u)?;
         // SAFETY: just checked the range.
-        Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.left_sample)
+        Ok(unsafe { self.topology.get_unchecked(u.into().into_raw() as usize) }.left_sample)
     }
     //
     /// Return the next sample after node `u`.
@@ -689,7 +694,7 @@ impl<'treeseq> Tree<'treeseq> {
         }
         self.id_in_range(u)?;
         // SAFETY: just checked the range.
-        Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.next_sample)
+        Ok(unsafe { self.topology.get_unchecked(u.into().into_raw() as usize) }.next_sample)
     }
 
     /// Return the right sample of node `u`.
@@ -699,7 +704,7 @@ impl<'treeseq> Tree<'treeseq> {
         }
         self.id_in_range(u)?;
         // SAFETY: just checked the range.
-        Ok(unsafe { self.topology.get_unchecked(u.into().0 as usize) }.right_sample)
+        Ok(unsafe { self.topology.get_unchecked(u.into().into_raw() as usize) }.right_sample)
     }
 }
 
@@ -720,20 +725,20 @@ impl<'treeseq> streaming_iterator::StreamingIterator for Tree<'treeseq> {
                 if current_edge.right != self.x {
                     break;
                 }
-                let lsib = self.topology[current_edge.child.0 as usize].left_sib;
-                let rsib = self.topology[current_edge.child.0 as usize].right_sib;
+                let lsib = self.topology[current_edge.child.into_raw() as usize].left_sib;
+                let rsib = self.topology[current_edge.child.into_raw() as usize].right_sib;
 
                 if lsib == NodeId::NULL {
-                    self.topology[current_edge.parent.0 as usize].left_child = rsib;
+                    self.topology[current_edge.parent.into_raw() as usize].left_child = rsib;
                 } else {
-                    self.topology[lsib.0 as usize].right_sib = rsib;
+                    self.topology[lsib.into_raw() as usize].right_sib = rsib;
                 }
                 if rsib == NodeId::NULL {
-                    self.topology[current_edge.parent.0 as usize].right_child = lsib;
+                    self.topology[current_edge.parent.into_raw() as usize].right_child = lsib;
                 } else {
-                    self.topology[rsib.0 as usize].left_sib = lsib;
+                    self.topology[rsib.into_raw() as usize].left_sib = lsib;
                 }
-                let child_topo = &mut self.topology[current_edge.child.0 as usize];
+                let child_topo = &mut self.topology[current_edge.child.into_raw() as usize];
                 child_topo.parent = NodeId::NULL;
                 child_topo.left_sib = NodeId::NULL;
                 child_topo.right_sib = NodeId::NULL;
@@ -751,20 +756,22 @@ impl<'treeseq> streaming_iterator::StreamingIterator for Tree<'treeseq> {
                 if current_edge.left != self.x {
                     break;
                 }
-                let rchild = self.topology[current_edge.parent.0 as usize].right_child;
-                let lsib = self.topology[current_edge.child.0 as usize].left_sib;
-                let rsib = self.topology[current_edge.child.0 as usize].right_sib;
+                let rchild = self.topology[current_edge.parent.into_raw() as usize].right_child;
+                let lsib = self.topology[current_edge.child.into_raw() as usize].left_sib;
+                let rsib = self.topology[current_edge.child.into_raw() as usize].right_sib;
 
                 if rchild == NodeId::NULL {
-                    self.topology[current_edge.parent.0 as usize].left_child = current_edge.child;
-                    self.topology[current_edge.child.0 as usize].left_sib = NodeId::NULL;
+                    self.topology[current_edge.parent.into_raw() as usize].left_child =
+                        current_edge.child;
+                    self.topology[current_edge.child.into_raw() as usize].left_sib = NodeId::NULL;
                 } else {
-                    self.topology[rchild.0 as usize].right_sib = current_edge.child;
-                    self.topology[current_edge.child.0 as usize].left_sib = rchild;
+                    self.topology[rchild.into_raw() as usize].right_sib = current_edge.child;
+                    self.topology[current_edge.child.into_raw() as usize].left_sib = rchild;
                 }
-                self.topology[current_edge.child.0 as usize].right_sib = NodeId::NULL;
-                self.topology[current_edge.child.0 as usize].parent = current_edge.parent;
-                self.topology[current_edge.parent.0 as usize].right_child = current_edge.child;
+                self.topology[current_edge.child.into_raw() as usize].right_sib = NodeId::NULL;
+                self.topology[current_edge.child.into_raw() as usize].parent = current_edge.parent;
+                self.topology[current_edge.parent.into_raw() as usize].right_child =
+                    current_edge.child;
 
                 self.update_incoming_leaf_count(current_edge.parent, current_edge.child);
                 if self.flags.contains(TreeFlags::TRACK_SAMPLES) {
@@ -779,8 +786,8 @@ impl<'treeseq> streaming_iterator::StreamingIterator for Tree<'treeseq> {
             // result in left_root not actually being the left_root.
             // We loop through the left_sibs to fix that.
             if self.left_root != NodeId::NULL {
-                while self.topology[self.left_root.0 as usize].left_sib != NodeId::NULL {
-                    self.left_root = self.topology[self.left_root.0 as usize].left_sib;
+                while self.topology[self.left_root.into_raw() as usize].left_sib != NodeId::NULL {
+                    self.left_root = self.topology[self.left_root.into_raw() as usize].left_sib;
                 }
             }
 
@@ -940,10 +947,10 @@ impl TreeSequence {
             if *s == NodeId::NULL {
                 return Err(Box::new(TreesError::InvalidSamples));
             }
-            if nodes[s.0 as usize] != 0 {
+            if nodes[s.into_raw() as usize] != 0 {
                 return Err(Box::new(TreesError::DuplicateSamples));
             }
-            nodes[s.0 as usize] = 1;
+            nodes[s.into_raw() as usize] = 1;
         }
         for n in tables.nodes_.iter() {
             if n.flags | crate::NodeFlags::IS_SAMPLE.bits() > 0 {
@@ -1148,7 +1155,7 @@ mod test_trees {
             expected_preorders[0].push(NodeId::from(*i));
         }
         while let Some(tree) = tree_iter.next() {
-            println!("{}", tree.left_root.0);
+            println!("{}", tree.left_root.into_raw());
             if ntrees == 0 {
                 let mut nodes = vec![0; tree.num_nodes()];
                 for c in tree.children(0).unwrap() {
@@ -1173,7 +1180,7 @@ mod test_trees {
                     *x = 0;
                 }
                 for p in tree.parents(5).unwrap() {
-                    nodes[p.0 as usize] = 1;
+                    nodes[p.into_raw() as usize] = 1;
                 }
                 assert_eq!(nodes[1], 1);
                 for x in &mut nodes {

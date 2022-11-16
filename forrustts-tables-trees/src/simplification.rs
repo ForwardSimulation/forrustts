@@ -1,11 +1,10 @@
 use crate::nested_forward_list::NestedForwardList;
 use crate::nested_forward_list::NULL_INDEX;
-use crate::newtypes::{NodeId, Position, SiteId, Time};
 use crate::tables::*;
-use crate::traits::private_traits::LowLevelTableType;
-use crate::traits::TableType;
 use crate::Segment;
 use bitflags::bitflags;
+use forrustts_core::newtypes::{NodeId, Position, SiteId, Time};
+use forrustts_core::traits::TableType;
 use thiserror::Error;
 
 /// Error type returned by tree sequence
@@ -60,11 +59,11 @@ impl SegmentOverlapper {
 
     // Public interface below
 
-    const fn new() -> SegmentOverlapper {
-        SegmentOverlapper {
+    fn new() -> Self {
+        Self {
             segment_queue: vec![],
             overlapping: vec![],
-            left: Position(0),
+            left: Position::from(0),
             right: Position::MAX,
             qbeg: std::usize::MAX,
             qend: std::usize::MAX,
@@ -88,7 +87,7 @@ impl SegmentOverlapper {
         self.segment_queue.sort_by(|a, b| a.left.cmp(&b.left));
         self.segment_queue.push(Segment {
             left: maxlen,
-            right: Position(maxlen.0 + 1),
+            right: Position::from(maxlen.into_raw() + 1),
             node: NodeId::NULL,
         });
     }
@@ -164,10 +163,10 @@ fn prep_mutation_node_map(
     assert_eq!(mutation_node_map.len(), num_nodes);
 
     for (location, m) in mutations.iter().enumerate() {
-        let position = sites[m.site.0 as usize].position;
+        let position = sites[m.site.into_raw() as usize].position;
         mutation_node_map
             .extend(
-                m.node.0, // input node id
+                m.node.into_raw(), // input node id
                 MutationNodeMapEntry {
                     location,
                     output_node: NodeId::NULL,
@@ -184,9 +183,9 @@ fn record_site(
     mutation: &mut MutationRecord,
     new_site_table: &mut SiteTable,
 ) {
-    debug_assert_eq!(position, sites[mutation.site.0 as usize].position);
+    debug_assert_eq!(position, sites[mutation.site.into_raw() as usize].position);
     if new_site_table.is_empty() || new_site_table[new_site_table.len() - 1].position != position {
-        new_site_table.push(sites[mutation.site.0 as usize].clone());
+        new_site_table.push(sites[mutation.site.into_raw() as usize].clone());
     }
 
     mutation.site = SiteId::from(new_site_table.len() - 1);
@@ -213,7 +212,7 @@ fn generate_output_site_mutation_tables(
                 break;
             }
 
-            for val in mutation_node_map.values_iter(input_mutation.node.0) {
+            for val in mutation_node_map.values_iter(input_mutation.node.into_raw()) {
                 if input_mutations[val.location].site == site_id {
                     if val.output_node != NodeId::NULL {
                         record_site(
@@ -246,12 +245,12 @@ fn map_mutation_output_nodes(
     mutation_node_map: &mut MutationNodeMap,
 ) {
     debug_assert!(
-        input_id.0 as usize <= mutation_node_map.len(),
+        input_id.into_raw() as usize <= mutation_node_map.len(),
         "{} {}",
-        input_id.0,
+        input_id.into_raw(),
         mutation_node_map.len()
     );
-    let mut list_head = mutation_node_map.head(input_id.0).unwrap();
+    let mut list_head = mutation_node_map.head(input_id.into_raw()).unwrap();
 
     while list_head != NULL_INDEX {
         let value = mutation_node_map.fetch_mut(list_head).unwrap();
@@ -281,7 +280,7 @@ fn find_parent_child_segment_overlap(
     while i < num_edges && edges[i].parent == u {
         let edge = &edges[i];
 
-        for seg in ancestry.values_iter(edge.child.0) {
+        for seg in ancestry.values_iter(edge.child.into_raw()) {
             if seg.right > edge.left && edge.right > seg.left {
                 overlapper.enqueue(
                     std::cmp::max(seg.left, edge.left),
@@ -304,12 +303,12 @@ fn add_ancestry(
     mutation_node_map: &mut MutationNodeMap,
     ancestry: &mut AncestryList,
 ) -> Result<(), SimplificationError> {
-    let head = ancestry.head(input_id.0)?;
+    let head = ancestry.head(input_id.into_raw())?;
     if head == NULL_INDEX {
         let seg = Segment { left, right, node };
-        ancestry.extend(input_id.0, seg)?;
+        ancestry.extend(input_id.into_raw(), seg)?;
     } else {
-        let last_idx = ancestry.tail(input_id.0)?;
+        let last_idx = ancestry.tail(input_id.into_raw())?;
         if last_idx == NULL_INDEX {
             return Err(SimplificationError::ErrorMessage(
                 "last_idx is NULL_ID".to_string(),
@@ -320,7 +319,7 @@ fn add_ancestry(
             last.right = right;
         } else {
             let seg = Segment { left, right, node };
-            ancestry.extend(input_id.0, seg)?;
+            ancestry.extend(input_id.into_raw(), seg)?;
         }
     }
     map_mutation_output_nodes(input_id, node, left, right, mutation_node_map);
@@ -378,17 +377,17 @@ fn record_node(
     output_nodes: &mut NodeTable,
     idmap: &mut [NodeId],
 ) {
-    let mut flags = input_nodes[id.0 as usize].flags;
+    let mut flags = input_nodes[id.into_raw() as usize].flags;
     flags &= !crate::tables::NodeFlags::IS_SAMPLE.bits();
     if is_sample {
         flags |= crate::tables::NodeFlags::IS_SAMPLE.bits();
     }
     output_nodes.push(Node {
-        time: input_nodes[id.0 as usize].time,
-        deme: input_nodes[id.0 as usize].deme,
+        time: input_nodes[id.into_raw() as usize].time,
+        deme: input_nodes[id.into_raw() as usize].deme,
         flags,
     });
-    idmap[id.0 as usize] = NodeId::from(output_nodes.len() - 1);
+    idmap[id.into_raw() as usize] = NodeId::from(output_nodes.len() - 1);
 }
 
 fn merge_ancestors(
@@ -398,14 +397,14 @@ fn merge_ancestors(
     state: &mut SimplificationBuffers,
     idmap: &mut [NodeId],
 ) -> Result<(), SimplificationError> {
-    let mut output_id = idmap[parent_input_id.0 as usize];
+    let mut output_id = idmap[parent_input_id.into_raw() as usize];
     let is_sample = output_id != NodeId::NULL;
 
     if is_sample {
-        state.ancestry.nullify_list(parent_input_id.0)?;
+        state.ancestry.nullify_list(parent_input_id.into_raw())?;
     }
 
-    let mut previous_right: Position = Position(0);
+    let mut previous_right: Position = Position::from(0);
     let mut ancestry_node: NodeId;
     state.overlapper.init();
     state.temp_edge_buffer.clear();
@@ -432,7 +431,7 @@ fn merge_ancestors(
                     &mut state.new_nodes,
                     idmap,
                 );
-                output_id = idmap[parent_input_id.0 as usize];
+                output_id = idmap[parent_input_id.into_raw() as usize];
             }
             ancestry_node = output_id;
             for o in state
@@ -486,8 +485,8 @@ fn merge_ancestors(
 
         if n == 0 && !is_sample {
             assert!(output_id < state.new_nodes.len() as <NodeId as TableType>::LowLevelType);
-            state.new_nodes.truncate(output_id.0 as usize);
-            idmap[parent_input_id.0 as usize] = NodeId::NULL;
+            state.new_nodes.truncate(output_id.into_raw() as usize);
+            idmap[parent_input_id.into_raw() as usize] = NodeId::NULL;
         }
     }
     Ok(())
@@ -509,7 +508,7 @@ fn record_sample_nodes(
                 "sample node is NULL_ID".to_string(),
             ));
         }
-        if idmap[sample.0 as usize] != NodeId::NULL {
+        if idmap[sample.into_raw() as usize] != NodeId::NULL {
             return Err(SimplificationError::ErrorMessage(
                 "invalid sample list!".to_string(),
             ));
@@ -518,7 +517,7 @@ fn record_sample_nodes(
 
         add_ancestry(
             *sample,
-            Position(0),
+            Position::from(0),
             tables.genome_length(),
             NodeId::from(new_nodes.len() - 1),
             mutation_node_map,
@@ -633,8 +632,8 @@ fn find_pre_existing_edges(
     let mut alive_with_new_edges: Vec<i32> = vec![];
 
     for a in edge_buffer_founder_nodes {
-        if edge_buffer.0.head(a.0)? != NULL_INDEX {
-            alive_with_new_edges.push(a.0);
+        if edge_buffer.0.head(a.into_raw())? != NULL_INDEX {
+            alive_with_new_edges.push(a.into_raw());
         }
     }
     if alive_with_new_edges.is_empty() {
@@ -645,24 +644,24 @@ fn find_pre_existing_edges(
     let mut stops = vec![usize::MAX; tables.num_nodes()];
 
     for (i, e) in tables.enumerate_edges() {
-        if starts[e.parent.0 as usize] == usize::MAX {
-            starts[e.parent.0 as usize] = i;
+        if starts[e.parent.into_raw() as usize] == usize::MAX {
+            starts[e.parent.into_raw() as usize] = i;
         }
-        stops[e.parent.0 as usize] = i + 1;
+        stops[e.parent.into_raw() as usize] = i + 1;
     }
 
     let mut rv = vec![];
     for a in alive_with_new_edges {
         rv.push(ParentLocation::new(
-            NodeId::new(a),
+            NodeId::from(a),
             starts[a as usize],
             stops[a as usize],
         ));
     }
 
     rv.sort_by(|a, b| {
-        let ta = tables.nodes_[a.parent.0 as usize].time;
-        let tb = tables.nodes_[b.parent.0 as usize].time;
+        let ta = tables.nodes_[a.parent.into_raw() as usize].time;
+        let tb = tables.nodes_[b.parent.into_raw() as usize].time;
         match ta.partial_cmp(&tb) {
             Some(std::cmp::Ordering::Equal) => {
                 if a.start == b.start {
@@ -679,8 +678,8 @@ fn find_pre_existing_edges(
     // TODO: this could eventually be called in a debug_assert
     if !rv.is_empty() {
         for (i, _) in rv.iter().enumerate().skip(1) {
-            let t0 = tables.nodes_[rv[i - 1].parent.0 as usize].time;
-            let t1 = tables.nodes_[rv[i].parent.0 as usize].time;
+            let t0 = tables.nodes_[rv[i - 1].parent.into_raw() as usize].time;
+            let t1 = tables.nodes_[rv[i].parent.into_raw() as usize].time;
             if t0 < t1 {
                 return Err(SimplificationError::ErrorMessage(
                     "existing edges not properly sorted by time".to_string(),
@@ -698,7 +697,7 @@ fn queue_children(
     ancestry: &mut AncestryList,
     overlapper: &mut SegmentOverlapper,
 ) -> Result<(), SimplificationError> {
-    for seg in ancestry.values_iter(child.0) {
+    for seg in ancestry.values_iter(child.into_raw()) {
         if seg.right > left && right > seg.left {
             overlapper.enqueue(
                 std::cmp::max(seg.left, left),
@@ -719,7 +718,7 @@ fn process_births_from_buffer(
     // make the borrow checker happy.
     let a = &mut state.ancestry;
     let o = &mut state.overlapper;
-    for seg in edge_buffer.0.values_iter(head.0) {
+    for seg in edge_buffer.0.values_iter(head.into_raw()) {
         queue_children(seg.node, seg.left, seg.right, a, o).unwrap();
     }
     Ok(())
@@ -824,7 +823,7 @@ pub struct SimplificationBuffers {
 
 impl SimplificationBuffers {
     /// Create a new instance.
-    pub const fn new() -> SimplificationBuffers {
+    pub fn new() -> SimplificationBuffers {
         SimplificationBuffers {
             new_edges: EdgeTable::new(),
             temp_edge_buffer: EdgeTable::new(),
@@ -1000,10 +999,10 @@ impl EdgeBuffer {
 
     /// Add an edge to the buffer
     pub fn record_edge<
-        P: Into<crate::newtypes::NodeId>,
-        C: Into<crate::newtypes::NodeId>,
-        L: Into<crate::newtypes::Position>,
-        R: Into<crate::newtypes::Position>,
+        P: Into<forrustts_core::newtypes::NodeId>,
+        C: Into<forrustts_core::newtypes::NodeId>,
+        L: Into<forrustts_core::newtypes::Position>,
+        R: Into<forrustts_core::newtypes::Position>,
     >(
         &mut self,
         parent: P,
@@ -1012,7 +1011,7 @@ impl EdgeBuffer {
         right: R,
     ) -> crate::nested_forward_list::Result<()> {
         self.0.extend(
-            parent.into().0,
+            parent.into().into_raw(),
             crate::segment::Segment::new(left.into(), right.into(), child.into()),
         )?;
         Ok(())
@@ -1074,19 +1073,19 @@ pub fn simplify_from_edge_buffer(
     }
 
     for head in edge_buffer.0.index_rev() {
-        let ptime = tables.node(NodeId(head)).time;
+        let ptime = tables.node(NodeId::from(head)).time;
         if ptime > max_time
         // Then this is a parent who is:
         // 1. Born since the last simplification.
         // 2. Left offspring
         {
             state.overlapper.clear_queue();
-            process_births_from_buffer(NodeId(head), edge_buffer, state)?;
+            process_births_from_buffer(NodeId::from(head), edge_buffer, state)?;
             state.overlapper.finalize_queue(tables.genome_length());
             merge_ancestors(
                 &tables.nodes_,
                 tables.genome_length(),
-                NodeId(head),
+                NodeId::from(head),
                 state,
                 &mut output.idmap,
             )?;
@@ -1103,8 +1102,8 @@ pub fn simplify_from_edge_buffer(
 
     for ex in existing_edges {
         while edge_i < num_edges
-            && tables.nodes_[tables.edges_[edge_i].parent.0 as usize].time
-                > tables.nodes_[ex.parent.0 as usize].time
+            && tables.nodes_[tables.edges_[edge_i].parent.into_raw() as usize].time
+                > tables.nodes_[ex.parent.into_raw() as usize].time
         {
             edge_i = process_parent(
                 tables.edges_[edge_i].parent,
@@ -1116,8 +1115,8 @@ pub fn simplify_from_edge_buffer(
         }
         if ex.start != usize::MAX {
             while (edge_i as usize) < ex.start
-                && tables.nodes_[tables.edges_[edge_i].parent.0 as usize].time
-                    >= tables.nodes_[ex.parent.0 as usize].time
+                && tables.nodes_[tables.edges_[edge_i].parent.into_raw() as usize].time
+                    >= tables.nodes_[ex.parent.into_raw() as usize].time
             {
                 edge_i = process_parent(
                     tables.edges_[edge_i].parent,

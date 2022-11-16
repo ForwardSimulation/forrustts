@@ -32,9 +32,9 @@
 //!   macros if at all possible.
 
 use bitflags::bitflags;
+use forrustts_core::newtypes::Time;
+use forrustts_core::traits::TableType;
 use forrustts_tables_trees::TableCollection;
-use forrustts_tables_trees::TableType;
-use forrustts_tables_trees::Time;
 use thiserror::Error;
 
 fn swap_with_empty<T>(v: &mut Vec<T>) {
@@ -222,7 +222,7 @@ pub fn export_tables<F: Into<Option<TableCollectionExportFlags>>>(
 ///
 /// ```
 /// use forrustts_tables_trees::TableCollection;
-/// use forrustts_tables_trees::TableType;
+/// use forrustts_core::traits::TableType;
 /// use forrustts_tskit::TskTableCollection;
 ///
 /// let mut tables = TableCollection::new(100).unwrap();
@@ -271,7 +271,7 @@ pub fn export_edges(
 ///
 /// ```
 /// use forrustts_tables_trees::TableCollection;
-/// use forrustts_tables_trees::TableType;
+/// use forrustts_core::traits::TableType;
 /// use forrustts_tskit::TskTableCollection;
 ///
 /// let mut tables = TableCollection::new(100).unwrap();
@@ -302,7 +302,7 @@ pub fn build_population_table(
     if nodes.is_empty() {
         return Err(TableCollectionExportError::EmptyTable);
     }
-    let mut max_deme = forrustts_tables_trees::DemeId::NULL;
+    let mut max_deme = forrustts_core::newtypes::DemeId::NULL;
     for node in nodes {
         max_deme = std::cmp::max(node.deme, max_deme);
     }
@@ -356,7 +356,7 @@ where
     if nodes.is_empty() {
         return Err(TableCollectionExportError::EmptyTable);
     }
-    let mut max_deme = forrustts_tables_trees::DemeId::NULL;
+    let mut max_deme = forrustts_core::newtypes::DemeId::NULL;
     for node in nodes {
         max_deme = std::cmp::max(node.deme, max_deme);
     }
@@ -384,7 +384,7 @@ where
 ///
 /// ```
 /// use forrustts_tables_trees::TableCollection;
-/// use forrustts_tables_trees::TableType;
+/// use forrustts_core::traits::TableType;
 /// use forrustts_tskit::TskTableCollection;
 ///
 /// let mut tables = TableCollection::new(100).unwrap();
@@ -432,7 +432,7 @@ pub fn export_nodes(
 ///
 /// ```
 /// use forrustts_tables_trees::TableCollection;
-/// use forrustts_tables_trees::TableType;
+/// use forrustts_core::traits::TableType;
 /// use forrustts_tskit::TskTableCollection;
 /// use serde::{Serialize, Deserialize};
 /// use tskit::metadata::NodeMetadata;

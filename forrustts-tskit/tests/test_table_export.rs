@@ -35,7 +35,7 @@ struct TablesWithMetadata {
     metadata_fnvhash: fnv::FnvHashMap<usize, Metadata>,
 }
 
-fn make_reverser() -> impl Fn(forrustts_tables_trees::Time) -> f64 {
+fn make_reverser() -> impl Fn(forrustts_core::newtypes::Time) -> f64 {
     simple_time_reverser(1)
 }
 
@@ -73,7 +73,7 @@ macro_rules! build_metadata_roundtrip_test {
     ($testfn: ident, $input_table: ident, $output_table: ident, $export_fn: ident) => {
         #[test]
         fn $testfn() {
-            use forrustts_tables_trees::TableType;
+            use forrustts_core::traits::TableType;
             let data = TablesWithMetadata::default();
 
             {
@@ -117,7 +117,7 @@ macro_rules! build_metadata_roundtrip_test {
     ($testfn: ident, $input_table: ident, $output_table: ident, $export_fn: ident, $callback: ident) => {
         #[test]
         fn $testfn() {
-            use forrustts_tables_trees::TableType;
+            use forrustts_core::traits::TableType;
             let data = TablesWithMetadata::default();
 
             {

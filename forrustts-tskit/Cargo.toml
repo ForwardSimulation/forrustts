@@ -19,6 +19,7 @@ tskit = {version = "0.11.1", features = ["derive"]}
 
 [dependencies]
 bitflags = "1.2.1"
+forrustts-core = { version = "0.1.0", path = "../forrustts-core" }
 forrustts-tables-trees = { version = "0.2.0", path = "../forrustts-tables-trees" }
 thiserror = "1.0"
 tskit = "0.11.1"
