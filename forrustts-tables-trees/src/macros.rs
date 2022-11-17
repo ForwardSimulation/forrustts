@@ -11,3 +11,9 @@ macro_rules! iterator_for_nodeiterator {
         }
     };
 }
+
+macro_rules! try_from_usize_unwrap {
+    ($value: ident) => {{
+        usize::try_from($value).unwrap()
+    }};
+}

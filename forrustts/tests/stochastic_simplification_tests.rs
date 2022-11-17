@@ -4,7 +4,6 @@ mod stochastic_testing_tools;
 use std::convert::TryFrom;
 
 use forrustts::NodeId;
-use forrustts::TableType;
 use forrustts::*;
 use rand::Rng;
 use rand::SeedableRng;
@@ -19,7 +18,7 @@ impl From<Vec<NodeId>> for VecTskId {
     fn from(value: Vec<NodeId>) -> Self {
         let mut rv: Vec<tsk_id_t> = vec![];
         for v in &value {
-            rv.push(v.into_raw());
+            rv.push(v.raw());
         }
         Self(rv)
     }
@@ -43,43 +42,39 @@ fn compare_edge_table_indexes(
     };
     for (idx, val) in tables.edge_input_order().unwrap().iter().enumerate() {
         assert_eq!(
-            tables.edges()[*val].parent.into_raw(),
+            tables.edges()[*val].parent.raw(),
             tsk_tables.edges().parent(tsk_edge_input[idx]).unwrap()
         );
         assert_eq!(
-            tables.edges()[*val].child.into_raw(),
+            tables.edges()[*val].child.raw(),
             tsk_tables.edges().child(tsk_edge_input[idx]).unwrap()
         );
         assert_eq!(
-            tables.edges()[*val].left.into_raw(),
-            f64::from(tsk_tables.edges().left(tsk_edge_input[idx]).unwrap())
-                as <Position as TableType>::LowLevelType
+            tables.edges()[*val].left.raw(),
+            f64::from(tsk_tables.edges().left(tsk_edge_input[idx]).unwrap()) as i64
         );
         assert_eq!(
-            tables.edges()[*val].right.into_raw(),
-            f64::from(tsk_tables.edges().right(tsk_edge_input[idx]).unwrap())
-                as <Position as TableType>::LowLevelType
+            tables.edges()[*val].right.raw(),
+            f64::from(tsk_tables.edges().right(tsk_edge_input[idx]).unwrap()) as i64
         );
     }
 
     for (idx, val) in tables.edge_output_order().unwrap().iter().enumerate() {
         assert_eq!(
-            tables.edges()[*val].parent.into_raw(),
+            tables.edges()[*val].parent.raw(),
             tsk_tables.edges().parent(tsk_edge_output[idx]).unwrap()
         );
         assert_eq!(
-            tables.edges()[*val].child.into_raw(),
+            tables.edges()[*val].child.raw(),
             tsk_tables.edges().child(tsk_edge_output[idx]).unwrap()
         );
         assert_eq!(
-            tables.edges()[*val].left.into_raw(),
-            f64::from(tsk_tables.edges().left(tsk_edge_output[idx]).unwrap())
-                as <Position as TableType>::LowLevelType
+            tables.edges()[*val].left.raw(),
+            f64::from(tsk_tables.edges().left(tsk_edge_output[idx]).unwrap()) as i64
         );
         assert_eq!(
-            tables.edges()[*val].right.into_raw(),
-            f64::from(tsk_tables.edges().right(tsk_edge_output[idx]).unwrap())
-                as <Position as TableType>::LowLevelType
+            tables.edges()[*val].right.raw(),
+            f64::from(tsk_tables.edges().right(tsk_edge_output[idx]).unwrap()) as i64
         );
     }
     true
@@ -245,7 +240,7 @@ fn simplify_to_samples() {
                 .sites()
                 .position(idx as tsk_id_t)
                 .unwrap()
-                .partial_cmp(&(s.position.into_raw() as f64))
+                .partial_cmp(&(s.position.raw() as f64))
             {
                 None => panic!("bad cmp"),
                 Some(std::cmp::Ordering::Equal) => (),
@@ -255,7 +250,7 @@ fn simplify_to_samples() {
 
         for (idx, m) in i.tables.enumerate_mutations() {
             assert_eq!(
-                m.node.into_raw(),
+                m.node.raw(),
                 i.tsk_tables.mutations().node(idx as tsk_id_t).unwrap()
             );
         }
@@ -266,7 +261,7 @@ fn simplify_to_samples() {
                 .sites()
                 .position(i.tsk_tables.mutations().site(idx as tsk_id_t).unwrap())
                 .unwrap();
-            match tpos.partial_cmp(&(i.tables.site(m.site).position.into_raw() as f64)) {
+            match tpos.partial_cmp(&(i.tables.site(m.site).position.raw() as f64)) {
                 Some(std::cmp::Ordering::Equal) => (),
                 Some(_) => panic!("Expected Equal"),
                 None => panic!("Expected Equal"),
@@ -300,11 +295,11 @@ fn simplify_to_samples() {
                 for u in tree.parents(*s).unwrap() {
                     p.push(u);
                 }
-                for u in tsk_tree.parents(s.into_raw().into()).unwrap() {
+                for u in tsk_tree.parents(s.raw().into()).unwrap() {
                     tsk_p.push(u);
                 }
                 for (i, j) in p.iter().zip(tsk_p.iter()) {
-                    assert_eq!(i.into_raw(), *j);
+                    assert_eq!(i.raw(), *j);
                 }
                 for pi in &p {
                     let mut ci = vec![];
@@ -312,13 +307,13 @@ fn simplify_to_samples() {
                     for child in tree.children(*pi).unwrap() {
                         ci.push(child);
                     }
-                    for child in tsk_tree.children(pi.into_raw().into()).unwrap() {
+                    for child in tsk_tree.children(pi.raw().into()).unwrap() {
                         tsk_ci.push(child);
                     }
                     ci.sort_unstable();
                     tsk_ci.sort_unstable();
                     for (i, j) in ci.iter().zip(tsk_ci.iter()) {
-                        assert!(i.into_raw() == *j);
+                        assert!(i.raw() == *j);
                     }
                 }
             }
@@ -328,7 +323,7 @@ fn simplify_to_samples() {
                 for s in tree.samples(node).unwrap() {
                     samples.push(s);
                 }
-                if let Some(Ok(s)) = tsk_tree.samples(node.into_raw().into()) {
+                if let Some(Ok(s)) = tsk_tree.samples(node.raw().into()) {
                     for i in s {
                         tsk_samples.push(i);
                     }
@@ -336,7 +331,7 @@ fn simplify_to_samples() {
                 samples.sort_unstable();
                 tsk_samples.sort_unstable();
                 for (i, j) in samples.iter().zip(tsk_samples.iter()) {
-                    assert_eq!(i.into_raw(), *j);
+                    assert_eq!(i.raw(), *j);
                 }
             }
         }
@@ -374,7 +369,7 @@ fn simplify_to_arbitrary_nodes() {
             let mut candidate_sample: Vec<NodeId> = vec![];
             for (idx, val) in i.is_sample.iter().enumerate() {
                 if *val == 1 {
-                    candidate_sample.push(NodeId::from(idx));
+                    candidate_sample.push(NodeId::try_from(idx).unwrap());
                 }
             }
             //let node_sampler = Uniform::new(0_usize, candidate_sample.len());
@@ -435,7 +430,7 @@ fn simplify_to_arbitrary_nodes() {
                     .sites()
                     .position(i as tsk_id_t)
                     .unwrap()
-                    .partial_cmp(&(<Position as TableType>::LowLevelType::from(s.position) as f64))
+                    .partial_cmp(&(i64::from(s.position) as f64))
                 {
                     None => panic!("bad cmp"),
                     Some(std::cmp::Ordering::Equal) => (),
@@ -445,7 +440,7 @@ fn simplify_to_arbitrary_nodes() {
 
             for (i, m) in tables.enumerate_mutations() {
                 assert_eq!(
-                    m.node.into_raw(),
+                    m.node.raw(),
                     tsk_tables.mutations().node(i as tsk_id_t).unwrap()
                 );
             }
@@ -455,7 +450,7 @@ fn simplify_to_arbitrary_nodes() {
                     .sites()
                     .position(tsk_tables.mutations().site(i as tsk_id_t).unwrap())
                     .unwrap()
-                    .partial_cmp(&(tables.site(m.site).position.into_raw() as f64))
+                    .partial_cmp(&(tables.site(m.site).position.raw() as f64))
                 {
                     Some(std::cmp::Ordering::Equal) => (),
                     Some(_) => panic!("Expected Equal"),

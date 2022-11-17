@@ -1,8 +1,5 @@
 use bitflags::bitflags;
-use forrustts_core::{
-    newtypes::{DemeId, EdgeId, MutationId, NodeId, Position, SiteId, Time},
-    traits::TableType,
-};
+use forrustts_core::newtypes::{DemeId, EdgeId, MutationId, NodeId, Position, SiteId, Time};
 use std::cmp::Ordering;
 use thiserror::Error;
 
@@ -179,7 +176,7 @@ pub type SiteTable = Vec<Site>;
 pub type MutationTable = Vec<MutationRecord>;
 
 fn position_non_negative(x: Position) -> TablesResult<()> {
-    if x.into_raw() < 0 {
+    if x.raw() < 0 {
         Err(TablesError::InvalidPosition { found: x })
     } else {
         Ok(())
@@ -218,7 +215,7 @@ fn edge_table_add_row(
         child,
     });
 
-    Ok(EdgeId::from(edges.len() - 1))
+    Ok(EdgeId::try_from(edges.len() - 1).unwrap())
 }
 
 // NOTE: we allow negative times, in order to support "precapitation".
@@ -230,7 +227,7 @@ fn node_table_add_row(
 ) -> TablesResult<NodeId> {
     nodes.push(Node { time, deme, flags });
 
-    Ok(NodeId::from(nodes.len() - 1))
+    Ok(NodeId::try_from(nodes.len() - 1).unwrap())
 }
 
 fn site_table_add_row(
@@ -244,7 +241,7 @@ fn site_table_add_row(
         ancestral_state,
     });
 
-    Ok(SiteId::from(sites.len() - 1))
+    Ok(SiteId::try_from(sites.len() - 1).unwrap())
 }
 
 fn mutation_table_add_row(
@@ -266,13 +263,13 @@ fn mutation_table_add_row(
         neutral,
     });
 
-    Ok(MutationId::from(mutations.len() - 1))
+    Ok(MutationId::try_from(mutations.len() - 1).unwrap())
 }
 
 fn sort_edges(nodes: &[Node], edges: &mut [Edge]) {
     edges.sort_by(|a, b| {
-        let aindex = a.parent.into_raw() as usize;
-        let bindex = b.parent.into_raw() as usize;
+        let aindex = a.parent.raw() as usize;
+        let bindex = b.parent.raw() as usize;
         let ta = nodes[aindex].time;
         let tb = nodes[bindex].time;
         match ta.partial_cmp(&tb) {
@@ -293,26 +290,22 @@ fn sort_edges(nodes: &[Node], edges: &mut [Edge]) {
 }
 
 fn record_site(sites: &[Site], mutation: &mut MutationRecord, new_site_table: &mut SiteTable) {
-    let position = sites[mutation.site.into_raw() as usize].position;
+    let position = sites[mutation.site.raw() as usize].position;
     if new_site_table.is_empty() || new_site_table[new_site_table.len() - 1].position != position {
-        new_site_table.push(sites[mutation.site.into_raw() as usize].clone());
+        new_site_table.push(sites[mutation.site.raw() as usize].clone());
     }
 
-    mutation.site = SiteId::from(new_site_table.len() - 1);
+    mutation.site = SiteId::try_from(new_site_table.len() - 1).unwrap();
 }
 
 fn sort_mutation_table(sites: &[Site], mutations: &mut [MutationRecord]) {
     mutations.sort_by(|a, b| {
-        let pa = sites[a.site.into_raw() as usize].position;
-        let pb = sites[b.site.into_raw() as usize].position;
+        let pa = sites[a.site.raw() as usize].position;
+        let pb = sites[b.site.raw() as usize].position;
         match pa.cmp(&pb) {
             std::cmp::Ordering::Equal => match a.time.partial_cmp(&b.time) {
                 Some(x) => x,
-                None => panic!(
-                    "bad mutation times {} {}",
-                    a.time.into_raw(),
-                    b.time.into_raw()
-                ),
+                None => panic!("bad mutation times {} {}", a.time.raw(), b.time.raw()),
             },
             std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
             std::cmp::Ordering::Less => std::cmp::Ordering::Less,
@@ -438,8 +431,8 @@ pub fn validate_edge_table(len: Position, edges: &[Edge], nodes: &[Node]) -> Tab
         return Ok(true);
     }
     let mut parent_seen = vec![0; nodes.len()];
-    let mut last_parent: usize = edges[0].parent.into_raw() as usize;
-    let mut last_child: usize = edges[0].child.into_raw() as usize;
+    let mut last_parent: usize = edges[0].parent.raw() as usize;
+    let mut last_child: usize = edges[0].child.raw() as usize;
     let mut last_left: Position = edges[0].left;
 
     for (i, edge) in edges.iter().enumerate() {
@@ -449,16 +442,16 @@ pub fn validate_edge_table(len: Position, edges: &[Edge], nodes: &[Node]) -> Tab
         if edge.child == NodeId::NULL {
             return Err(TablesError::NullChild);
         }
-        if edge.parent < 0 || edge.parent.into_raw() as usize >= nodes.len() {
+        if edge.parent < 0 || edge.parent.raw() as usize >= nodes.len() {
             return Err(TablesError::NodeOutOfBounds);
         }
-        if edge.child < 0 || edge.child.into_raw() as usize >= nodes.len() {
+        if edge.child < 0 || edge.child.raw() as usize >= nodes.len() {
             return Err(TablesError::NodeOutOfBounds);
         }
-        if edge.left.into_raw() < 0 || edge.left > len {
+        if edge.left.raw() < 0 || edge.left > len {
             return Err(TablesError::InvalidPosition { found: edge.left });
         }
-        if edge.right.into_raw() < 0 || edge.right > len {
+        if edge.right.raw() < 0 || edge.right > len {
             return Err(TablesError::InvalidPosition { found: edge.right });
         }
         if edge.left >= edge.right {
@@ -468,17 +461,16 @@ pub fn validate_edge_table(len: Position, edges: &[Edge], nodes: &[Node]) -> Tab
         }
 
         // child time must be > parent time b/c time goes forwards
-        if nodes[edge.child.into_raw() as usize].time <= nodes[edge.parent.into_raw() as usize].time
-        {
+        if nodes[edge.child.raw() as usize].time <= nodes[edge.parent.raw() as usize].time {
             return Err(TablesError::NodeTimesUnordered);
         }
 
-        if parent_seen[edge.parent.into_raw() as usize] == 1 {
+        if parent_seen[edge.parent.raw() as usize] == 1 {
             return Err(TablesError::ParentsNotContiguous);
         }
 
         if i > 0 {
-            match nodes[edge.parent.into_raw() as usize]
+            match nodes[edge.parent.raw() as usize]
                 .time
                 .partial_cmp(&nodes[last_parent].time)
             {
@@ -486,11 +478,11 @@ pub fn validate_edge_table(len: Position, edges: &[Edge], nodes: &[Node]) -> Tab
                     return Err(TablesError::ParentTimesUnsorted);
                 }
                 Some(std::cmp::Ordering::Equal) => {
-                    if edge.parent.into_raw() as usize == last_parent {
-                        if (edge.child.into_raw() as usize) < last_child {
+                    if edge.parent.raw() as usize == last_parent {
+                        if (edge.child.raw() as usize) < last_child {
                             return Err(TablesError::EdgesNotSortedByChild);
                         }
-                        if edge.child.into_raw() as usize == last_child {
+                        if edge.child.raw() as usize == last_child {
                             match edge.left.cmp(&last_left) {
                                 Ordering::Greater => (),
                                 Ordering::Equal => return Err(TablesError::DuplicateEdges),
@@ -505,8 +497,8 @@ pub fn validate_edge_table(len: Position, edges: &[Edge], nodes: &[Node]) -> Tab
                 None => panic!("invalid node times"),
             }
         }
-        last_parent = edge.parent.into_raw() as usize;
-        last_child = edge.child.into_raw() as usize;
+        last_parent = edge.parent.raw() as usize;
+        last_child = edge.child.raw() as usize;
         last_left = edge.left;
     }
 
@@ -520,7 +512,7 @@ pub fn validate_edge_table(len: Position, edges: &[Edge], nodes: &[Node]) -> Tab
 /// [`TablesError::InvalidNodeTime`] if any node times are not finite.
 pub fn validate_node_table(nodes: &[Node]) -> TablesResult<()> {
     for n in nodes {
-        if !n.time.into_raw().is_finite() {
+        if !n.time.raw().is_finite() {
             return Err(TablesError::InvalidNodeTime);
         }
     }
@@ -561,20 +553,16 @@ pub fn validate_mutation_table(
     let mut last_site: Option<SiteId> = None;
     let mut last_time = Time::MIN;
     for (i, mutation) in mutations.iter().enumerate() {
-        if !mutation.time.into_raw().is_finite() {
+        if !mutation.time.raw().is_finite() {
             return Err(TablesError::InvalidMutationTime);
         }
-        if mutation.site < 0 || (mutation.site.into_raw() as usize) >= sites.len() {
+        if mutation.site < 0 || (mutation.site.raw() as usize) >= sites.len() {
             return Err(TablesError::SiteOutofBounds);
         }
-        if mutation.node < 0 || (mutation.node.into_raw() as usize) >= nodes.len() {
+        if mutation.node < 0 || (mutation.node.raw() as usize) >= nodes.len() {
             return Err(TablesError::NodeOutOfBounds);
         }
-        if !nodes[mutation.node.into_raw() as usize]
-            .time
-            .into_raw()
-            .is_finite()
-        {
+        if !nodes[mutation.node.raw() as usize].time.raw().is_finite() {
             return Err(TablesError::InvalidNodeTime);
         }
         if i > 0 {
@@ -618,7 +606,7 @@ impl TableCollection {
     /// Will return [``TablesError``] if `genome_length < 1`.
     pub fn new<P: Into<Position>>(genome_length: P) -> TablesResult<TableCollection> {
         let p = genome_length.into();
-        if p.into_raw() < 1 {
+        if p.raw() < 1 {
             return Err(TablesError::InvalidGenomeLength);
         }
 
@@ -829,7 +817,7 @@ impl TableCollection {
         ancestral_state: A,
     ) -> TablesResult<SiteId> {
         let p = position.into();
-        if p >= self.length_ || p.into_raw() < 0 {
+        if p >= self.length_ || p.raw() < 0 {
             return Err(TablesError::InvalidPosition { found: p });
         }
         site_table_add_row(&mut self.sites_, p, ancestral_state.into())
@@ -937,7 +925,7 @@ impl TableCollection {
 
     /// Return the i-th [``Node``].
     pub fn node<N: Into<NodeId>>(&self, i: N) -> &Node {
-        &self.nodes_[i.into().into_raw() as usize]
+        &self.nodes_[i.into().raw() as usize]
     }
 
     /// Get a slice of nodes
@@ -967,7 +955,7 @@ impl TableCollection {
 
     /// Return the i-th [``Edge``].
     pub fn edge<E: Into<EdgeId>>(&self, i: E) -> &Edge {
-        &self.edges_[i.into().into_raw() as usize]
+        &self.edges_[i.into().raw() as usize]
     }
 
     /// Get a slice of edges
@@ -997,7 +985,7 @@ impl TableCollection {
 
     /// Return the i-th [``Site``].
     pub fn site<S: Into<SiteId>>(&self, i: S) -> &Site {
-        &self.sites_[i.into().into_raw() as usize]
+        &self.sites_[i.into().raw() as usize]
     }
 
     /// Get a slice of sites
@@ -1027,7 +1015,7 @@ impl TableCollection {
 
     /// Return the i-th [``MutationRecord``].
     pub fn mutation<M: Into<MutationId>>(&self, i: M) -> &MutationRecord {
-        &self.mutations_[i.into().into_raw() as usize]
+        &self.mutations_[i.into().raw() as usize]
     }
 
     /// Get a slice of mutations
@@ -1126,8 +1114,8 @@ impl TableCollection {
             let ea = unsafe { edges.get_unchecked(*a) };
             let eb = unsafe { edges.get_unchecked(*b) };
             if ea.right == eb.right {
-                let ta = unsafe { *nodes.get_unchecked(ea.parent.into_raw() as usize) }.time;
-                let tb = unsafe { *nodes.get_unchecked(eb.parent.into_raw() as usize) }.time;
+                let ta = unsafe { *nodes.get_unchecked(ea.parent.raw() as usize) }.time;
+                let tb = unsafe { *nodes.get_unchecked(eb.parent.raw() as usize) }.time;
                 match ta.partial_cmp(&tb) {
                     Some(x) => match x {
                         std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
@@ -1152,8 +1140,8 @@ impl TableCollection {
             let ea = unsafe { edges.get_unchecked(*a) };
             let eb = unsafe { edges.get_unchecked(*b) };
             if ea.left == eb.left {
-                let ta = unsafe { *nodes.get_unchecked(ea.parent.into_raw() as usize) }.time;
-                let tb = unsafe { *nodes.get_unchecked(eb.parent.into_raw() as usize) }.time;
+                let ta = unsafe { *nodes.get_unchecked(ea.parent.raw() as usize) }.time;
+                let tb = unsafe { *nodes.get_unchecked(eb.parent.raw() as usize) }.time;
                 match ta.partial_cmp(&tb) {
                     Some(x) => match x.reverse() {
                         std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
@@ -1201,10 +1189,10 @@ impl TableCollection {
             if e.child == NodeId::NULL {
                 return Err(TablesError::NullChild);
             }
-            if e.parent >= NodeId::from(self.nodes_.len()) {
+            if e.parent >= NodeId::try_from(self.nodes_.len()).unwrap() {
                 return Err(TablesError::NodeOutOfBounds);
             }
-            if e.child >= NodeId::from(self.nodes_.len()) {
+            if e.child >= NodeId::try_from(self.nodes_.len()).unwrap() {
                 return Err(TablesError::NodeOutOfBounds);
             }
             self.edge_input_order.push(i);
@@ -1692,9 +1680,12 @@ mod test_table_indexing {
             assert_eq!(edge_input_order.len(), t.edges().len());
             for (idx, i) in edge_input_order.iter().enumerate() {
                 if idx > 0 {
-                    let ti = t.node(t.edge(EdgeId::from(*i)).parent).time;
+                    let ti = t.node(t.edge(EdgeId::try_from(*i).unwrap()).parent).time;
                     let tim1 = t
-                        .node(t.edge(EdgeId::from(edge_input_order[idx] - 1)).parent)
+                        .node(
+                            t.edge(EdgeId::try_from(edge_input_order[idx] - 1).unwrap())
+                                .parent,
+                        )
                         .time;
                     assert!(ti <= tim1);
                     assert!(tim1 >= ti);
@@ -1708,9 +1699,12 @@ mod test_table_indexing {
             assert_eq!(edge_output_order.len(), t.edges().len());
             for (idx, i) in edge_output_order.iter().enumerate() {
                 if idx > 0 {
-                    let ti = t.node(t.edge(EdgeId::from(*i)).parent).time;
+                    let ti = t.node(t.edge(EdgeId::try_from(*i).unwrap()).parent).time;
                     let tim1 = t
-                        .node(t.edge(EdgeId::from(edge_output_order[idx - 1])).parent)
+                        .node(
+                            t.edge(EdgeId::try_from(edge_output_order[idx - 1]).unwrap())
+                                .parent,
+                        )
                         .time;
                     assert!(ti >= tim1, "{} {}", f64::from(ti), f64::from(tim1));
                 }
