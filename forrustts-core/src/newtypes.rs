@@ -21,10 +21,9 @@ type LowLevelPositonType = i64;
 ///
 /// ```
 /// # use forrustts_core::newtypes::NodeId;
-/// # use forrustts_core::traits::TableType;
 /// let n = NodeId::from(-1);
 /// assert_eq!(n, -1);
-/// let r = n.into_raw();
+/// let r = n.raw();
 /// assert_eq!(r, -1);
 /// ```
 #[repr(transparent)]
@@ -57,6 +56,12 @@ impl_table_id!(SiteId, LowLevelIdType);
 impl_table_id!(MutationId, LowLevelIdType);
 impl_table_id!(DemeId, LowLevelIdType);
 
+impl_get_raw!(NodeId, LowLevelIdType);
+impl_get_raw!(EdgeId, LowLevelIdType);
+impl_get_raw!(SiteId, LowLevelIdType);
+impl_get_raw!(MutationId, LowLevelIdType);
+impl_get_raw!(DemeId, LowLevelIdType);
+
 /// A position/coordinate within a genome
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, std::hash::Hash)]
 #[repr(transparent)]
@@ -66,6 +71,9 @@ pub struct Position(pub(crate) LowLevelPositonType);
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Time(pub(crate) LowLevelTimeType);
+
+impl_get_raw!(Position, LowLevelPositonType);
+impl_get_raw!(Time, LowLevelTimeType);
 
 impl Position {
     /// Minimum value
@@ -80,9 +88,6 @@ impl Time {
     /// Maximum value
     pub const MAX: Time = Time(LowLevelTimeType::MAX);
 }
-
-impl_low_level_table_type!(Time, LowLevelTimeType);
-impl_low_level_table_type!(Position, LowLevelPositonType);
 
 impl PartialEq<LowLevelPositonType> for Position {
     fn eq(&self, other: &LowLevelPositonType) -> bool {

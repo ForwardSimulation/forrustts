@@ -1,47 +1,13 @@
 #![macro_use]
 
-macro_rules! impl_low_level_table_type {
-    ($idtype: ident, $integer_type: ty) => {
-        impl $crate::traits::private_traits::LowLevelTableType for $idtype {
-            type Type = $integer_type;
-
-            fn new(value: Self::Type) -> Self {
-                Self(value)
-            }
-
-            fn raw(&self) -> Self::Type {
-                self.0
-            }
-        }
-
-        impl $crate::traits::TableType for $idtype {
-            type LowLevelType = $integer_type;
-
-            fn into_raw(self) -> Self::LowLevelType {
-                self.0
-            }
-        }
-    };
-}
-
 macro_rules! impl_table_id {
     ($idtype: ident, $integer_type: ty) => {
         impl $idtype {
             /// NULL value for the type
             pub const NULL: $idtype = Self(-1);
-        }
 
-        impl_low_level_table_type!($idtype, $integer_type);
-
-        impl $crate::traits::private_traits::NullableLowLevelTableType for $idtype {
-            fn new_null() -> Self {
-                Self(-1)
-            }
-        }
-
-        impl $crate::traits::TableId for $idtype {
-            fn is_null(&self) -> bool {
-                *self == Self::NULL
+            fn new(value: $integer_type) -> Self {
+                Self(value)
             }
         }
 
@@ -55,37 +21,46 @@ macro_rules! impl_table_id {
             }
         }
 
-        impl From<usize> for $idtype {
-            fn from(value: usize) -> Self {
-                use num_traits::ToPrimitive;
-                use $crate::traits::private_traits::LowLevelTableType;
-                match value.to_i32() {
-                    Some(x) => Self::new(x),
-                    None => Self::NULL,
-                }
+        impl std::fmt::Display for $idtype {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+                write!(f, "{}", self.0)
             }
         }
 
-        impl From<$idtype> for usize {
-            fn from(value: $idtype) -> Self {
-                value.0 as Self
+        impl TryFrom<$idtype> for usize {
+            type Error = $crate::Error;
+
+            fn try_from(value: $idtype) -> Result<Self, Self::Error> {
+                usize::try_from(value.0).map_err(|_| {
+                    $crate::Error::ConversionError(format!("could not convert {} to usize", value))
+                })
+            }
+        }
+
+        impl TryFrom<&$idtype> for usize {
+            type Error = $crate::Error;
+
+            fn try_from(value: &$idtype) -> Result<Self, Self::Error> {
+                usize::try_from(value.0).map_err(|_| {
+                    $crate::Error::ConversionError(format!("could not convert {} to usize", value))
+                })
+            }
+        }
+
+        impl TryFrom<usize> for $idtype {
+            type Error = $crate::Error;
+
+            fn try_from(value: usize) -> Result<Self, Self::Error> {
+                let ll = <$integer_type>::try_from(value).map_err(|_| {
+                    $crate::Error::ConversionError(format!("could not convert {} to usize", value))
+                })?;
+                Ok($idtype::new(ll))
             }
         }
 
         impl From<$idtype> for $integer_type {
             fn from(item: $idtype) -> Self {
                 item.0
-            }
-        }
-
-        impl From<i64> for $idtype {
-            fn from(value: i64) -> Self {
-                use num_traits::ToPrimitive;
-                use $crate::traits::private_traits::LowLevelTableType;
-                match value.to_i32() {
-                    Some(x) => Self::new(num_traits::clamp(x, -1, <$integer_type>::MAX)),
-                    None => Self::NULL,
-                }
             }
         }
 
@@ -110,6 +85,16 @@ macro_rules! impl_table_id {
         impl PartialOrd<$idtype> for $integer_type {
             fn partial_cmp(&self, other: &$idtype) -> Option<std::cmp::Ordering> {
                 self.partial_cmp(&other.0)
+            }
+        }
+    };
+}
+
+macro_rules! impl_get_raw {
+    ($newtype: ident, $lltype: ty) => {
+        impl $newtype {
+            pub fn raw(self) -> $lltype {
+                self.0
             }
         }
     };

@@ -1,4 +1,11 @@
 mod macros;
 
 pub mod newtypes;
-pub mod traits;
+
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("range error: {}", *.0)]
+    ConversionError(String),
+}

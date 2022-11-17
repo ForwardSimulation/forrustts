@@ -25,8 +25,8 @@ impl std::fmt::Display for Segment {
         write!(
             f,
             "Segment({},{})",
-            <Position as TableType>::LowLevelType::from(self.left),
-            <Position as TableType>::LowLevelType::from(self.right)
+            i64::from(self.left),
+            i64::from(self.right)
         )
     }
 }
@@ -411,8 +411,8 @@ fn simplify_and_remap_nodes(
     sort_and_simplify(flags, simplification_flags, samples, state, pop, output);
 
     for p in &mut pop.parents {
-        p.node0 = output.idmap[usize::from(p.node0)];
-        p.node1 = output.idmap[usize::from(p.node1)];
+        p.node0 = output.idmap[usize::try_from(p.node0).unwrap()];
+        p.node1 = output.idmap[usize::try_from(p.node1).unwrap()];
         assert!(pop.tables.node(p.node0).flags & NodeFlags::IS_SAMPLE.bits() > 0);
     }
 
@@ -488,28 +488,24 @@ fn mutate_tables<R: rand::Rng>(mutrate: f64, tables: &mut TableCollection, rng: 
         Some(_) => return,
         None => panic!("bad mutation rate"),
     };
-    let mut posmap =
-        std::collections::HashMap::<<Position as TableType>::LowLevelType, SiteId>::new();
-    let mut derived_map =
-        std::collections::HashMap::<<Position as TableType>::LowLevelType, u8>::new();
+    let mut posmap = std::collections::HashMap::<i64, SiteId>::new();
+    let mut derived_map = std::collections::HashMap::<i64, u8>::new();
 
     let num_edges = tables.edges().len();
     for i in 0..num_edges {
-        let e = *tables.edge(EdgeId::from(i));
+        let e = *tables.edge(EdgeId::try_from(i).unwrap());
         let ptime = i64::from(tables.node(e.parent).time);
         let ctime = i64::from(tables.node(e.child).time);
         let blen = ctime - ptime;
         assert!((blen as i64) > 0, "{} {} {}", blen, ptime, ctime,);
 
-        let pedge = ((<Position as TableType>::LowLevelType::from(e.right)
-            - <Position as TableType>::LowLevelType::from(e.left)) as f64)
-            / (<Position as TableType>::LowLevelType::from(tables.genome_length()) as f64);
+        let pedge = ((i64::from(e.right) - i64::from(e.left)) as f64)
+            / (i64::from(tables.genome_length()) as f64);
 
         let mutrate_edge = (mutrate * blen as f64) * pedge;
         let nmut_generator = Poisson::new(mutrate_edge).unwrap();
         let nmuts = rng.sample(nmut_generator) as u32;
-        let pos_generator =
-            rand::distributions::Uniform::new(e.left.into_raw(), e.right.into_raw());
+        let pos_generator = rand::distributions::Uniform::new(e.left.raw(), e.right.raw());
         let time_generator = rand::distributions::Uniform::new(ptime, ctime);
         for _ in 0..nmuts {
             let t = rng.sample(time_generator) + 1;
@@ -575,7 +571,9 @@ pub fn neutral_wf(
     }
 
     for i in 0..pop.tables.num_nodes() {
-        samples.edge_buffer_founder_nodes.push(i.into());
+        samples
+            .edge_buffer_founder_nodes
+            .push(i.try_into().unwrap());
     }
 
     let mut simplified = false;
@@ -634,8 +632,8 @@ pub fn neutral_wf(
     let mut is_alive: Vec<i32> = vec![0; pop.tables.num_nodes()];
 
     for p in pop.parents {
-        is_alive[usize::from(p.node0)] = 1;
-        is_alive[usize::from(p.node1)] = 1;
+        is_alive[usize::try_from(p.node0).unwrap()] = 1;
+        is_alive[usize::try_from(p.node1).unwrap()] = 1;
     }
 
     mutate_tables(params.mutrate, &mut pop.tables, &mut rng);

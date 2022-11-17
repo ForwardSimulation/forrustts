@@ -33,7 +33,6 @@
 
 use bitflags::bitflags;
 use forrustts_core::newtypes::Time;
-use forrustts_core::traits::TableType;
 use forrustts_tables_trees::TableCollection;
 use thiserror::Error;
 
@@ -128,7 +127,7 @@ pub enum TableCollectionExportError {
 /// return ``-1.0*(t - x) as f64``.
 pub fn simple_time_reverser<T: Into<Time>>(x: T) -> impl Fn(Time) -> f64 {
     let ti = x.into();
-    move |t: Time| -1. * (t.into_raw() - ti.into_raw()) as f64
+    move |t: Time| -1. * (t.raw() - ti.raw()) as f64
 }
 
 /// Convert a [``TableCollection``](crate::TableCollection)
@@ -188,7 +187,7 @@ pub fn export_tables<F: Into<Option<TableCollectionExportFlags>>>(
     };
 
     let mut tables_copy = tables;
-    let mut tsk_tables = TskTableCollection::new(tables_copy.genome_length().into_raw() as f64)?;
+    let mut tsk_tables = TskTableCollection::new(tables_copy.genome_length().raw() as f64)?;
 
     export_edges(tables_copy.edges(), &mut tsk_tables)?;
     let mut edges = tables_copy.dump_edge_table();
@@ -222,12 +221,11 @@ pub fn export_tables<F: Into<Option<TableCollectionExportFlags>>>(
 ///
 /// ```
 /// use forrustts_tables_trees::TableCollection;
-/// use forrustts_core::traits::TableType;
 /// use forrustts_tskit::TskTableCollection;
 ///
 /// let mut tables = TableCollection::new(100).unwrap();
 /// tables.add_edge(25, 50, 0, 1).unwrap();
-/// let mut tsk_tables = TskTableCollection::new(tables.genome_length().into_raw() as f64).unwrap();
+/// let mut tsk_tables = TskTableCollection::new(tables.genome_length().raw() as f64).unwrap();
 /// forrustts_tskit::export_edges(tables.edges(),
 ///                               &mut tsk_tables).unwrap();
 /// assert_eq!(tsk_tables.edges().parent(0).unwrap(), 0);
@@ -245,10 +243,10 @@ pub fn export_edges(
 ) -> Result<(), TableCollectionExportError> {
     for edge in edges {
         tsk_tables.add_edge(
-            edge.left.into_raw() as f64,
-            edge.right.into_raw() as f64,
-            edge.parent.into_raw(),
-            edge.child.into_raw(),
+            edge.left.raw() as f64,
+            edge.right.raw() as f64,
+            edge.parent.raw(),
+            edge.child.raw(),
         )?;
     }
     Ok(())
@@ -271,12 +269,11 @@ pub fn export_edges(
 ///
 /// ```
 /// use forrustts_tables_trees::TableCollection;
-/// use forrustts_core::traits::TableType;
 /// use forrustts_tskit::TskTableCollection;
 ///
 /// let mut tables = TableCollection::new(100).unwrap();
 /// tables.add_node(1, 2).unwrap();
-/// let mut tsk_tables = TskTableCollection::new(tables.genome_length().into_raw() as f64).unwrap();
+/// let mut tsk_tables = TskTableCollection::new(tables.genome_length().raw() as f64).unwrap();
 /// forrustts_tskit::build_population_table(tables.nodes(),
 ///                                         &mut tsk_tables).unwrap();
 /// // Max deme ID is 2, so there should be 3 rows.
@@ -306,7 +303,7 @@ pub fn build_population_table(
     for node in nodes {
         max_deme = std::cmp::max(node.deme, max_deme);
     }
-    for _ in 0..(max_deme.into_raw() + 1) {
+    for _ in 0..(max_deme.raw() + 1) {
         tsk_tables.add_population()?;
     }
 
@@ -360,7 +357,7 @@ where
     for node in nodes {
         max_deme = std::cmp::max(node.deme, max_deme);
     }
-    for p in 0..(max_deme.into_raw() + 1) {
+    for p in 0..(max_deme.raw() + 1) {
         match metadata.get(p as usize) {
             Some(md) => tsk_tables.add_population_with_metadata(md)?,
             None => return Err(TableCollectionExportError::InvalidMetadataKey),
@@ -384,12 +381,11 @@ where
 ///
 /// ```
 /// use forrustts_tables_trees::TableCollection;
-/// use forrustts_core::traits::TableType;
 /// use forrustts_tskit::TskTableCollection;
 ///
 /// let mut tables = TableCollection::new(100).unwrap();
 /// tables.add_node(1, 2).unwrap();
-/// let mut tsk_tables = TskTableCollection::new(tables.genome_length().into_raw() as f64).unwrap();
+/// let mut tsk_tables = TskTableCollection::new(tables.genome_length().raw() as f64).unwrap();
 /// forrustts_tskit::export_nodes(tables.nodes(),
 ///                               &forrustts_tskit::simple_time_reverser(1),
 ///                               &mut tsk_tables).unwrap();
@@ -411,7 +407,7 @@ pub fn export_nodes(
         tsk_tables.add_node(
             node.flags,
             convert_time(node.time),
-            node.deme.into_raw(),
+            node.deme.raw(),
             tskit::IndividualId::NULL,
         )?;
     }
@@ -432,7 +428,6 @@ pub fn export_nodes(
 ///
 /// ```
 /// use forrustts_tables_trees::TableCollection;
-/// use forrustts_core::traits::TableType;
 /// use forrustts_tskit::TskTableCollection;
 /// use serde::{Serialize, Deserialize};
 /// use tskit::metadata::NodeMetadata;
@@ -443,7 +438,7 @@ pub fn export_nodes(
 ///
 /// let mut tables = TableCollection::new(100).unwrap();
 /// tables.add_node(1, 2).unwrap();
-/// let mut tsk_tables = TskTableCollection::new(tables.genome_length().into_raw() as f64).unwrap();
+/// let mut tsk_tables = TskTableCollection::new(tables.genome_length().raw() as f64).unwrap();
 /// let md = vec![Metadata(42)];
 /// forrustts_tskit::export_nodes_with_metadata(tables.nodes(),
 ///                               &forrustts_tskit::simple_time_reverser(1),
@@ -473,7 +468,7 @@ where
             Some(md) => tsk_tables.add_node_with_metadata(
                 node.flags,
                 convert_time(node.time),
-                node.deme.into_raw(),
+                node.deme.raw(),
                 tskit::IndividualId::NULL,
                 md,
             )?,
@@ -503,8 +498,8 @@ pub fn export_mutations(
 ) -> Result<(), TableCollectionExportError> {
     for mutation in mutations {
         tsk_tables.add_mutation(
-            mutation.site.into_raw(),
-            mutation.node.into_raw(),
+            mutation.site.raw(),
+            mutation.node.raw(),
             tskit::MutationId::NULL,
             convert_time(mutation.time),
             match &mutation.derived_state {
@@ -552,8 +547,8 @@ where
             Some(key) => match metadata.get(key) {
                 Some(md) => {
                     tsk_tables.add_mutation_with_metadata(
-                        mutation.site.into_raw(),
-                        mutation.node.into_raw(),
+                        mutation.site.raw(),
+                        mutation.node.raw(),
                         tskit::MutationId::NULL,
                         convert_time(mutation.time),
                         match &mutation.derived_state {
@@ -569,10 +564,10 @@ where
             },
             None => {
                 tsk_tables.add_mutation(
-                    mutation.site.into_raw(),
-                    mutation.node.into_raw(),
+                    mutation.site.raw(),
+                    mutation.node.raw(),
                     tskit::MutationId::NULL,
-                    mutation.time.into_raw() as f64,
+                    mutation.time.raw() as f64,
                     match &mutation.derived_state {
                         Some(x) => Some(x),
                         None => None,
@@ -603,7 +598,7 @@ pub fn export_sites(
 ) -> Result<(), TableCollectionExportError> {
     for site in sites {
         tsk_tables.add_site(
-            site.position.into_raw() as f64,
+            site.position.raw() as f64,
             match &site.ancestral_state {
                 Some(x) => Some(x),
                 None => None,
@@ -645,7 +640,7 @@ where
     for (i, site) in sites.iter().enumerate() {
         match metadata.get(i) {
             Some(x) => tsk_tables.add_site_with_metadata(
-                site.position.into_raw() as f64,
+                site.position.raw() as f64,
                 match &site.ancestral_state {
                     Some(x) => Some(x),
                     None => None,

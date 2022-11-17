@@ -51,13 +51,19 @@ impl Default for TablesWithMetadata {
 
         let metadata = vec![Metadata { a: -3, b: 99 }];
         let mut metadata_hash = std::collections::HashMap::new();
-        metadata_hash.insert(usize::from(mutation_id), metadata[usize::from(mutation_id)]);
+        metadata_hash.insert(
+            usize::try_from(mutation_id).unwrap(),
+            metadata[usize::try_from(mutation_id).unwrap()],
+        );
         let mut metadata_fnvhash = fnv::FnvHashMap::default();
-        metadata_fnvhash.insert(usize::from(mutation_id), metadata[usize::from(mutation_id)]);
+        metadata_fnvhash.insert(
+            usize::try_from(mutation_id).unwrap(),
+            metadata[usize::try_from(mutation_id).unwrap()],
+        );
 
         assert_eq!(
-            metadata[usize::from(mutation_id)],
-            metadata_hash[&usize::from(mutation_id)]
+            metadata[usize::try_from(mutation_id).unwrap()],
+            metadata_hash[&usize::try_from(mutation_id).unwrap()]
         );
 
         Self {
@@ -73,21 +79,18 @@ macro_rules! build_metadata_roundtrip_test {
     ($testfn: ident, $input_table: ident, $output_table: ident, $export_fn: ident) => {
         #[test]
         fn $testfn() {
-            use forrustts_core::traits::TableType;
             let data = TablesWithMetadata::default();
 
             {
                 let mut tsk_tables =
-                    tskit::TableCollection::new(data.tables.genome_length().into_raw() as f64)
-                        .unwrap();
+                    tskit::TableCollection::new(data.tables.genome_length().raw() as f64).unwrap();
                 export_table_with_metadata!(data, $input_table, tsk_tables, metadata, $export_fn);
                 validate_metadata!(tsk_tables, $output_table, data, metadata, 0, 0);
             }
 
             {
                 let mut tsk_tables =
-                    tskit::TableCollection::new(data.tables.genome_length().into_raw() as f64)
-                        .unwrap();
+                    tskit::TableCollection::new(data.tables.genome_length().raw() as f64).unwrap();
                 export_table_with_metadata!(
                     data,
                     $input_table,
@@ -100,8 +103,7 @@ macro_rules! build_metadata_roundtrip_test {
 
             {
                 let mut tsk_tables =
-                    tskit::TableCollection::new(data.tables.genome_length().into_raw() as f64)
-                        .unwrap();
+                    tskit::TableCollection::new(data.tables.genome_length().raw() as f64).unwrap();
                 export_table_with_metadata!(
                     data,
                     $input_table,
@@ -117,13 +119,11 @@ macro_rules! build_metadata_roundtrip_test {
     ($testfn: ident, $input_table: ident, $output_table: ident, $export_fn: ident, $callback: ident) => {
         #[test]
         fn $testfn() {
-            use forrustts_core::traits::TableType;
             let data = TablesWithMetadata::default();
 
             {
                 let mut tsk_tables =
-                    tskit::TableCollection::new(data.tables.genome_length().into_raw() as f64)
-                        .unwrap();
+                    tskit::TableCollection::new(data.tables.genome_length().raw() as f64).unwrap();
                 export_table_with_metadata!(
                     data,
                     $input_table,
@@ -137,8 +137,7 @@ macro_rules! build_metadata_roundtrip_test {
 
             {
                 let mut tsk_tables =
-                    tskit::TableCollection::new(data.tables.genome_length().into_raw() as f64)
-                        .unwrap();
+                    tskit::TableCollection::new(data.tables.genome_length().raw() as f64).unwrap();
                 export_table_with_metadata!(
                     data,
                     $input_table,
@@ -152,8 +151,7 @@ macro_rules! build_metadata_roundtrip_test {
 
             {
                 let mut tsk_tables =
-                    tskit::TableCollection::new(data.tables.genome_length().into_raw() as f64)
-                        .unwrap();
+                    tskit::TableCollection::new(data.tables.genome_length().raw() as f64).unwrap();
                 export_table_with_metadata!(
                     data,
                     $input_table,
