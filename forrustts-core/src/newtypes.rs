@@ -20,8 +20,8 @@ type LowLevelPositonType = i64;
 /// A [``TableId``](crate::traits::TableId) for a node.
 ///
 /// ```
-/// use forrustts_tables_trees::prelude::*;
-///
+/// # use forrustts_core::newtypes::NodeId;
+/// # use forrustts_core::traits::TableType;
 /// let n = NodeId::from(-1);
 /// assert_eq!(n, -1);
 /// let r = n.into_raw();

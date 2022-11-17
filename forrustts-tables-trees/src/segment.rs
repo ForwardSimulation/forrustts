@@ -1,4 +1,4 @@
-use crate::newtypes::{NodeId, Position};
+use forrustts_core::newtypes::{NodeId, Position};
 
 /// A segment is a half-open
 /// interval of [``Position``]s
