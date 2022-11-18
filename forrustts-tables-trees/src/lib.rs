@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! Table collections and tree sequences
 //! implemented from the ground up in rust.
 //!
