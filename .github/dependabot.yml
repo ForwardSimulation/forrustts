@@ -5,3 +5,13 @@ updates:
   schedule:
     interval: monthly
   open-pull-requests-limit: 10
+  commit-message:
+    prefix: "chore(dependabot): "
+- package-ecosystem: github-actions
+  directory: "/"
+  schedule:
+    interval: monthly
+    time: "13:00"
+  open-pull-requests-limit: 10
+  commit-message:
+    prefix: "chore(dependabot): "
