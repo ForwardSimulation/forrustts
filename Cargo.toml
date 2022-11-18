@@ -1,7 +1,17 @@
-[workspace]
+[package]
+name = "forrustts"
+version = "0.3.0-alpha.0"
+edition = "2021"
+authors = ["molpopgen <krthornt@uci.edu>"]
+description = "Forward-time simulation with tree sequence recording in rust."
+license = "MIT"
+homepage = "https://github.com/ForwardSimulation/forrustts"
+repository = "https://github.com/ForwardSimulation/forrustts"
+keywords = ["simulation", "tree_sequences", "tskit", "population_genetics"]
 
+
+[workspace]
 members = [
-    "forrustts",
     "forrustts-core",
     "forrustts-tables-trees",
     "forrustts-tskit",
@@ -10,3 +20,21 @@ members = [
 [profile.release]
 lto = "fat"
 codegen-units = 1
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dev-dependencies]
+bitflags = "1.2.1"
+clap = "~3.1.8"
+streaming-iterator = "0.1.5"
+rand = "0.8.5"
+rand_distr = "0.4.3"
+tskit = "0.11.1"
+
+[dependencies]
+forrustts-core = { version = "0.1.0", path = "forrustts-core" }
+forrustts-tables-trees = { version = "0.2.0", path = "forrustts-tables-trees" }
+forrustts-tskit = { version = "0.1.0", path = "forrustts-tskit" }
+thiserror = "1.0"
+
+[[example]]
+name = "forward_simulation"
