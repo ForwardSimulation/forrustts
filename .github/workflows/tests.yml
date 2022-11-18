@@ -6,7 +6,7 @@ on:
 name: CI
 
 jobs:
-  build-and-test:
+  run-tests:
     runs-on: ${{ matrix.os }}
     #container:
     #  image: ubuntu:20.10
@@ -15,46 +15,45 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         rust:
           - stable
-          - nightly
+
     steps:
       - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.6.0
+        uses: styfle/cancel-workflow-action@0.11.0
         with:
           access_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/checkout@v2
-      - run: |
-            sudo apt-get update -y
-            sudo apt-get install -y libgsl0-dev
-        if: matrix.os == 'ubuntu-latest'
-      - run: |
-            brew update
-            brew install gsl
-        if: matrix.os == 'macos-latest'
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: ${{ matrix.rust }}
-          override: true
-      - run: cargo check
-      - name: check examples
-        run: cargo check --examples
-      - name: run tests
-        run: | 
-            cargo test
-            cargo test -- --ignored
-            cargo test --examples
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@cargo-hack
+      - name: cargo check (feature powerset)
+        run: cargo hack check --feature-powerset --no-dev-deps
+      - name: cargo check examples (feature powerset)
+        run: cargo hack check --examples --feature-powerset
+      - name: run tests (feature powerset)
+        run: |
+            cargo hack test --all-targets --feature-powerset
+      - name: run doc tests (feature powerset)
+        run: |
+            cargo hack test --doc --feature-powerset
 
   fmt:
     name: rust fmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v3
         with:
-          profile: minimal
+          token: ${{ secrets.GITHUB_TOKEN }}
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@v1
+        with:
           toolchain: stable
-          override: true
-      - run: rustup component add rustfmt
+          components: rustfmt
       - run: |
           cargo fmt --all -- --check
 
@@ -62,12 +61,13 @@ jobs:
     name: clippy!!
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@v1
         with:
-          profile: minimal
           toolchain: stable
-          override: true
-      - run: rustup component add clippy
-      - run: |
-          cargo clippy --all-targets -- -D warnings
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: clippy (all targets)
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: clippy (all targets, all features)
+        run: cargo clippy --all-targets -- -D warnings
