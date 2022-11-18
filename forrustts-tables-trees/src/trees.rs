@@ -386,10 +386,10 @@ impl<'treeseq> Tree<'treeseq> {
 
                 // Initialize roots
                 if i < self.samples.len() - 1 {
-                    row.right_sib = *unsafe { self.samples.get_unchecked(i + 1) };
+                    row.right_sib = self.samples[i + 1];
                 }
                 if i > 0 {
-                    row.left_sib = *unsafe { self.samples.get_unchecked(i - 1) };
+                    row.left_sib = self.samples[i - 1];
                 }
             } else {
                 panic!("expected Some(mut row)");
