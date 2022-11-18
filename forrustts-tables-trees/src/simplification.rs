@@ -8,7 +8,7 @@ use thiserror::Error;
 
 /// Error type returned by tree sequence
 /// simplification
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug)]
 pub enum SimplificationError {
     /// Usef for error reporting by the simplification algorithm.
     #[error("{0:?}")]
@@ -1252,10 +1252,10 @@ mod test_simpify_tables {
         )
         .map_or_else(
             |x: SimplificationError| {
-                assert_eq!(
+                assert!(matches!(
                     x,
                     SimplificationError::TableValidationError(TablesError::EdgesNotSortedByLeft),
-                )
+                ))
             },
             |_| panic!(),
         );

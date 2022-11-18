@@ -149,7 +149,10 @@ fn compare_buffer_vs_sort_overlapping_gens() {
     tables_buffer
         .build_indexes(IndexTablesFlags::empty())
         .unwrap();
-    assert_eq!(tables.count_trees(), tables_buffer.count_trees());
+    assert_eq!(
+        tables.count_trees().unwrap(),
+        tables_buffer.count_trees().unwrap()
+    );
 
     let ts = TreeSequence::new(tables, TreeSequenceFlags::empty()).unwrap();
     let ts_buffer = TreeSequence::new(tables_buffer, TreeSequenceFlags::empty()).unwrap();
