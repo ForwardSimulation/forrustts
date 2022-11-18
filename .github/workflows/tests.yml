@@ -32,15 +32,15 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@cargo-hack
       - name: cargo check (feature powerset)
-        run: cargo hack check --feature-powerset --no-dev-deps
+        run: cargo hack check --workspace --feature-powerset --no-dev-deps
       - name: cargo check examples (feature powerset)
-        run: cargo hack check --examples --feature-powerset
+        run: cargo hack check --workspace --examples --feature-powerset
       - name: run tests (feature powerset)
         run: |
-            cargo hack test --all-targets --feature-powerset
+            cargo hack test --workspace --all-targets --feature-powerset
       - name: run doc tests (feature powerset)
         run: |
-            cargo hack test --doc --feature-powerset
+            cargo hack test --workspace --doc --feature-powerset
 
   fmt:
     name: rust fmt
@@ -68,6 +68,6 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - name: clippy (all targets)
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       - name: clippy (all targets, all features)
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
