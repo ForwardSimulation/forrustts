@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use thiserror::Error;
 
 /// Error type related to [``TableCollection``]
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug)]
 pub enum TablesError {
     /// Returned by [``TableCollection::new``].
     #[error("Invalid genome length")]
@@ -1399,7 +1399,7 @@ mod test_tables {
     #[test]
     fn test_bad_genome_length() {
         TableCollection::new(Position::from(0)).map_or_else(
-            |x: TablesError| assert_eq!(x, TablesError::InvalidGenomeLength),
+            |x: TablesError| assert!(matches!(x, TablesError::InvalidGenomeLength)),
             |_| panic!(),
         );
     }
@@ -1426,26 +1426,12 @@ mod test_tables {
         let mut tables = TableCollection::new(10).unwrap();
 
         tables.add_edge(-1, 1, 1, 2).map_or_else(
-            |x: TablesError| {
-                assert_eq!(
-                    x,
-                    TablesError::InvalidPosition {
-                        found: Position::from(-1)
-                    }
-                )
-            },
+            |x: TablesError| assert!(matches!(x, TablesError::InvalidPosition { found: _ })),
             |_| panic!(),
         );
 
         tables.add_edge(1, -1, 1, 2).map_or_else(
-            |x: TablesError| {
-                assert_eq!(
-                    x,
-                    TablesError::InvalidLeftRight {
-                        found: (Position::from(1), Position::from(-1))
-                    }
-                )
-            },
+            |x: TablesError| assert!(matches!(x, TablesError::InvalidLeftRight { found: (_, _) })),
             |_| panic!(),
         );
     }
@@ -1456,24 +1442,24 @@ mod test_tables {
 
         tables.add_edge(0, 1, -1, 2).map_or_else(
             |x: TablesError| {
-                assert_eq!(
+                assert!(matches!(
                     x,
                     TablesError::InvalidNodeValue {
                         found: NodeId::NULL
                     }
-                )
+                ))
             },
             |_| panic!(),
         );
 
         tables.add_edge(0, 1, 1, -2).map_or_else(
             |x: TablesError| {
-                assert_eq!(
+                assert!(matches!(
                     x,
                     TablesError::InvalidNodeValue {
                         found: NodeId::NULL
                     }
-                )
+                ))
             },
             |_| panic!(),
         );

@@ -866,7 +866,7 @@ impl<'treeseq> streaming_iterator::StreamingIterator for Tree<'treeseq> {
 }
 
 /// Error type related to [``TreeSequence``] and [``Tree``].
-#[derive(thiserror::Error, Debug, PartialEq, Eq)]
+#[derive(thiserror::Error, Debug)]
 pub enum TreesError {
     /// Returned by [``TreeSequence::new``].
     #[error("Tables not indexed.")]
@@ -890,6 +890,10 @@ pub enum TreesError {
     /// [`TreeFlags::TRACK_SAMPLES`] is not set}.
     #[error("Not tracking samples.")]
     NotTrackingSamples,
+    #[error("{}", 0)]
+    TablesError(#[from] crate::TablesError),
+    #[error("{}", 0)]
+    CoreError(#[from] forrustts_core::Error),
 }
 
 /// A tree sequence.
@@ -912,10 +916,9 @@ bitflags! {
 }
 
 impl TreeSequence {
-    // FIXME: Box dyn erorr is ugly
-    fn new_from_tables(tables: crate::TableCollection) -> Result<Self, Box<dyn std::error::Error>> {
+    fn new_from_tables(tables: crate::TableCollection) -> Result<Self, TreesError> {
         if !tables.is_indexed() {
-            return Err(Box::new(crate::TablesError::TablesNotIndexed));
+            return Err(crate::TablesError::TablesNotIndexed.into());
         }
         let mut samples = vec![];
         for (i, n) in tables.nodes_.iter().enumerate() {
@@ -924,7 +927,7 @@ impl TreeSequence {
             }
         }
         if samples.is_empty() {
-            Err(Box::new(TreesError::NoSamples))
+            Err(TreesError::NoSamples)
         } else {
             let num_trees = tables.count_trees()?;
             Ok(Self {
@@ -957,9 +960,9 @@ impl TreeSequence {
     pub fn new(
         tables: crate::TableCollection,
         flags: TreeSequenceFlags,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self, TreesError> {
         if !tables.is_indexed() {
-            return Err(Box::new(crate::TablesError::TablesNotIndexed));
+            return Err(crate::TablesError::TablesNotIndexed.into());
         }
         if !flags.contains(TreeSequenceFlags::NO_TABLE_VALIDATION) {
             tables.validate(crate::TableValidationFlags::empty())?;
