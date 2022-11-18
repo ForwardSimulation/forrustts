@@ -1111,11 +1111,11 @@ impl TableCollection {
     // SAFETY: the bounds are guaranteed by build_indexes
     fn sort_edge_output_order(edges: &[Edge], nodes: &[Node], edge_input_order: &mut [usize]) {
         edge_input_order.sort_by(|a, b| {
-            let ea = unsafe { edges.get_unchecked(*a) };
-            let eb = unsafe { edges.get_unchecked(*b) };
+            let ea = &edges[*a];
+            let eb = &edges[*b];
             if ea.right == eb.right {
-                let ta = unsafe { *nodes.get_unchecked(ea.parent.raw() as usize) }.time;
-                let tb = unsafe { *nodes.get_unchecked(eb.parent.raw() as usize) }.time;
+                let ta = nodes[ea.parent.raw() as usize].time;
+                let tb = nodes[eb.parent.raw() as usize].time;
                 match ta.partial_cmp(&tb) {
                     Some(x) => match x {
                         std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
@@ -1137,11 +1137,11 @@ impl TableCollection {
     // SAFETY: the bounds are guaranteed by build_indexes
     fn sort_edge_input_order(edges: &[Edge], nodes: &[Node], edge_output_order: &mut [usize]) {
         edge_output_order.sort_by(|a, b| {
-            let ea = unsafe { edges.get_unchecked(*a) };
-            let eb = unsafe { edges.get_unchecked(*b) };
+            let ea = edges[*a];
+            let eb = edges[*b];
             if ea.left == eb.left {
-                let ta = unsafe { *nodes.get_unchecked(ea.parent.raw() as usize) }.time;
-                let tb = unsafe { *nodes.get_unchecked(eb.parent.raw() as usize) }.time;
+                let ta = nodes[ea.parent.raw() as usize].time;
+                let tb = nodes[eb.parent.raw() as usize].time;
                 match ta.partial_cmp(&tb) {
                     Some(x) => match x.reverse() {
                         std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
