@@ -149,8 +149,11 @@ struct ChildIterator<'a> {
 
 impl<'a> ChildIterator<'a> {
     fn new(tree: &'a Tree, u: NodeId) -> Self {
-        let c = tree.left_child(u).unwrap();
-
+        let c = if let Ok(()) = tree.id_in_range(u) {
+            tree.topology.left_child(u)
+        } else {
+            NodeId::NULL
+        };
         ChildIterator {
             current_child: None,
             next_child: c,
@@ -187,6 +190,11 @@ struct ParentsIterator<'a> {
 
 impl<'a> ParentsIterator<'a> {
     fn new(tree: &'a Tree, u: NodeId) -> Self {
+        let u = if u.raw() as usize >= tree.num_nodes() {
+            NodeId::NULL
+        } else {
+            u
+        };
         ParentsIterator {
             current_node: None,
             next_node: u,
@@ -224,10 +232,15 @@ struct SamplesIterator<'a> {
 
 impl<'a> SamplesIterator<'a> {
     fn new(tree: &'a Tree, u: NodeId) -> Self {
+        let (next_sample_index, last_sample_index) = if u.raw() as usize >= tree.num_nodes() {
+            (NodeId::NULL, NodeId::NULL)
+        } else {
+            (tree.left_sample(u).unwrap(), tree.right_sample(u).unwrap())
+        };
         SamplesIterator {
             current_node: None,
-            next_sample_index: tree.left_sample(u).unwrap(),
-            last_sample_index: tree.right_sample(u).unwrap(),
+            next_sample_index,
+            last_sample_index,
             tree,
         }
     }
@@ -618,29 +631,13 @@ impl<'treeseq> Tree<'treeseq> {
 
     /// Return an [`Iterator`] from the node `u` to the root of the tree,
     /// travering all parent nodes.
-    ///
-    /// # Errors
-    ///
-    /// [`TreesError::NodeIdOutOfRange`] if `u` is out of range.
-    pub fn parents<N: Into<NodeId> + Copy>(
-        &self,
-        u: N,
-    ) -> Result<impl Iterator<Item = NodeId> + '_, TreesError> {
-        self.id_in_range(u)?;
-        Ok(ParentsIterator::new(self, u.into()))
+    pub fn parents<N: Into<NodeId> + Copy>(&self, u: N) -> impl Iterator<Item = NodeId> + '_ {
+        ParentsIterator::new(self, u.into())
     }
 
     /// Return an [`Iterator`] over the children of node `u`.
-    ///
-    /// # Errors
-    ///
-    /// [`TreesError::NodeIdOutOfRange`] if `u` is out of range.
-    pub fn children<N: Into<NodeId> + Copy>(
-        &self,
-        u: N,
-    ) -> Result<impl Iterator<Item = NodeId> + '_, TreesError> {
-        self.id_in_range(u)?;
-        Ok(ChildIterator::new(self, u.into()))
+    pub fn children<N: Into<NodeId> + Copy>(&self, u: N) -> impl Iterator<Item = NodeId> + '_ {
+        ChildIterator::new(self, u.into())
     }
 
     /// Return an [`Iterator`] over the roots of the tree.
@@ -676,20 +673,22 @@ impl<'treeseq> Tree<'treeseq> {
     ///
     /// If `u` is itself a sample, then it is included in the values returned.
     ///
-    /// # Errors
+    /// # Returns
     ///
-    /// [`TreesError::NodeIdOutOfRange`] if `u` is out of range.
-    ///
-    /// [`TreesError::NotTrackingSamples`] if [`TreeFlags::TRACK_SAMPLES`] was not used
+    /// * None if [`TreeFlags::TRACK_SAMPLES`] was not used
     /// to initialize `self`.
+    /// * Some(Iterator) otherwise.
+    ///
+    /// The iterator will iterate over 0 elements if `u` is not
+    /// a valid node id.
     pub fn samples<N: Into<NodeId> + Copy>(
         &self,
         u: N,
-    ) -> Result<impl Iterator<Item = NodeId> + '_, TreesError> {
+    ) -> Option<impl Iterator<Item = NodeId> + '_> {
         if !self.flags.contains(TreeFlags::TRACK_SAMPLES) {
-            Err(TreesError::NotTrackingSamples)
+            None
         } else {
-            Ok(SamplesIterator::new(self, u.into()))
+            Some(SamplesIterator::new(self, u.into()))
         }
     }
 
@@ -1204,7 +1203,7 @@ mod test_trees {
             println!("{}", tree.left_root);
             if ntrees == 0 {
                 let mut nodes = vec![0; tree.num_nodes()];
-                for c in tree.children(0).unwrap() {
+                for c in tree.children(0) {
                     nodes[usize::try_from(c).unwrap()] = 1;
                 }
                 assert_eq!(nodes[2], 1);
@@ -1212,20 +1211,20 @@ mod test_trees {
                 for x in &mut nodes {
                     *x = 0;
                 }
-                for c in tree.children(1).unwrap() {
+                for c in tree.children(1) {
                     nodes[usize::try_from(c).unwrap()] = 1;
                 }
                 assert_eq!(nodes[4], 1);
                 assert_eq!(nodes[5], 1);
 
-                for p in tree.parents(2).unwrap() {
+                for p in tree.parents(2) {
                     nodes[usize::try_from(p).unwrap()] = 1;
                 }
                 assert_eq!(nodes[0], 1);
                 for x in &mut nodes {
                     *x = 0;
                 }
-                for p in tree.parents(5).unwrap() {
+                for p in tree.parents(5) {
                     nodes[p.raw() as usize] = 1;
                 }
                 assert_eq!(nodes[1], 1);
@@ -1264,7 +1263,7 @@ mod test_trees {
                 }
             } else if ntrees == 1 {
                 let mut nodes = vec![0; tree.num_nodes()];
-                for c in tree.children(0).unwrap() {
+                for c in tree.children(0) {
                     nodes[usize::try_from(c).unwrap()] = 1;
                 }
                 assert_eq!(nodes[1], 1);
@@ -1272,7 +1271,7 @@ mod test_trees {
                 for x in &mut nodes {
                     *x = 0;
                 }
-                for c in tree.children(1).unwrap() {
+                for c in tree.children(1) {
                     nodes[usize::try_from(c).unwrap()] = 1;
                 }
                 assert_eq!(nodes[2], 1);

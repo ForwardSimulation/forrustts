@@ -292,7 +292,7 @@ fn simplify_to_samples() {
             for s in ts.sample_nodes() {
                 let mut p = vec![];
                 let mut tsk_p = vec![];
-                for u in tree.parents(*s).unwrap() {
+                for u in tree.parents(*s) {
                     p.push(u);
                 }
                 for u in tsk_tree.parents(s.raw().into()).unwrap() {
@@ -304,7 +304,7 @@ fn simplify_to_samples() {
                 for pi in &p {
                     let mut ci = vec![];
                     let mut tsk_ci = vec![];
-                    for child in tree.children(*pi).unwrap() {
+                    for child in tree.children(*pi) {
                         ci.push(child);
                     }
                     for child in tsk_tree.children(pi.raw().into()).unwrap() {
