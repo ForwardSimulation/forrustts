@@ -45,51 +45,6 @@ fn swap_with_empty<T>(v: &mut Vec<T>) {
 /// This exists to make the documentation less ambiguous.
 pub type TskTableCollection = tskit::TableCollection;
 
-/// In order to support a wider range of
-/// metadata containers, we provide a trait
-/// that is an abstraction over the `get` functions
-/// found in `std` containers.
-///
-/// We require `usize` because we will need to
-/// match up the `i-th` value in a table
-/// with its metadata, and table indexes/enumerations
-/// use `usize`.
-///
-/// This trait allows one to use either `Vec` or
-/// `HashMap` to store metadata.
-pub trait GetWithUsize {
-    /// The type to return
-    type Output: Sized;
-    /// Get an optional reference to `Self::Output`.
-    /// The implementation should have the behavior
-    /// of the `get` functions of `Vec` and/or `HashMap`.
-    fn get(&self, index: usize) -> Option<&Self::Output>;
-}
-
-impl<T> GetWithUsize for &[T] {
-    type Output = T;
-    fn get(&self, index: usize) -> Option<&Self::Output> {
-        <[T]>::get(self, index)
-    }
-}
-
-impl<T> GetWithUsize for Vec<T> {
-    type Output = T;
-    fn get(&self, index: usize) -> Option<&Self::Output> {
-        self.as_slice().get(index)
-    }
-}
-
-impl<V, S> GetWithUsize for std::collections::HashMap<usize, V, S>
-where
-    S: std::hash::BuildHasher,
-{
-    type Output = V;
-    fn get(&self, index: usize) -> Option<&Self::Output> {
-        std::collections::HashMap::<usize, V, S>::get(self, &index)
-    }
-}
-
 bitflags! {
     /// Flags affecting the behavior of [`export_tables`].
     ///
@@ -119,6 +74,10 @@ pub enum TableCollectionExportError {
     /// Returned when a table is unexpectedly empty.
     #[error("Empty table")]
     EmptyTable,
+    /// Returned when the length of a metadata slice
+    /// != the length of a table.
+    #[error("Invalid metadata length")]
+    InvalidMetadataLength,
 }
 
 /// Return a closure to help reverse time.
@@ -341,14 +300,13 @@ pub fn build_population_table(
 /// a deme does not have associated metadata,
 /// or if there is an error from `tskit`.
 ///
-pub fn build_population_table_with_metadata<'metadata, C, M>(
+pub fn build_population_table_with_metadata<M>(
     nodes: &[forrustts_tables_trees::Node],
-    metadata: &'metadata C,
+    metadata: &[M],
     tsk_tables: &mut TskTableCollection,
 ) -> Result<(), TableCollectionExportError>
 where
-    M: tskit::metadata::PopulationMetadata + 'metadata + Sized,
-    C: GetWithUsize<Output = M>,
+    M: tskit::metadata::PopulationMetadata + Sized,
 {
     if nodes.is_empty() {
         return Err(TableCollectionExportError::EmptyTable);
@@ -357,14 +315,15 @@ where
     for node in nodes {
         max_deme = std::cmp::max(node.deme, max_deme);
     }
-    for p in 0..(max_deme.raw() + 1) {
-        match metadata.get(p as usize) {
-            Some(md) => tsk_tables.add_population_with_metadata(md)?,
-            None => return Err(TableCollectionExportError::InvalidMetadataKey),
-        };
+    let max_deme = usize::try_from(max_deme).unwrap();
+    if max_deme + 1 != metadata.len() {
+        Err(TableCollectionExportError::InvalidMetadataLength)
+    } else {
+        for md in metadata {
+            tsk_tables.add_population_with_metadata(md)?;
+        }
+        Ok(())
     }
-
-    Ok(())
 }
 
 // TODO: handle "individuals"
@@ -453,29 +412,29 @@ pub fn export_nodes(
 /// # Errors
 ///
 /// [`tskit::TskitError`] if adding rows returns an error.
-pub fn export_nodes_with_metadata<'metadata, C, M>(
+pub fn export_nodes_with_metadata<M>(
     nodes: &[forrustts_tables_trees::Node],
     convert_time: &impl Fn(Time) -> f64,
-    metadata: &'metadata C,
+    metadata: &[M],
     tsk_tables: &mut TskTableCollection,
 ) -> Result<(), TableCollectionExportError>
 where
-    M: tskit::metadata::NodeMetadata + 'metadata + Sized,
-    C: GetWithUsize<Output = M>,
+    M: tskit::metadata::NodeMetadata + Sized,
 {
-    for (i, node) in nodes.iter().enumerate() {
-        match metadata.get(i) {
-            Some(md) => tsk_tables.add_node_with_metadata(
+    if metadata.len() != nodes.len() {
+        Err(TableCollectionExportError::InvalidMetadataLength)
+    } else {
+        for (node, md) in nodes.iter().zip(metadata.iter()) {
+            tsk_tables.add_node_with_metadata(
                 node.flags,
                 convert_time(node.time),
                 node.deme.raw(),
                 tskit::IndividualId::NULL,
                 md,
-            )?,
-            None => return Err(TableCollectionExportError::InvalidMetadataKey),
-        };
+            )?;
+        }
+        Ok(())
     }
-    Ok(())
 }
 
 /// Export a mutation table
@@ -532,51 +491,33 @@ pub fn export_mutations(
 /// forrustts_tskit::export_mutations_with_metadata(tables.mutations(), &simple_time_reverser(0), &md, &mut tsk_tables).unwrap();
 /// assert_eq!(tsk_tables.mutations().num_rows(), 1);
 /// ```
-pub fn export_mutations_with_metadata<'metadata, C, M>(
+pub fn export_mutations_with_metadata<M>(
     mutations: &[forrustts_tables_trees::MutationRecord],
     convert_time: &impl Fn(Time) -> f64,
-    metadata: &'metadata C,
+    metadata: &[M],
     tsk_tables: &mut TskTableCollection,
 ) -> Result<(), TableCollectionExportError>
 where
-    M: tskit::metadata::MutationMetadata + 'metadata + Sized,
-    C: GetWithUsize<Output = M>,
+    M: tskit::metadata::MutationMetadata + Sized,
 {
-    for mutation in mutations {
-        match mutation.key {
-            Some(key) => match metadata.get(key) {
-                Some(md) => {
-                    tsk_tables.add_mutation_with_metadata(
-                        mutation.site.raw(),
-                        mutation.node.raw(),
-                        tskit::MutationId::NULL,
-                        convert_time(mutation.time),
-                        match &mutation.derived_state {
-                            Some(x) => Some(x),
-                            None => None,
-                        },
-                        md,
-                    )?;
-                }
-                None => {
-                    return Err(TableCollectionExportError::InvalidMetadataKey);
-                }
-            },
-            None => {
-                tsk_tables.add_mutation(
-                    mutation.site.raw(),
-                    mutation.node.raw(),
-                    tskit::MutationId::NULL,
-                    mutation.time.raw() as f64,
-                    match &mutation.derived_state {
-                        Some(x) => Some(x),
-                        None => None,
-                    },
-                )?;
-            }
+    if mutations.len() != metadata.len() {
+        Err(TableCollectionExportError::InvalidMetadataLength)
+    } else {
+        for (mutation, md) in mutations.iter().zip(metadata.iter()) {
+            tsk_tables.add_mutation_with_metadata(
+                mutation.site.raw(),
+                mutation.node.raw(),
+                tskit::MutationId::NULL,
+                convert_time(mutation.time),
+                match &mutation.derived_state {
+                    Some(x) => Some(x),
+                    None => None,
+                },
+                md,
+            )?;
         }
+        Ok(())
     }
-    Ok(())
 }
 
 /// Export a site table
@@ -628,29 +569,29 @@ pub fn export_sites(
 /// forrustts_tskit::export_sites_with_metadata(tables.sites(), &md, &mut tsk_tables).unwrap();
 /// assert_eq!(tsk_tables.sites().num_rows(), 1);
 /// ```
-pub fn export_sites_with_metadata<'metadata, C, M>(
+pub fn export_sites_with_metadata<M>(
     sites: &[forrustts_tables_trees::Site],
-    metadata: &'metadata C,
+    metadata: &[M],
     tsk_tables: &mut TskTableCollection,
 ) -> Result<(), TableCollectionExportError>
 where
-    M: tskit::metadata::SiteMetadata + 'metadata + Sized,
-    C: GetWithUsize<Output = M>,
+    M: tskit::metadata::SiteMetadata + Sized,
 {
-    for (i, site) in sites.iter().enumerate() {
-        match metadata.get(i) {
-            Some(x) => tsk_tables.add_site_with_metadata(
+    if sites.len() != metadata.len() {
+        Err(TableCollectionExportError::InvalidMetadataLength)
+    } else {
+        for (site, md) in sites.iter().zip(metadata.iter()) {
+            tsk_tables.add_site_with_metadata(
                 site.position.raw() as f64,
                 match &site.ancestral_state {
                     Some(x) => Some(x),
                     None => None,
                 },
-                x,
-            )?,
-            None => return Err(TableCollectionExportError::InvalidMetadataKey),
-        };
+                md,
+            )?;
+        }
+        Ok(())
     }
-    Ok(())
 }
 
 #[cfg(test)]

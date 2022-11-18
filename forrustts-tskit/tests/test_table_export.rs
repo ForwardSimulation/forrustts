@@ -31,8 +31,6 @@ impl tskit::metadata::NodeMetadata for Metadata {}
 struct TablesWithMetadata {
     tables: forrustts_tables_trees::TableCollection,
     metadata: Vec<Metadata>,
-    metadata_hash: std::collections::HashMap<usize, Metadata>,
-    metadata_fnvhash: fnv::FnvHashMap<usize, Metadata>,
 }
 
 fn make_reverser() -> impl Fn(forrustts_core::newtypes::Time) -> f64 {
@@ -45,33 +43,12 @@ impl Default for TablesWithMetadata {
 
         let node_id = tables.add_node(1, 0).unwrap();
         let site_id = tables.add_site(500, None).unwrap();
-        let mutation_id = tables
+        tables
             .add_mutation(node_id, Some(0), site_id, 0, None, true)
             .unwrap();
 
         let metadata = vec![Metadata { a: -3, b: 99 }];
-        let mut metadata_hash = std::collections::HashMap::new();
-        metadata_hash.insert(
-            usize::try_from(mutation_id).unwrap(),
-            metadata[usize::try_from(mutation_id).unwrap()],
-        );
-        let mut metadata_fnvhash = fnv::FnvHashMap::default();
-        metadata_fnvhash.insert(
-            usize::try_from(mutation_id).unwrap(),
-            metadata[usize::try_from(mutation_id).unwrap()],
-        );
-
-        assert_eq!(
-            metadata[usize::try_from(mutation_id).unwrap()],
-            metadata_hash[&usize::try_from(mutation_id).unwrap()]
-        );
-
-        Self {
-            tables,
-            metadata,
-            metadata_hash,
-            metadata_fnvhash,
-        }
+        Self { tables, metadata }
     }
 }
 
@@ -86,32 +63,6 @@ macro_rules! build_metadata_roundtrip_test {
                     tskit::TableCollection::new(data.tables.genome_length().raw() as f64).unwrap();
                 export_table_with_metadata!(data, $input_table, tsk_tables, metadata, $export_fn);
                 validate_metadata!(tsk_tables, $output_table, data, metadata, 0, 0);
-            }
-
-            {
-                let mut tsk_tables =
-                    tskit::TableCollection::new(data.tables.genome_length().raw() as f64).unwrap();
-                export_table_with_metadata!(
-                    data,
-                    $input_table,
-                    tsk_tables,
-                    metadata_hash,
-                    $export_fn
-                );
-                validate_metadata!(tsk_tables, $output_table, data, metadata_hash, 0, &0);
-            }
-
-            {
-                let mut tsk_tables =
-                    tskit::TableCollection::new(data.tables.genome_length().raw() as f64).unwrap();
-                export_table_with_metadata!(
-                    data,
-                    $input_table,
-                    tsk_tables,
-                    metadata_fnvhash,
-                    $export_fn
-                );
-                validate_metadata!(tsk_tables, $output_table, data, metadata_fnvhash, 0, &0);
             }
         }
     };
@@ -133,34 +84,6 @@ macro_rules! build_metadata_roundtrip_test {
                     $callback
                 );
                 validate_metadata!(tsk_tables, $output_table, data, metadata, 0, 0);
-            }
-
-            {
-                let mut tsk_tables =
-                    tskit::TableCollection::new(data.tables.genome_length().raw() as f64).unwrap();
-                export_table_with_metadata!(
-                    data,
-                    $input_table,
-                    tsk_tables,
-                    metadata_hash,
-                    $export_fn,
-                    $callback
-                );
-                validate_metadata!(tsk_tables, $output_table, data, metadata_hash, 0, &0);
-            }
-
-            {
-                let mut tsk_tables =
-                    tskit::TableCollection::new(data.tables.genome_length().raw() as f64).unwrap();
-                export_table_with_metadata!(
-                    data,
-                    $input_table,
-                    tsk_tables,
-                    metadata_fnvhash,
-                    $export_fn,
-                    $callback
-                );
-                validate_metadata!(tsk_tables, $output_table, data, metadata_fnvhash, 0, &0);
             }
         }
     };
