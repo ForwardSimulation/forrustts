@@ -14,11 +14,7 @@
 //!
 //! In the `examples/` directory of the project repository.
 
-// FIXME: we are confusing necessary exports with
-// what should be in a prelude?
-pub use forrustts_core::newtypes::*;
-pub use forrustts_tables_trees::prelude::*;
-pub use forrustts_tskit::export_tables;
-pub use forrustts_tskit::TableCollectionExportFlags;
+
+pub mod prelude;
 
 pub mod genetic_maps;
