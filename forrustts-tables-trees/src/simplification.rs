@@ -512,7 +512,7 @@ fn record_sample_nodes(
                 "invalid sample list!".to_string(),
             ));
         }
-        record_node(&tables.nodes_, *sample, true, new_nodes, idmap);
+        record_node(tables.nodes(), *sample, true, new_nodes, idmap);
 
         add_ancestry(
             *sample,
@@ -543,16 +543,16 @@ fn setup_idmap(nodes: &[Node], idmap: &mut Vec<NodeId>) {
 
 fn setup_simplification(
     samples: &SamplesInfo,
-    tables: &TableCollection,
+    tables: &mut TableCollection,
     flags: SimplificationFlags,
     state: &mut SimplificationBuffers,
     output: &mut SimplificationOutput,
-) -> Result<(), SimplificationError> {
+) -> Result<InputTables, SimplificationError> {
     validate_tables(tables, &flags)?;
 
     // TODO: the SimplificationOutput type could use
     // a "init me" function.
-    setup_idmap(&tables.nodes_, &mut output.idmap);
+    setup_idmap(tables.nodes(), &mut output.idmap);
     output.extinct_mutations.clear();
 
     state.clear();
@@ -560,8 +560,8 @@ fn setup_simplification(
 
     prep_mutation_node_map(
         tables.nodes().len(),
-        &tables.mutations_,
-        &tables.sites_,
+        tables.mutations(),
+        tables.sites(),
         &mut state.mutation_node_map,
     );
 
@@ -576,33 +576,30 @@ fn setup_simplification(
 
     debug_assert_eq!(state.mutation_node_map.len(), tables.nodes().len());
 
-    Ok(())
+    let input = InputTables::new(tables);
+
+    Ok(input)
 }
 
 fn process_parent(
     u: NodeId,
     (edge_index, num_edges): (usize, usize),
-    tables: &TableCollection,
+    tables: &InputTables,
+    genome_length: Position,
     state: &mut SimplificationBuffers,
     output: &mut SimplificationOutput,
 ) -> Result<usize, SimplificationError> {
     let edge_i = find_parent_child_segment_overlap(
-        &tables.edges_,
+        &tables.edges,
         edge_index,
         num_edges,
-        tables.genome_length(),
+        genome_length,
         u,
         &mut state.ancestry,
         &mut state.overlapper,
     )?;
 
-    merge_ancestors(
-        &tables.nodes_,
-        tables.genome_length(),
-        u,
-        state,
-        &mut output.idmap,
-    )?;
+    merge_ancestors(&tables.nodes, genome_length, u, state, &mut output.idmap)?;
     Ok(edge_i)
 }
 
@@ -624,7 +621,7 @@ impl ParentLocation {
 }
 
 fn find_pre_existing_edges(
-    tables: &TableCollection,
+    tables: &InputTables,
     edge_buffer_founder_nodes: &[NodeId],
     edge_buffer: &EdgeBuffer,
 ) -> Result<Vec<ParentLocation>, SimplificationError> {
@@ -639,10 +636,10 @@ fn find_pre_existing_edges(
         return Ok(vec![]);
     }
 
-    let mut starts = vec![usize::MAX; tables.num_nodes()];
-    let mut stops = vec![usize::MAX; tables.num_nodes()];
+    let mut starts = vec![usize::MAX; tables.nodes.len()];
+    let mut stops = vec![usize::MAX; tables.nodes.len()];
 
-    for (i, e) in tables.enumerate_edges() {
+    for (i, e) in tables.edges.iter().enumerate() {
         if starts[e.parent.raw() as usize] == usize::MAX {
             starts[e.parent.raw() as usize] = i;
         }
@@ -659,8 +656,8 @@ fn find_pre_existing_edges(
     }
 
     rv.sort_by(|a, b| {
-        let ta = tables.nodes_[a.parent.raw() as usize].time;
-        let tb = tables.nodes_[b.parent.raw() as usize].time;
+        let ta = tables.nodes[a.parent.raw() as usize].time;
+        let tb = tables.nodes[b.parent.raw() as usize].time;
         match ta.partial_cmp(&tb) {
             Some(std::cmp::Ordering::Equal) => {
                 if a.start == b.start {
@@ -677,8 +674,8 @@ fn find_pre_existing_edges(
     // TODO: this could eventually be called in a debug_assert
     if !rv.is_empty() {
         for (i, _) in rv.iter().enumerate().skip(1) {
-            let t0 = tables.nodes_[rv[i - 1].parent.raw() as usize].time;
-            let t1 = tables.nodes_[rv[i].parent.raw() as usize].time;
+            let t0 = tables.nodes[rv[i - 1].parent.raw() as usize].time;
+            let t1 = tables.nodes[rv[i].parent.raw() as usize].time;
             if t0 < t1 {
                 return Err(SimplificationError::ErrorMessage(
                     "existing edges not properly sorted by time".to_string(),
@@ -852,6 +849,36 @@ impl Default for SimplificationBuffers {
     }
 }
 
+struct InputTables {
+    edges: EdgeTable,
+    nodes: NodeTable,
+    sites: SiteTable,
+    mutations: MutationTable,
+}
+
+impl InputTables {
+    fn new(tc: &mut TableCollection) -> Self {
+        let edges = tc.dump_edge_table();
+        let nodes = tc.dump_node_table();
+        let sites = tc.dump_site_table();
+        let mutations = tc.dump_mutation_table();
+
+        Self {
+            edges,
+            nodes,
+            sites,
+            mutations,
+        }
+    }
+
+    fn set_output_tables(self, tc: &mut TableCollection) {
+        tc.set_edge_table(self.edges);
+        tc.set_node_table(self.nodes);
+        tc.set_site_table(self.sites);
+        tc.set_mutation_table(self.mutations);
+    }
+}
+
 /// Simplify a [``TableCollection``].
 ///
 /// # Parameters
@@ -908,40 +935,43 @@ pub fn simplify_tables(
     tables: &mut TableCollection,
     output: &mut SimplificationOutput,
 ) -> Result<(), SimplificationError> {
-    setup_simplification(samples, tables, flags, state, output)?;
+    let mut input_tables = setup_simplification(samples, tables, flags, state, output)?;
 
     let mut edge_i = 0;
-    let num_edges = tables.num_edges();
+    let num_edges = input_tables.edges.len();
     let mut new_edges_inserted: usize = 0;
     while edge_i < num_edges {
         edge_i = process_parent(
-            tables.edges_[edge_i].parent,
+            input_tables.edges[edge_i].parent,
             (edge_i, num_edges),
-            tables,
+            &input_tables,
+            tables.genome_length(),
             state,
             output,
         )?;
 
         if state.new_edges.len() >= 1024 && new_edges_inserted + state.new_edges.len() < edge_i {
             for i in state.new_edges.drain(..) {
-                tables.edges_[new_edges_inserted] = i;
+                input_tables.edges[new_edges_inserted] = i;
                 new_edges_inserted += 1;
             }
             assert_eq!(state.new_edges.len(), 0);
         }
     }
 
-    tables.edges_.truncate(new_edges_inserted);
-    tables.edges_.append(&mut state.new_edges);
-    std::mem::swap(&mut tables.nodes_, &mut state.new_nodes);
+    input_tables.edges.truncate(new_edges_inserted);
+    input_tables.edges.append(&mut state.new_edges);
+    std::mem::swap(&mut input_tables.nodes, &mut state.new_nodes);
 
     generate_output_site_mutation_tables(
         &state.mutation_node_map,
-        &mut tables.sites_,
-        &mut tables.mutations_,
+        &mut input_tables.sites,
+        &mut input_tables.mutations,
         &mut state.new_site_table,
         &mut output.extinct_mutations,
     );
+
+    input_tables.set_output_tables(tables);
 
     Ok(())
 }
@@ -1058,12 +1088,12 @@ pub fn simplify_from_edge_buffer(
     tables: &mut TableCollection,
     output: &mut SimplificationOutput,
 ) -> Result<(), SimplificationError> {
-    setup_simplification(samples, tables, flags, state, output)?;
+    let mut input_tables = setup_simplification(samples, tables, flags, state, output)?;
 
     // Process all edges since the last simplification.
     let mut max_time = Time::MIN;
     for n in samples.edge_buffer_founder_nodes.iter() {
-        let nt = tables.node(*n).time;
+        let nt = input_tables.nodes[n.raw() as usize].time;
         max_time = match max_time.partial_cmp(&nt) {
             Some(std::cmp::Ordering::Less) => nt,
             Some(_) => max_time,
@@ -1072,7 +1102,7 @@ pub fn simplify_from_edge_buffer(
     }
 
     for head in edge_buffer.0.index_rev() {
-        let ptime = tables.node(NodeId::from(head)).time;
+        let ptime = input_tables.nodes[head as usize].time;
         if ptime > max_time
         // Then this is a parent who is:
         // 1. Born since the last simplification.
@@ -1082,7 +1112,7 @@ pub fn simplify_from_edge_buffer(
             process_births_from_buffer(NodeId::from(head), edge_buffer, state)?;
             state.overlapper.finalize_queue(tables.genome_length());
             merge_ancestors(
-                &tables.nodes_,
+                &input_tables.nodes,
                 tables.genome_length(),
                 NodeId::from(head),
                 state,
@@ -1093,34 +1123,39 @@ pub fn simplify_from_edge_buffer(
         }
     }
 
-    let existing_edges =
-        find_pre_existing_edges(tables, &samples.edge_buffer_founder_nodes, edge_buffer)?;
+    let existing_edges = find_pre_existing_edges(
+        &input_tables,
+        &samples.edge_buffer_founder_nodes,
+        edge_buffer,
+    )?;
 
     let mut edge_i = 0;
-    let num_edges = tables.num_edges();
+    let num_edges = input_tables.edges.len();
 
     for ex in existing_edges {
         while edge_i < num_edges
-            && tables.nodes_[tables.edges_[edge_i].parent.raw() as usize].time
-                > tables.nodes_[ex.parent.raw() as usize].time
+            && input_tables.nodes[input_tables.edges[edge_i].parent.raw() as usize].time
+                > input_tables.nodes[ex.parent.raw() as usize].time
         {
             edge_i = process_parent(
-                tables.edges_[edge_i].parent,
+                input_tables.edges[edge_i].parent,
                 (edge_i, num_edges),
-                tables,
+                &input_tables,
+                tables.genome_length(),
                 state,
                 output,
             )?;
         }
         if ex.start != usize::MAX {
             while (edge_i as usize) < ex.start
-                && tables.nodes_[tables.edges_[edge_i].parent.raw() as usize].time
-                    >= tables.nodes_[ex.parent.raw() as usize].time
+                && input_tables.nodes[input_tables.edges[edge_i].parent.raw() as usize].time
+                    >= input_tables.nodes[ex.parent.raw() as usize].time
             {
                 edge_i = process_parent(
-                    tables.edges_[edge_i].parent,
+                    input_tables.edges[edge_i].parent,
                     (edge_i, num_edges),
-                    tables,
+                    &input_tables,
+                    tables.genome_length(),
                     state,
                     output,
                 )?;
@@ -1131,7 +1166,7 @@ pub fn simplify_from_edge_buffer(
         if ex.start != usize::MAX {
             while edge_i < ex.stop {
                 // TODO: a debug assert or regular assert?
-                if tables.edges_[edge_i].parent != ex.parent {
+                if input_tables.edges[edge_i].parent != ex.parent {
                     return Err(SimplificationError::ErrorMessage(
                         "Unexpected parent node".to_string(),
                     ));
@@ -1139,15 +1174,15 @@ pub fn simplify_from_edge_buffer(
                 let a = &mut state.ancestry;
                 let o = &mut state.overlapper;
                 queue_children(
-                    tables.edges_[edge_i].child,
-                    tables.edges_[edge_i].left,
-                    tables.edges_[edge_i].right,
+                    input_tables.edges[edge_i].child,
+                    input_tables.edges[edge_i].left,
+                    input_tables.edges[edge_i].right,
                     a,
                     o,
                 )?;
                 edge_i += 1;
             }
-            if edge_i < num_edges && tables.edges_[edge_i].parent == ex.parent {
+            if edge_i < num_edges && input_tables.edges[edge_i].parent == ex.parent {
                 return Err(SimplificationError::ErrorMessage(
                     "error traversing pre-existing edges for parent".to_string(),
                 ));
@@ -1156,7 +1191,7 @@ pub fn simplify_from_edge_buffer(
         process_births_from_buffer(ex.parent, edge_buffer, state)?;
         state.overlapper.finalize_queue(tables.genome_length());
         merge_ancestors(
-            &tables.nodes_,
+            &input_tables.nodes,
             tables.genome_length(),
             ex.parent,
             state,
@@ -1167,25 +1202,28 @@ pub fn simplify_from_edge_buffer(
     // Handle remaining edges.
     while edge_i < num_edges {
         edge_i = process_parent(
-            tables.edges_[edge_i].parent,
+            input_tables.edges[edge_i].parent,
             (edge_i, num_edges),
-            tables,
+            &input_tables,
+            tables.genome_length(),
             state,
             output,
         )?;
     }
 
-    std::mem::swap(&mut tables.edges_, &mut state.new_edges);
-    std::mem::swap(&mut tables.nodes_, &mut state.new_nodes);
-    edge_buffer.0.reset(tables.num_nodes());
+    std::mem::swap(&mut input_tables.edges, &mut state.new_edges);
+    std::mem::swap(&mut input_tables.nodes, &mut state.new_nodes);
+    edge_buffer.0.reset(input_tables.nodes.len());
 
     generate_output_site_mutation_tables(
         &state.mutation_node_map,
-        &mut tables.sites_,
-        &mut tables.mutations_,
+        &mut input_tables.sites,
+        &mut input_tables.mutations,
         &mut state.new_site_table,
         &mut output.extinct_mutations,
     );
+
+    input_tables.set_output_tables(tables);
 
     Ok(())
 }
