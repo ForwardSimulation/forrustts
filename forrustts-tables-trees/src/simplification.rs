@@ -151,6 +151,16 @@ struct AncestryList {
     node: Vec<NodeId>,
 }
 
+impl AncestryList {
+    fn reset(&mut self, num_nodes: usize) {
+        self.input_nodes.clear();
+        self.left.clear();
+        self.right.clear();
+        self.node.clear();
+        self.input_nodes.resize(num_nodes, (usize::MAX, usize::MAX));
+    }
+}
+
 // For each input node, we keep a list of locations (usize)
 // in the input mutation table and the output id for each node,
 // which is initialized to NULL_ID. The position helps us not
@@ -285,12 +295,13 @@ fn find_parent_child_segment_overlap(
     while i < num_edges && edges[i].parent == u {
         let edge = &edges[i];
 
-        for seg in ancestry.values_iter(edge.child.raw()) {
-            if seg.right > edge.left && edge.right > seg.left {
+        let range = ancestry.input_nodes[edge.child.raw() as usize];
+        for seg in range.0..range.1 {
+            if ancestry.right[seg] > edge.left && edge.right > ancestry.left[seg] {
                 overlapper.enqueue(
-                    std::cmp::max(seg.left, edge.left),
-                    std::cmp::min(seg.right, edge.right),
-                    seg.node,
+                    std::cmp::max(ancestry.left[seg], edge.left),
+                    std::cmp::min(ancestry.right[seg], edge.right),
+                    ancestry.node[seg],
                 );
             }
         }
@@ -308,23 +319,29 @@ fn add_ancestry(
     mutation_node_map: &mut MutationNodeMap,
     ancestry: &mut AncestryList,
 ) -> Result<(), SimplificationError> {
-    let head = ancestry.head(input_id.raw())?;
-    if head == NULL_INDEX {
-        let seg = Segment { left, right, node };
-        ancestry.extend(input_id.raw(), seg)?;
+    let head = ancestry.input_nodes[input_id.raw() as usize];
+    if head.0 == usize::MAX {
+        ancestry.left.push(left);
+        ancestry.right.push(right);
+        ancestry.node.push(node);
+        ancestry.input_nodes[input_id.raw() as usize] =
+            (ancestry.left.len() - 1, ancestry.left.len());
     } else {
-        let last_idx = ancestry.tail(input_id.raw())?;
-        if last_idx == NULL_INDEX {
+        let last_idx = ancestry.input_nodes[input_id.raw() as usize].1;
+        if last_idx == usize::MAX {
             return Err(SimplificationError::ErrorMessage(
-                "last_idx is NULL_ID".to_string(),
+                "last_idx is NULL".to_string(),
             ));
         }
-        let last = ancestry.fetch_mut(last_idx)?;
-        if last.right == left && last.node == node {
-            last.right = right;
+        assert!(last_idx > 0); // 1/2-open intervals
+        let last = last_idx - 1;
+        if ancestry.right[last] == left && ancestry.node[last] == node {
+            ancestry.right[last] = right;
         } else {
-            let seg = Segment { left, right, node };
-            ancestry.extend(input_id.raw(), seg)?;
+            ancestry.left.push(left);
+            ancestry.right.push(right);
+            ancestry.node.push(node);
+            ancestry.input_nodes[input_id.raw() as usize].1 += 1;
         }
     }
     map_mutation_output_nodes(input_id, node, left, right, mutation_node_map);
@@ -406,7 +423,7 @@ fn merge_ancestors(
     let is_sample = output_id != NodeId::NULL;
 
     if is_sample {
-        state.ancestry.nullify_list(parent_input_id.raw())?;
+        state.ancestry.input_nodes[parent_input_id.raw() as usize] = (usize::MAX, usize::MAX);
     }
 
     let mut previous_right: Position = Position::from(0);
@@ -702,12 +719,13 @@ fn queue_children(
     ancestry: &mut AncestryList,
     overlapper: &mut SegmentOverlapper,
 ) -> Result<(), SimplificationError> {
-    for seg in ancestry.values_iter(child.raw()) {
-        if seg.right > left && right > seg.left {
+    let range = ancestry.input_nodes[child.raw() as usize];
+    for seg in range.0..range.1 {
+        if ancestry.right[seg] > left && right > ancestry.left[seg] {
             overlapper.enqueue(
-                std::cmp::max(seg.left, left),
-                std::cmp::min(seg.right, right),
-                seg.node,
+                std::cmp::max(ancestry.left[seg], left),
+                std::cmp::min(ancestry.right[seg], right),
+                ancestry.node[seg],
             );
         }
     }
