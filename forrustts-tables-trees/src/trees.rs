@@ -613,7 +613,7 @@ impl<'treeseq> Tree<'treeseq> {
     ///
     /// * `by_span`: if `true`, multiply the return value by [`Tree::span`].
     pub fn total_branch_length(&self, by_span: bool) -> Result<Time, TreesError> {
-        let nt = self.treeseq.tables.nodes_.as_slice();
+        let nt = self.treeseq.tables.nodes();
         let mut b: Time = Time::from(0);
         for n in self.traverse_nodes(NodeTraversalOrder::Preorder) {
             let p = self.parent(n)?;
@@ -763,9 +763,9 @@ impl<'treeseq> streaming_iterator::StreamingIterator for Tree<'treeseq> {
     // then the accesses below can be unchecked.
     fn advance(&mut self) {
         let tables = &self.treeseq.tables;
-        let edge_table = self.treeseq.tables.edges_.as_slice();
-        let edge_input_order = tables.edge_input_order.as_slice();
-        let edge_output_order = tables.edge_output_order.as_slice();
+        let edge_table = self.treeseq.tables.edges();
+        let edge_input_order = tables.edge_input_order().expect("Some(edge_input_order)");
+        let edge_output_order = tables.edge_output_order().expect("Some(edge_output_order)");
         if self.input_edge_index < edge_input_order.len() || self.x < tables.genome_length() {
             for edge_index in edge_output_order[self.output_edge_index..].iter() {
                 let current_edge = edge_table[*edge_index];
@@ -921,7 +921,7 @@ impl TreeSequence {
             return Err(crate::TablesError::TablesNotIndexed.into());
         }
         let mut samples = vec![];
-        for (i, n) in tables.nodes_.iter().enumerate() {
+        for (i, n) in tables.nodes().iter().enumerate() {
             if n.flags & crate::NodeFlags::IS_SAMPLE.bits() > 0 {
                 samples.push(NodeId::try_from(i)?);
             }
@@ -990,7 +990,7 @@ impl TreeSequence {
         if samples.is_empty() {
             return Err(Box::new(TreesError::NoSamples));
         }
-        let mut nodes = vec![0; tables.nodes_.len()];
+        let mut nodes = vec![0; tables.num_nodes()];
         for s in samples {
             if *s == NodeId::NULL {
                 return Err(Box::new(TreesError::InvalidSamples));
@@ -1000,7 +1000,7 @@ impl TreeSequence {
             }
             nodes[s.raw() as usize] = 1;
         }
-        for n in tables.nodes_.iter() {
+        for n in tables.nodes().iter() {
             if n.flags | crate::NodeFlags::IS_SAMPLE.bits() > 0 {
                 return Err(Box::new(TreesError::InvalidSamples));
             }
@@ -1075,7 +1075,7 @@ impl TreeSequence {
         match samples {
             Some(x) => si.samples = x.to_vec(),
             None => {
-                for (i, n) in self.tables.nodes_.iter().enumerate() {
+                for (i, n) in self.tables.nodes().iter().enumerate() {
                     if n.flags | crate::NodeFlags::IS_SAMPLE.bits() > 0 {
                         si.samples.push(NodeId::try_from(i).unwrap());
                     }

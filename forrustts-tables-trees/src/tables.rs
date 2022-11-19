@@ -565,15 +565,14 @@ pub fn validate_mutation_table(
 /// A collection of node, edge, site, and mutation tables.
 #[derive(Clone)]
 pub struct TableCollection {
-    length_: Position, // Not visible outside of this module
-
-    pub(crate) nodes_: NodeTable,
-    pub(crate) edges_: EdgeTable,
-    pub(crate) sites_: SiteTable,
-    pub(crate) mutations_: MutationTable,
-    pub(crate) edge_input_order: Vec<usize>,
-    pub(crate) edge_output_order: Vec<usize>,
-    pub(crate) is_indexed: bool,
+    length_: Position,
+    nodes_: NodeTable,
+    edges_: EdgeTable,
+    sites_: SiteTable,
+    mutations_: MutationTable,
+    edge_input_order: Vec<usize>,
+    edge_output_order: Vec<usize>,
+    is_indexed: bool,
 }
 
 impl TableCollection {
