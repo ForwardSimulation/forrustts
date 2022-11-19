@@ -1,7 +1,10 @@
-use std::convert::TryFrom;
-
 #[path = "../tests/neutral_wright_fisher.rs"]
 mod neutral_wright_fisher;
+
+use forrustts::tskit_export::export_tables;
+use forrustts::tskit_export::simple_time_reverser;
+use forrustts::tskit_export::TableCollectionExportFlags;
+use forrustts::*;
 
 use clap::{Arg, Command};
 use neutral_wright_fisher::*;
@@ -99,10 +102,10 @@ fn main() {
         );
     }
 
-    let mut simplification_flags = forrustts_tables_trees::SimplificationFlags::empty();
+    let mut simplification_flags = SimplificationFlags::empty();
 
     if validate_tables {
-        simplification_flags |= forrustts_tables_trees::SimplificationFlags::VALIDATE_ALL;
+        simplification_flags |= SimplificationFlags::VALIDATE_ALL;
     }
 
     let simparams = SimulationParams {
@@ -116,16 +119,16 @@ fn main() {
         seed,
         nsteps,
         flags: SimulationFlags::USE_STATE | SimulationFlags::BUFFER_EDGES,
-        simplification_flags: forrustts_tables_trees::SimplificationFlags::empty(),
+        simplification_flags: SimplificationFlags::empty(),
     };
 
     let (tables, is_sample) = neutral_wf(simparams).unwrap();
 
-    let tskit_tables = forrustts_tskit::export_tables(
+    let tskit_tables = export_tables(
         tables,
-        forrustts_tskit::simple_time_reverser(nsteps),
+        simple_time_reverser(nsteps),
         match simplify.is_some() {
-            true => Some(forrustts_tskit::TableCollectionExportFlags::BUILD_INDEXES),
+            true => Some(TableCollectionExportFlags::BUILD_INDEXES),
             false => None,
         },
     )

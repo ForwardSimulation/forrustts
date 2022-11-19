@@ -1,10 +1,81 @@
-use crate::nested_forward_list::NestedForwardList;
-use crate::nested_forward_list::NULL_INDEX;
-use crate::tables::*;
-use crate::Segment;
+mod nested_forward_list;
+
+use nested_forward_list::NestedForwardList;
+use nested_forward_list::NULL_INDEX;
+
 use bitflags::bitflags;
 use forrustts_core::newtypes::{NodeId, Position, SiteId, Time};
 use thiserror::Error;
+
+use forrustts_tables::{
+    validate_edge_table, Edge, EdgeTable, MutationRecord, MutationTable, Node, NodeFlags,
+    NodeTable, Site, SiteTable, TableCollection,
+};
+
+/// A segment is a half-open
+/// interval of [``Position``]s
+/// associated with a [``NodeId``].
+///
+/// This type is public primarily because
+/// it is the value element of a
+/// [``crate::EdgeBuffer``].
+#[derive(Clone, Copy)]
+struct Segment {
+    /// Left edge of interval
+    left: Position,
+    /// Right edge of interval
+    right: Position,
+    /// The node
+    node: NodeId,
+}
+
+impl Segment {
+    /// Create a new instance.
+    fn new(left: Position, right: Position, node: NodeId) -> Self {
+        Segment { left, right, node }
+    }
+}
+
+/// Information about samples used for
+/// table simpilfication.
+#[derive(Default)]
+pub struct SamplesInfo {
+    /// A list of sample IDs.
+    /// Can include both "alive" and
+    /// "ancient/remembered/preserved" sample
+    /// nodes.
+    pub samples: Vec<NodeId>,
+    /// When using [``EdgeBuffer``](type.EdgeBuffer.html)
+    /// to record transmission
+    /// events, this list must contain a list of all node IDs
+    /// alive the last time simplification happened. Here,
+    /// "alive" means "could leave more descendants".
+    /// At the *start* of a simulation, this  should be filled
+    /// with a list of "founder" node IDs.
+    pub edge_buffer_founder_nodes: Vec<NodeId>,
+}
+
+impl SamplesInfo {
+    /// Generate a new instance.
+    pub fn new() -> Self {
+        SamplesInfo {
+            samples: vec![],
+            edge_buffer_founder_nodes: vec![],
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_default() {
+        let s: SamplesInfo = Default::default();
+        assert!(s.samples.is_empty());
+        assert!(s.edge_buffer_founder_nodes.is_empty());
+    }
+}
 
 /// Error type returned by tree sequence
 /// simplification
@@ -19,7 +90,7 @@ pub enum SimplificationError {
     ListError(#[from] crate::nested_forward_list::NestedForwardListError),
     /// Returned if the tables are invalid.
     #[error("{0:?}")]
-    TableValidationError(#[from] crate::TablesError),
+    TableValidationError(#[from] forrustts_tables::TablesError),
 }
 
 struct SegmentOverlapper {
@@ -377,9 +448,9 @@ fn record_node(
     idmap: &mut [NodeId],
 ) {
     let mut flags = input_nodes[id.raw() as usize].flags;
-    flags &= !crate::tables::NodeFlags::IS_SAMPLE.bits();
+    flags &= !NodeFlags::IS_SAMPLE.bits();
     if is_sample {
-        flags |= crate::tables::NodeFlags::IS_SAMPLE.bits();
+        flags |= NodeFlags::IS_SAMPLE.bits();
     }
     output_nodes.push(Node {
         time: input_nodes[id.raw() as usize].time,
@@ -727,7 +798,8 @@ bitflags! {
     /// # Example
     ///
     /// ```
-    /// let e = forrustts_tables_trees::SimplificationFlags::empty();
+    /// # use forrustts_simplification::SimplificationFlags;
+    /// let e = SimplificationFlags::empty();
     /// assert_eq!(e.bits(), 0);
     /// ```
     #[derive(Default)]
@@ -738,35 +810,6 @@ bitflags! {
         const VALIDATE_MUTATIONS = 1 << 1;
         /// Validate all tables.
         const VALIDATE_ALL = Self::VALIDATE_EDGES.bits | Self::VALIDATE_MUTATIONS.bits;
-    }
-}
-
-/// Information about samples used for
-/// table simpilfication.
-#[derive(Default)]
-pub struct SamplesInfo {
-    /// A list of sample IDs.
-    /// Can include both "alive" and
-    /// "ancient/remembered/preserved" sample
-    /// nodes.
-    pub samples: Vec<NodeId>,
-    /// When using [``EdgeBuffer``](type.EdgeBuffer.html)
-    /// to record transmission
-    /// events, this list must contain a list of all node IDs
-    /// alive the last time simplification happened. Here,
-    /// "alive" means "could leave more descendants".
-    /// At the *start* of a simulation, this  should be filled
-    /// with a list of "founder" node IDs.
-    pub edge_buffer_founder_nodes: Vec<NodeId>,
-}
-
-impl SamplesInfo {
-    /// Generate a new instance.
-    pub fn new() -> Self {
-        SamplesInfo {
-            samples: vec![],
-            edge_buffer_founder_nodes: vec![],
-        }
     }
 }
 
@@ -1041,7 +1084,7 @@ impl EdgeBuffer {
     ) -> crate::nested_forward_list::Result<()> {
         self.0.extend(
             parent.into().raw(),
-            crate::segment::Segment::new(left.into(), right.into(), child.into()),
+            Segment::new(left.into(), right.into(), child.into()),
         )?;
         Ok(())
     }
@@ -1292,7 +1335,9 @@ mod test_simpify_tables {
             |x: SimplificationError| {
                 assert!(matches!(
                     x,
-                    SimplificationError::TableValidationError(TablesError::EdgesNotSortedByLeft),
+                    SimplificationError::TableValidationError(
+                        forrustts_tables::TablesError::EdgesNotSortedByLeft
+                    ),
                 ))
             },
             |_| panic!(),

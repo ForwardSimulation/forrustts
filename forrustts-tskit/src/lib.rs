@@ -4,7 +4,7 @@
 //! [``tskit``](https://crates.io/crates/tskit).
 //!
 //! This crate provides low-level functions to convert
-//! [`forrustts_tables_trees::TableCollection`] to
+//! [`forrustts_tables::TableCollection`] to
 //! [`TskTableCollection`].
 //!
 //! For simple cases, [`export_tables`] will suffice.
@@ -33,7 +33,7 @@
 
 use bitflags::bitflags;
 use forrustts_core::newtypes::Time;
-use forrustts_tables_trees::TableCollection;
+use forrustts_tables::TableCollection;
 use thiserror::Error;
 
 fn swap_with_empty<T>(v: &mut Vec<T>) {
@@ -115,12 +115,12 @@ pub fn simple_time_reverser<T: Into<Time>>(x: T) -> impl Fn(Time) -> f64 {
 /// # Example
 ///
 /// ```
-/// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+/// let mut tables = forrustts_tables::TableCollection::new(100).unwrap();
 /// // Add 2 sample nodes
 /// tables.add_node_with_flags(0, 0,
-///                            forrustts_tables_trees::NodeFlags::IS_SAMPLE.bits()).unwrap();
+///                            forrustts_tables::NodeFlags::IS_SAMPLE.bits()).unwrap();
 /// tables.add_node_with_flags(1, 0,
-///                            forrustts_tables_trees::NodeFlags::IS_SAMPLE.bits()).unwrap();
+///                            forrustts_tables::NodeFlags::IS_SAMPLE.bits()).unwrap();
 /// tables.add_edge(0, 100, 0, 1).unwrap(); // Add an edge
 /// let tsk_tables = forrustts_tskit::export_tables(
 ///     tables,
@@ -173,13 +173,13 @@ pub fn export_tables<F: Into<Option<TableCollectionExportFlags>>>(
 ///
 /// # Parameters
 ///
-/// * `edges`: a slice of [`forrustts_tables_trees::Edge`]
+/// * `edges`: a slice of [`forrustts_tables::Edge`]
 /// * `tsk_tables`: The output tables.
 ///
 /// # Example
 ///
 /// ```
-/// use forrustts_tables_trees::TableCollection;
+/// use forrustts_tables::TableCollection;
 /// use forrustts_tskit::TskTableCollection;
 ///
 /// let mut tables = TableCollection::new(100).unwrap();
@@ -197,7 +197,7 @@ pub fn export_tables<F: Into<Option<TableCollectionExportFlags>>>(
 ///
 /// [`tskit::TskitError`] if adding rows returns an error.
 pub fn export_edges(
-    edges: &[forrustts_tables_trees::Edge],
+    edges: &[forrustts_tables::Edge],
     tsk_tables: &mut TskTableCollection,
 ) -> Result<(), TableCollectionExportError> {
     for edge in edges {
@@ -221,13 +221,13 @@ pub fn export_edges(
 ///
 /// # Parameters
 ///
-/// * `nodes`: a slice of [`forrustts_tables_trees::Node`]
+/// * `nodes`: a slice of [`forrustts_tables::Node`]
 /// * `tsk_tables`: The output tables.
 ///
 /// # Example
 ///
 /// ```
-/// use forrustts_tables_trees::TableCollection;
+/// use forrustts_tables::TableCollection;
 /// use forrustts_tskit::TskTableCollection;
 ///
 /// let mut tables = TableCollection::new(100).unwrap();
@@ -247,12 +247,12 @@ pub fn export_edges(
 /// ## Example error
 ///
 /// ```should_panic
-/// let tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+/// let tables = forrustts_tables::TableCollection::new(100).unwrap();
 /// let mut tsk_tables = tskit::TableCollection::new(100.).unwrap();
 /// forrustts_tskit::build_population_table(tables.nodes(), &mut tsk_tables).unwrap();
 /// ```
 pub fn build_population_table(
-    nodes: &[forrustts_tables_trees::Node],
+    nodes: &[forrustts_tables::Node],
     tsk_tables: &mut TskTableCollection,
 ) -> Result<(), TableCollectionExportError> {
     if nodes.is_empty() {
@@ -273,7 +273,7 @@ pub fn build_population_table(
 ///
 /// # Parameters
 ///
-/// * `nodes`: A slice of [`forrustts_tables_trees::NodeId`]
+/// * `nodes`: A slice of [`forrustts_tables::NodeId`]
 /// * `metadata`: metadata container.
 /// * `tsk_tables`: the output tables.
 ///
@@ -284,7 +284,7 @@ pub fn build_population_table(
 /// #[serializer("serde_json")]
 /// struct PopulationName(String);
 ///
-/// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+/// let mut tables = forrustts_tables::TableCollection::new(100).unwrap();
 /// tables.add_node(0, 0).unwrap();
 /// let md = vec![PopulationName("YRB".to_string())];
 ///
@@ -301,7 +301,7 @@ pub fn build_population_table(
 /// or if there is an error from `tskit`.
 ///
 pub fn build_population_table_with_metadata<M>(
-    nodes: &[forrustts_tables_trees::Node],
+    nodes: &[forrustts_tables::Node],
     metadata: &[M],
     tsk_tables: &mut TskTableCollection,
 ) -> Result<(), TableCollectionExportError>
@@ -332,14 +332,14 @@ where
 ///
 /// # Parameters
 ///
-/// * `nodes`: a slice of [`forrustts_tables_trees::Node`]
+/// * `nodes`: a slice of [`forrustts_tables::Node`]
 /// * `convert_time`: A function to convert input time (forwards) to `tskit`-time (backwards).
 /// * `tsk_tables`: The output tables.
 ///
 /// # Example
 ///
 /// ```
-/// use forrustts_tables_trees::TableCollection;
+/// use forrustts_tables::TableCollection;
 /// use forrustts_tskit::TskTableCollection;
 ///
 /// let mut tables = TableCollection::new(100).unwrap();
@@ -358,7 +358,7 @@ where
 ///
 /// [`tskit::TskitError`] if adding rows returns an error.
 pub fn export_nodes(
-    nodes: &[forrustts_tables_trees::Node],
+    nodes: &[forrustts_tables::Node],
     convert_time: &impl Fn(Time) -> f64,
     tsk_tables: &mut TskTableCollection,
 ) -> Result<(), TableCollectionExportError> {
@@ -378,7 +378,7 @@ pub fn export_nodes(
 ///
 /// # Parameters
 ///
-/// * `nodes`: a slice of [`forrustts_tables_trees::Node`]
+/// * `nodes`: a slice of [`forrustts_tables::Node`]
 /// * `convert_time`: A function to convert input time (forwards) to `tskit`-time (backwards).
 /// * `metadata`: the node metadata
 /// * `tsk_tables`: The output tables.
@@ -386,7 +386,7 @@ pub fn export_nodes(
 /// # Example
 ///
 /// ```
-/// use forrustts_tables_trees::TableCollection;
+/// use forrustts_tables::TableCollection;
 /// use forrustts_tskit::TskTableCollection;
 /// use serde::{Serialize, Deserialize};
 /// use tskit::metadata::NodeMetadata;
@@ -413,7 +413,7 @@ pub fn export_nodes(
 ///
 /// [`tskit::TskitError`] if adding rows returns an error.
 pub fn export_nodes_with_metadata<M>(
-    nodes: &[forrustts_tables_trees::Node],
+    nodes: &[forrustts_tables::Node],
     convert_time: &impl Fn(Time) -> f64,
     metadata: &[M],
     tsk_tables: &mut TskTableCollection,
@@ -444,14 +444,14 @@ where
 /// ```
 /// use forrustts_tskit::simple_time_reverser;
 ///
-/// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+/// let mut tables = forrustts_tables::TableCollection::new(100).unwrap();
 /// tables.add_mutation(0, None, 0, 0, None, true).unwrap();
 /// let mut tsk_tables = tskit::TableCollection::new(100.).unwrap();
 /// forrustts_tskit::export_mutations(tables.mutations(), &simple_time_reverser(0), &mut tsk_tables).unwrap();
 /// assert_eq!(tsk_tables.mutations().num_rows(), 1);
 /// ```
 pub fn export_mutations(
-    mutations: &[forrustts_tables_trees::MutationRecord],
+    mutations: &[forrustts_tables::MutationRecord],
     convert_time: &impl Fn(Time) -> f64,
     tsk_tables: &mut TskTableCollection,
 ) -> Result<(), TableCollectionExportError> {
@@ -484,7 +484,7 @@ pub fn export_mutations(
 /// struct Metadata(i32);
 ///
 ///
-/// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+/// let mut tables = forrustts_tables::TableCollection::new(100).unwrap();
 /// tables.add_mutation(0, None, 0, 0, None, true).unwrap();
 /// let mut tsk_tables = tskit::TableCollection::new(100.).unwrap();
 /// let md = vec![Metadata(-1)];
@@ -492,7 +492,7 @@ pub fn export_mutations(
 /// assert_eq!(tsk_tables.mutations().num_rows(), 1);
 /// ```
 pub fn export_mutations_with_metadata<M>(
-    mutations: &[forrustts_tables_trees::MutationRecord],
+    mutations: &[forrustts_tables::MutationRecord],
     convert_time: &impl Fn(Time) -> f64,
     metadata: &[M],
     tsk_tables: &mut TskTableCollection,
@@ -527,14 +527,14 @@ where
 /// ```
 /// use forrustts_tskit::simple_time_reverser;
 ///
-/// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+/// let mut tables = forrustts_tables::TableCollection::new(100).unwrap();
 /// tables.add_site(50, None).unwrap();
 /// let mut tsk_tables = tskit::TableCollection::new(100.).unwrap();
 /// forrustts_tskit::export_sites(tables.sites(), &mut tsk_tables).unwrap();
 /// assert_eq!(tsk_tables.sites().num_rows(), 1);
 /// ```
 pub fn export_sites(
-    sites: &[forrustts_tables_trees::Site],
+    sites: &[forrustts_tables::Site],
     tsk_tables: &mut TskTableCollection,
 ) -> Result<(), TableCollectionExportError> {
     for site in sites {
@@ -562,7 +562,7 @@ pub fn export_sites(
 /// #[serializer("serde_json")]
 /// struct Metadata(i32);
 ///
-/// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+/// let mut tables = forrustts_tables::TableCollection::new(100).unwrap();
 /// tables.add_site(50, None).unwrap();
 /// let mut tsk_tables = tskit::TableCollection::new(100.).unwrap();
 /// let md = vec![Metadata(1234)];
@@ -570,7 +570,7 @@ pub fn export_sites(
 /// assert_eq!(tsk_tables.sites().num_rows(), 1);
 /// ```
 pub fn export_sites_with_metadata<M>(
-    sites: &[forrustts_tables_trees::Site],
+    sites: &[forrustts_tables::Site],
     metadata: &[M],
     tsk_tables: &mut TskTableCollection,
 ) -> Result<(), TableCollectionExportError>
@@ -601,7 +601,7 @@ mod tests {
         // We cannot export our flags directly
         // unless we agree with tskit on some definitions
         assert_eq!(
-            forrustts_tables_trees::NodeFlags::IS_SAMPLE.bits(),
+            forrustts_tables::NodeFlags::IS_SAMPLE.bits(),
             tskit::TSK_NODE_IS_SAMPLE
         );
     }

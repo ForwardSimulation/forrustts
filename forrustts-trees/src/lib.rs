@@ -1,5 +1,9 @@
+mod macros;
+
 use bitflags::bitflags;
 use forrustts_core::newtypes::{NodeId, Position, Time};
+
+use forrustts_tables::*;
 
 bitflags! {
     /// Modify the behavior of [`TreeSequence::tree_iterator`].
@@ -1067,23 +1071,33 @@ impl TreeSequence {
     pub fn simplify(
         &self,
         samples: Option<&[NodeId]>,
-        flags: crate::SimplificationFlags,
-    ) -> Result<(crate::TableCollection, crate::SimplificationOutput), crate::SimplificationError>
-    {
+        flags: forrustts_simplification::SimplificationFlags,
+    ) -> Result<
+        (
+            forrustts_tables::TableCollection,
+            forrustts_simplification::SimplificationOutput,
+        ),
+        forrustts_simplification::SimplificationError,
+    > {
         let mut tcopy = self.tables.clone();
-        let mut si = crate::SamplesInfo::new();
+        let mut si = forrustts_simplification::SamplesInfo::new();
         match samples {
             Some(x) => si.samples = x.to_vec(),
             None => {
                 for (i, n) in self.tables.nodes().iter().enumerate() {
-                    if n.flags | crate::NodeFlags::IS_SAMPLE.bits() > 0 {
+                    if n.flags | forrustts_tables::NodeFlags::IS_SAMPLE.bits() > 0 {
                         si.samples.push(NodeId::try_from(i).unwrap());
                     }
                 }
             }
         }
-        let mut output = crate::SimplificationOutput::default();
-        crate::simplify_tables_without_state(&si, flags, &mut tcopy, &mut output)?;
+        let mut output = forrustts_simplification::SimplificationOutput::default();
+        forrustts_simplification::simplify_tables_without_state(
+            &si,
+            flags,
+            &mut tcopy,
+            &mut output,
+        )?;
         Ok((tcopy, output))
     }
 }
