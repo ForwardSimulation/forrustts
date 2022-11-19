@@ -31,16 +31,21 @@ jobs:
           toolchain: ${{ matrix.rust }}
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@cargo-hack
-      - name: cargo check (feature powerset)
-        run: cargo hack check --workspace --feature-powerset --no-dev-deps
-      - name: cargo check examples (feature powerset)
-        run: cargo hack check --workspace --examples --feature-powerset
-      - name: run tests (feature powerset)
+      - name: test forrustts
         run: |
-            cargo hack test --workspace --all-targets --feature-powerset
-      - name: run doc tests (feature powerset)
+          cargo hack test --feature-powerset
+      - name: test forrustts-core
         run: |
-            cargo hack test --workspace --doc --feature-powerset
+          cargo hack test --manifest-path forrustts-core/Cargo.toml --feature-powerset
+      - name: test forrustts-tables-trees
+        run: |
+          cargo hack test --manifest-path forrustts-tables-trees/Cargo.toml --feature-powerset
+      - name: test forrustts-tskit
+        run: |
+          cargo hack test --manifest-path forrustts-tskit/Cargo.toml --feature-powerset
+      - name: test forrustts-genetic-maps
+        run: |
+          cargo hack test --manifest-path forrustts-genetic-maps/Cargo.toml --feature-powerset
 
   fmt:
     name: rust fmt
