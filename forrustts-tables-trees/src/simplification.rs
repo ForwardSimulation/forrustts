@@ -145,7 +145,7 @@ impl SegmentOverlapper {
 
 #[derive(Default)]
 struct AncestryList {
-    input_nodes: Vec<(usize, usize)>,
+    input_nodes: Vec<(u32, u32)>,
     left: Vec<Position>,
     right: Vec<Position>,
     node: Vec<NodeId>,
@@ -157,7 +157,7 @@ impl AncestryList {
         self.left.clear();
         self.right.clear();
         self.node.clear();
-        self.input_nodes.resize(num_nodes, (usize::MAX, usize::MAX));
+        self.input_nodes.resize(num_nodes, (u32::MAX, u32::MAX));
     }
 }
 
@@ -297,11 +297,11 @@ fn find_parent_child_segment_overlap(
 
         let range = ancestry.input_nodes[edge.child.raw() as usize];
         for seg in range.0..range.1 {
-            if ancestry.right[seg] > edge.left && edge.right > ancestry.left[seg] {
+            if ancestry.right[seg as usize] > edge.left && edge.right > ancestry.left[seg as usize] {
                 overlapper.enqueue(
-                    std::cmp::max(ancestry.left[seg], edge.left),
-                    std::cmp::min(ancestry.right[seg], edge.right),
-                    ancestry.node[seg],
+                    std::cmp::max(ancestry.left[seg as usize], edge.left),
+                    std::cmp::min(ancestry.right[seg as usize], edge.right),
+                    ancestry.node[seg as usize],
                 );
             }
         }
@@ -320,23 +320,23 @@ fn add_ancestry(
     ancestry: &mut AncestryList,
 ) -> Result<(), SimplificationError> {
     let head = ancestry.input_nodes[input_id.raw() as usize];
-    if head.0 == usize::MAX {
+    if head.0 == u32::MAX {
         ancestry.left.push(left);
         ancestry.right.push(right);
         ancestry.node.push(node);
         ancestry.input_nodes[input_id.raw() as usize] =
-            (ancestry.left.len() - 1, ancestry.left.len());
+            ((ancestry.left.len() - 1) as u32, ancestry.left.len() as u32);
     } else {
         let last_idx = ancestry.input_nodes[input_id.raw() as usize].1;
-        if last_idx == usize::MAX {
+        if last_idx == u32::MAX {
             return Err(SimplificationError::ErrorMessage(
                 "last_idx is NULL".to_string(),
             ));
         }
         assert!(last_idx > 0); // 1/2-open intervals
         let last = last_idx - 1;
-        if ancestry.right[last] == left && ancestry.node[last] == node {
-            ancestry.right[last] = right;
+        if ancestry.right[last as usize] == left && ancestry.node[last as usize] == node {
+            ancestry.right[last as usize] = right;
         } else {
             ancestry.left.push(left);
             ancestry.right.push(right);
@@ -423,7 +423,7 @@ fn merge_ancestors(
     let is_sample = output_id != NodeId::NULL;
 
     if is_sample {
-        state.ancestry.input_nodes[parent_input_id.raw() as usize] = (usize::MAX, usize::MAX);
+        state.ancestry.input_nodes[parent_input_id.raw() as usize] = (u32::MAX, u32::MAX);
     }
 
     let mut previous_right: Position = Position::from(0);
@@ -721,11 +721,11 @@ fn queue_children(
 ) -> Result<(), SimplificationError> {
     let range = ancestry.input_nodes[child.raw() as usize];
     for seg in range.0..range.1 {
-        if ancestry.right[seg] > left && right > ancestry.left[seg] {
+        if ancestry.right[seg as usize] > left && right > ancestry.left[seg as usize] {
             overlapper.enqueue(
-                std::cmp::max(ancestry.left[seg], left),
-                std::cmp::min(ancestry.right[seg], right),
-                ancestry.node[seg],
+                std::cmp::max(ancestry.left[seg as usize], left),
+                std::cmp::min(ancestry.right[seg as usize], right),
+                ancestry.node[seg as usize],
             );
         }
     }
