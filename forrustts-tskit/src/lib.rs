@@ -117,9 +117,9 @@ pub fn simple_time_reverser<T: Into<Time>>(x: T) -> impl Fn(Time) -> f64 {
 /// ```
 /// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
 /// // Add 2 sample nodes
-/// tables.add_node_with_flags(0., 0,
+/// tables.add_node_with_flags(0, 0,
 ///                            forrustts_tables_trees::NodeFlags::IS_SAMPLE.bits()).unwrap();
-/// tables.add_node_with_flags(1., 0,
+/// tables.add_node_with_flags(1, 0,
 ///                            forrustts_tables_trees::NodeFlags::IS_SAMPLE.bits()).unwrap();
 /// tables.add_edge(0, 100, 0, 1).unwrap(); // Add an edge
 /// let tsk_tables = forrustts_tskit::export_tables(

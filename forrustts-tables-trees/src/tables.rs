@@ -38,13 +38,6 @@ pub enum TablesError {
     /// correctly by time.
     #[error("Mutations within same site are not sorted by time")]
     UnsortedMutationsWithinSite,
-    /// Retured when a [``MutationRecord``]'s time field is not finite
-    #[error("Invalid Mutation time.")]
-    InvalidMutationTime,
-    /// Retured when a [``Node``]'s time field is not finite,
-    /// including the node field of [``MutationRecord``].
-    #[error("Invalid Node time.")]
-    InvalidNodeTime,
     /// Returned when an [``Edge``]'s left/right
     /// values are invalid.
     #[error("Invalid position range: {found:?}")]
@@ -507,15 +500,10 @@ pub fn validate_edge_table(len: Position, edges: &[Edge], nodes: &[Node]) -> Tab
 
 /// Validate contents of edge table.
 ///
-/// # Error
+/// # Note
 ///
-/// [`TablesError::InvalidNodeTime`] if any node times are not finite.
-pub fn validate_node_table(nodes: &[Node]) -> TablesResult<()> {
-    for n in nodes {
-        if !n.time.raw().is_finite() {
-            return Err(TablesError::InvalidNodeTime);
-        }
-    }
+/// This function is currently a no-op.
+pub fn validate_node_table(_nodes: &[Node]) -> TablesResult<()> {
     Ok(())
 }
 
@@ -553,17 +541,11 @@ pub fn validate_mutation_table(
     let mut last_site: Option<SiteId> = None;
     let mut last_time = Time::MIN;
     for (i, mutation) in mutations.iter().enumerate() {
-        if !mutation.time.raw().is_finite() {
-            return Err(TablesError::InvalidMutationTime);
-        }
         if mutation.site < 0 || (mutation.site.raw() as usize) >= sites.len() {
             return Err(TablesError::SiteOutofBounds);
         }
         if mutation.node < 0 || (mutation.node.raw() as usize) >= nodes.len() {
             return Err(TablesError::NodeOutOfBounds);
-        }
-        if !nodes[mutation.node.raw() as usize].time.raw().is_finite() {
-            return Err(TablesError::InvalidNodeTime);
         }
         if i > 0 {
             if mutations[i - 1].site > mutation.site {
@@ -650,7 +632,7 @@ impl TableCollection {
     ///
     /// ```
     /// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
-    /// let id = tables.add_node(1. , 0).unwrap();
+    /// let id = tables.add_node(1 , 0).unwrap();
     /// assert_eq!(id, 0);
     /// ```
     pub fn add_node<T: Into<Time>, D: Into<DemeId> + Copy>(
@@ -680,7 +662,7 @@ impl TableCollection {
     ///
     /// ```
     /// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
-    /// let id = tables.add_node_with_flags(1., 0,
+    /// let id = tables.add_node_with_flags(1, 0,
     ///     (forrustts_tables_trees::NodeFlags::IS_ALIVE | forrustts_tables_trees::NodeFlags::IS_SAMPLE).bits()).unwrap();
     /// assert_eq!(id, 0);
     /// assert!(tables.node(0).flags & forrustts_tables_trees::NodeFlags::IS_ALIVE.bits() > 0);
@@ -696,7 +678,7 @@ impl TableCollection {
     /// The dump/set operations are constant time, moving the relevant vectors.
     /// ```
     /// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
-    /// let id = tables.add_node_with_flags(1., 0,
+    /// let id = tables.add_node_with_flags(1, 0,
     ///     (forrustts_tables_trees::NodeFlags::IS_ALIVE | forrustts_tables_trees::NodeFlags::IS_SAMPLE).bits()).unwrap();
     /// assert_eq!(id, 0);
     /// assert!(tables.node(0).flags & forrustts_tables_trees::NodeFlags::IS_ALIVE.bits() > 0);
@@ -936,8 +918,8 @@ impl TableCollection {
     ///
     /// ```
     /// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
-    /// tables.add_node(0., 0).unwrap();
-    /// tables.add_node(1., 1).unwrap();
+    /// tables.add_node(0, 0).unwrap();
+    /// tables.add_node(1, 1).unwrap();
     ///
     /// let n = tables.get_nodes(1).unwrap();
     /// assert_eq!(n.time, 1.into());
@@ -1616,7 +1598,7 @@ mod test_table_indexing {
     #[should_panic]
     fn test_edge_out_of_range() {
         let mut t = TableCollection::new(1).unwrap();
-        t.add_node(0., 0).unwrap();
+        t.add_node(0, 0).unwrap();
         t.add_edge(0, 1, 0, 1).unwrap();
         t.build_indexes(IndexTablesFlags::default()).unwrap();
     }
@@ -1626,10 +1608,10 @@ mod test_table_indexing {
     fn test_simple_invalid_edge_table() {
         let mut t = TableCollection::new(1).unwrap();
         for _ in 0..3 {
-            t.add_node(2., 0).unwrap();
+            t.add_node(2, 0).unwrap();
         }
-        t.add_node(1., 0).unwrap();
-        t.add_node(0., 0).unwrap();
+        t.add_node(1, 0).unwrap();
+        t.add_node(0, 0).unwrap();
 
         t.add_edge(0, 1, 4, 3).unwrap();
         t.add_edge(0, 1, 4, 2).unwrap();
@@ -1646,10 +1628,10 @@ mod test_table_indexing {
     fn test_simple_sort_order() {
         let mut t = TableCollection::new(1).unwrap();
         for _ in 0..3 {
-            t.add_node(2., 0).unwrap();
+            t.add_node(2, 0).unwrap();
         }
-        t.add_node(1., 0).unwrap();
-        t.add_node(0., 0).unwrap();
+        t.add_node(1, 0).unwrap();
+        t.add_node(0, 0).unwrap();
 
         t.add_edge(0, 1, 4, 3).unwrap();
         t.add_edge(0, 1, 4, 2).unwrap();
@@ -1692,7 +1674,7 @@ mod test_table_indexing {
                                 .parent,
                         )
                         .time;
-                    assert!(ti >= tim1, "{} {}", f64::from(ti), f64::from(tim1));
+                    assert!(ti >= tim1, "{:?} {:?}", ti, tim1);
                 }
             }
         } else {
@@ -1704,10 +1686,10 @@ mod test_table_indexing {
     fn test_is_indexed() {
         let mut t = TableCollection::new(1).unwrap();
         for _ in 0..3 {
-            t.add_node(2., 0).unwrap();
+            t.add_node(2, 0).unwrap();
         }
-        t.add_node(1., 0).unwrap();
-        t.add_node(0., 0).unwrap();
+        t.add_node(1, 0).unwrap();
+        t.add_node(0, 0).unwrap();
 
         t.add_edge(0, 1, 4, 3).unwrap();
         t.add_edge(0, 1, 4, 2).unwrap();
@@ -1729,7 +1711,7 @@ mod test_table_indexing {
         t.build_indexes(IndexTablesFlags::default()).unwrap();
         assert!(t.is_indexed());
 
-        t.add_node(0., 0).unwrap();
+        t.add_node(0, 0).unwrap();
         assert!(!t.is_indexed());
     }
 }
@@ -1758,8 +1740,8 @@ mod test_table_validation {
     fn test_site_table_not_sorted_by_position() {
         // edges aren't sorted, but we skip that check
         let mut t = TableCollection::new(10).unwrap();
-        let node0 = t.add_node(0., 0).unwrap();
-        let node1 = t.add_node(1., 0).unwrap();
+        let node0 = t.add_node(0, 0).unwrap();
+        let node1 = t.add_node(1, 0).unwrap();
         t.add_edge(0, t.genome_length(), node1, node0).unwrap();
         t.add_site(5, None).unwrap();
         t.add_site(4, None).unwrap();
