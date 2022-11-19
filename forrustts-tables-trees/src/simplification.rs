@@ -143,7 +143,13 @@ impl SegmentOverlapper {
     }
 }
 
-type AncestryList = NestedForwardList<Segment>;
+#[derive(Default)]
+struct AncestryList {
+    input_nodes: Vec<(usize, usize)>,
+    left: Vec<Position>,
+    right: Vec<Position>,
+    node: Vec<NodeId>,
+}
 
 // For each input node, we keep a list of locations (usize)
 // in the input mutation table and the output id for each node,
@@ -828,7 +834,7 @@ impl SimplificationBuffers {
             temp_edge_buffer: EdgeTable::new(),
             new_nodes: NodeTable::new(),
             overlapper: SegmentOverlapper::new(),
-            ancestry: AncestryList::new(),
+            ancestry: AncestryList::default(),
             mutation_map: vec![],
             mutation_node_map: MutationNodeMap::new(),
             new_site_table: vec![],
