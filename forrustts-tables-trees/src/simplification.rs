@@ -1234,8 +1234,8 @@ mod test_simpify_tables {
     fn test_simplify_tables_unsorted_edges() {
         let mut tables = TableCollection::new(1000).unwrap();
 
-        tables.add_node(0., 0).unwrap(); // parent
-        tables.add_node(1., 0).unwrap(); // child
+        tables.add_node(0, 0).unwrap(); // parent
+        tables.add_node(1, 0).unwrap(); // child
         tables.add_edge(100, tables.genome_length(), 0, 1).unwrap();
         tables.add_edge(0, 100, 0, 1).unwrap();
 

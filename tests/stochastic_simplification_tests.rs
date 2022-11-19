@@ -165,7 +165,7 @@ fn compare_buffer_vs_sort_overlapping_gens() {
             if let Some(tree_buffer) = ti_buffer.next() {
                 let time1 = tree.total_branch_length(false).unwrap();
                 let time2 = tree_buffer.total_branch_length(false).unwrap();
-                assert!((f64::from(time1) - f64::from(time2)).abs() < f64::EPSILON);
+                assert_eq!(time1.raw() - time2.raw(), 0);
             } else {
                 panic!("expected a Tree");
             }

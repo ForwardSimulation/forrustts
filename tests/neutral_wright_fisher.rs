@@ -494,8 +494,8 @@ fn mutate_tables<R: rand::Rng>(mutrate: f64, tables: &mut TableCollection, rng: 
     let num_edges = tables.edges().len();
     for i in 0..num_edges {
         let e = *tables.edge(EdgeId::try_from(i).unwrap());
-        let ptime = i64::from(tables.node(e.parent).time);
-        let ctime = i64::from(tables.node(e.child).time);
+        let ptime = tables.node(e.parent).time.raw();
+        let ctime = tables.node(e.child).time.raw();
         let blen = ctime - ptime;
         assert!((blen as i64) > 0, "{} {} {}", blen, ptime, ctime,);
 
@@ -561,8 +561,8 @@ pub fn neutral_wf(
     // Record nodes for the first generation
     // Nodes will have birth time 0 in deme 0.
     for index in 0..params.popsize {
-        let node0 = pop.tables.add_node(0_f64, 0).unwrap();
-        let node1 = pop.tables.add_node(0_f64, 0).unwrap();
+        let node0 = pop.tables.add_node(0, 0).unwrap();
+        let node1 = pop.tables.add_node(0, 0).unwrap();
         pop.parents.push(Parent {
             index: index as usize,
             node0,

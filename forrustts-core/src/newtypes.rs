@@ -14,7 +14,7 @@ pub type PositionLLType = i64;
 pub type TimeLLType = f64;
 
 type LowLevelIdType = i32;
-type LowLevelTimeType = f64;
+type LowLevelTimeType = i64;
 type LowLevelPositonType = i64;
 
 /// A [``TableId``](crate::traits::TableId) for a node.
@@ -69,7 +69,7 @@ pub struct Position(pub(crate) LowLevelPositonType);
 
 /// A time value
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, std::hash::Hash)]
 pub struct Time(pub(crate) LowLevelTimeType);
 
 impl_get_raw!(Position, LowLevelPositonType);
@@ -131,27 +131,9 @@ impl From<LowLevelTimeType> for Time {
     }
 }
 
-impl From<i64> for Time {
-    fn from(value: i64) -> Self {
-        Self(value as LowLevelTimeType)
-    }
-}
-
 impl From<i32> for Time {
     fn from(value: i32) -> Self {
         Self(value as LowLevelTimeType)
-    }
-}
-
-impl From<Time> for f64 {
-    fn from(value: Time) -> Self {
-        value.0
-    }
-}
-
-impl From<Time> for i64 {
-    fn from(value: Time) -> Self {
-        value.0 as Self
     }
 }
 
