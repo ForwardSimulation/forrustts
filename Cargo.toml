@@ -14,7 +14,9 @@ keywords = ["simulation", "tree_sequences", "tskit", "population_genetics"]
 members = [
     "forrustts-core",
     "forrustts-genetic-maps",
-    "forrustts-tables-trees",
+    "forrustts-tables",
+    "forrustts-trees",
+    "forrustts-simplification",
     "forrustts-tskit",
 ]
 
@@ -34,9 +36,10 @@ tskit = "0.11.1"
 [dependencies]
 forrustts-core = { version = "0.1.0", path = "forrustts-core" }
 forrustts-genetic-maps = { version = "0.1.0", path = "forrustts-genetic-maps" }
-forrustts-tables-trees = { version = "0.2.0", path = "forrustts-tables-trees" }
+forrustts-tables = { version = "0.1.0", path = "forrustts-tables" }
+forrustts-simplification = { version = "0.1.0", path = "forrustts-simplification" }
+forrustts-trees = { version = "0.1.0", path = "forrustts-trees" }
 forrustts-tskit = { version = "0.1.0", path = "forrustts-tskit" }
-thiserror = "1.0"
 
 [[example]]
 name = "forward_simulation"

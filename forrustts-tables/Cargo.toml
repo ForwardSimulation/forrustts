@@ -1,6 +1,6 @@
 [package]
-name = "forrustts-tables-trees"
-version = "0.2.0"
+name = "forrustts-tables"
+version = "0.1.0"
 authors = ["molpopgen <krthornt@uci.edu>"]
 edition = "2021"
 description = "Table collections, tree sequences, and simplification."
@@ -15,6 +15,5 @@ tskit = "0.7.0"
 
 [dependencies]
 bitflags = "1.2.1"
-streaming-iterator = "0.1.5"
 thiserror = "1.0"
 forrustts-core = { version = "0.1.0", path = "../forrustts-core" }

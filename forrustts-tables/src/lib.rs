@@ -1,3 +1,33 @@
+#![forbid(unsafe_code)]
+//! Table collections and tree sequences
+//! implemented from the ground up in rust.
+//!
+//! The tables model differs from `tskit` in some important ways:
+//!
+//! 1. Time moves from the past to the present.
+//!    Thus, child nodes have time values *greater than*
+//!    those of their parents.
+//! 2. The data layout is "array of structures" while
+//!    `tskit` is a "structure of arrays".
+//! 3. Metadata is not part of the tables.
+//!    Often, what one thinks of as metadata is data
+//!    used during the simulation.  Thus, it is not
+//!    part of a [``TableCollection``] and is something
+//!    that would only be useful to write when transfering
+//!    final results to a `tskit::TableCollection`
+//!    (see [`tskit`](https://crates.io/crates/tskit)).
+//! 4. Mutation table data are different. See [``MutationRecord``].
+//! 5. Genomic locations are integers (see [``Position``]).
+//!    In `tskit`, both are C `double`, the equivalent of [``f64``].
+//!
+//! # Where to find examples
+//!
+//! In the `examples/` directory of the project repository.
+
+// NOTE: uncomment the next line in order to find
+// stuff that needs documenting:
+// #![warn(missing_docs)]
+
 use bitflags::bitflags;
 use forrustts_core::newtypes::{DemeId, EdgeId, MutationId, NodeId, Position, SiteId, Time};
 use std::cmp::Ordering;
@@ -334,8 +364,8 @@ bitflags! {
     /// [``TableCollection::validate``]
     ///
     /// ```
-    /// let f = forrustts_tables_trees::TableValidationFlags::default();
-    /// assert_eq!(f.contains(forrustts_tables_trees::TableValidationFlags::VALIDATE_ALL), true);
+    /// let f = forrustts_tables::TableValidationFlags::default();
+    /// assert_eq!(f.contains(forrustts_tables::TableValidationFlags::VALIDATE_ALL), true);
     /// ```
     pub struct TableValidationFlags: u32 {
         /// Validate the edge table
@@ -365,8 +395,8 @@ bitflags! {
     /// The default is to sort all tables.
     ///
     /// ```
-    /// let f = forrustts_tables_trees::TableSortingFlags::empty();
-    /// assert_eq!(f, forrustts_tables_trees::TableSortingFlags::default());
+    /// let f = forrustts_tables::TableSortingFlags::empty();
+    /// assert_eq!(f, forrustts_tables::TableSortingFlags::default());
     /// ```
     #[derive(Default)]
     pub struct TableSortingFlags: u32 {
@@ -412,9 +442,9 @@ bitflags! {
 /// # Example
 ///
 /// ```
-/// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+/// let mut tables = forrustts_tables::TableCollection::new(100).unwrap();
 /// // (do some stuff now...)
-/// let rv = forrustts_tables_trees::validate_edge_table(tables.genome_length(),
+/// let rv = forrustts_tables::validate_edge_table(tables.genome_length(),
 ///                                         &tables.edges(),
 ///                                         &tables.nodes()).unwrap();
 /// assert_eq!(rv, true);
@@ -503,7 +533,7 @@ pub fn validate_edge_table(len: Position, edges: &[Edge], nodes: &[Node]) -> Tab
 /// # Note
 ///
 /// This function is currently a no-op.
-pub fn validate_node_table(_nodes: &[Node]) -> TablesResult<()> {
+fn validate_node_table(_nodes: &[Node]) -> TablesResult<()> {
     Ok(())
 }
 
@@ -630,7 +660,7 @@ impl TableCollection {
     /// # Example
     ///
     /// ```
-    /// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+    /// let mut tables = forrustts_tables::TableCollection::new(100).unwrap();
     /// let id = tables.add_node(1 , 0).unwrap();
     /// assert_eq!(id, 0);
     /// ```
@@ -660,12 +690,12 @@ impl TableCollection {
     /// # Example
     ///
     /// ```
-    /// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+    /// let mut tables = forrustts_tables::TableCollection::new(100).unwrap();
     /// let id = tables.add_node_with_flags(1, 0,
-    ///     (forrustts_tables_trees::NodeFlags::IS_ALIVE | forrustts_tables_trees::NodeFlags::IS_SAMPLE).bits()).unwrap();
+    ///     (forrustts_tables::NodeFlags::IS_ALIVE | forrustts_tables::NodeFlags::IS_SAMPLE).bits()).unwrap();
     /// assert_eq!(id, 0);
-    /// assert!(tables.node(0).flags & forrustts_tables_trees::NodeFlags::IS_ALIVE.bits() > 0);
-    /// assert!(tables.node(0).flags & forrustts_tables_trees::NodeFlags::IS_SAMPLE.bits() > 0);
+    /// assert!(tables.node(0).flags & forrustts_tables::NodeFlags::IS_ALIVE.bits() > 0);
+    /// assert!(tables.node(0).flags & forrustts_tables::NodeFlags::IS_SAMPLE.bits() > 0);
     ///
     /// ```
     ///
@@ -676,12 +706,12 @@ impl TableCollection {
     ///
     /// The dump/set operations are constant time, moving the relevant vectors.
     /// ```
-    /// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+    /// let mut tables = forrustts_tables::TableCollection::new(100).unwrap();
     /// let id = tables.add_node_with_flags(1, 0,
-    ///     (forrustts_tables_trees::NodeFlags::IS_ALIVE | forrustts_tables_trees::NodeFlags::IS_SAMPLE).bits()).unwrap();
+    ///     (forrustts_tables::NodeFlags::IS_ALIVE | forrustts_tables::NodeFlags::IS_SAMPLE).bits()).unwrap();
     /// assert_eq!(id, 0);
-    /// assert!(tables.node(0).flags & forrustts_tables_trees::NodeFlags::IS_ALIVE.bits() > 0);
-    /// assert!(tables.node(0).flags & forrustts_tables_trees::NodeFlags::IS_SAMPLE.bits() > 0);
+    /// assert!(tables.node(0).flags & forrustts_tables::NodeFlags::IS_ALIVE.bits() > 0);
+    /// assert!(tables.node(0).flags & forrustts_tables::NodeFlags::IS_SAMPLE.bits() > 0);
     ///
     /// let mut nodes = tables.dump_nodes();
     /// assert_eq!(tables.num_nodes(), 0);
@@ -689,8 +719,8 @@ impl TableCollection {
     ///     n.flags = 0; // reset all the flags
     /// }
     /// tables.set_node_table(nodes);
-    /// assert!(tables.node(0).flags & forrustts_tables_trees::NodeFlags::IS_ALIVE.bits() == 0);
-    /// assert!(tables.node(0).flags & forrustts_tables_trees::NodeFlags::IS_SAMPLE.bits() == 0);
+    /// assert!(tables.node(0).flags & forrustts_tables::NodeFlags::IS_ALIVE.bits() == 0);
+    /// assert!(tables.node(0).flags & forrustts_tables::NodeFlags::IS_SAMPLE.bits() == 0);
     /// ```
     pub fn add_node_with_flags<T: Into<Time>, D: Into<DemeId> + Copy>(
         &mut self,
@@ -733,7 +763,7 @@ impl TableCollection {
     /// # Example
     ///
     /// ```
-    /// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+    /// let mut tables = forrustts_tables::TableCollection::new(100).unwrap();
     /// let id = tables.add_edge(0, 3, 5, 9).unwrap();
     /// assert_eq!(id, 0);
     /// ```
@@ -785,7 +815,7 @@ impl TableCollection {
     /// # Example
     ///
     /// ```
-    /// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+    /// let mut tables = forrustts_tables::TableCollection::new(100).unwrap();
     /// // ancestral state is a u9 equal to 3
     /// let id = tables.add_site(3, vec![3]).unwrap();
     /// assert_eq!(id, 0);
@@ -841,7 +871,7 @@ impl TableCollection {
     /// # Example
     ///
     /// ```
-    /// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+    /// let mut tables = forrustts_tables::TableCollection::new(100).unwrap();
     /// // derived state is a u9 equal to 3
     /// let id = tables.add_mutation(0, 1, 0, 0, vec![3], false).unwrap();
     /// assert_eq!(id, 0);
@@ -916,7 +946,7 @@ impl TableCollection {
     /// # Example
     ///
     /// ```
-    /// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+    /// let mut tables = forrustts_tables::TableCollection::new(100).unwrap();
     /// tables.add_node(0, 0).unwrap();
     /// tables.add_node(1, 1).unwrap();
     ///
@@ -946,7 +976,7 @@ impl TableCollection {
     /// # Example
     ///
     /// ```
-    /// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+    /// let mut tables = forrustts_tables::TableCollection::new(100).unwrap();
     /// tables.add_edge(0, 100, 0, 1).unwrap();
     /// tables.add_edge(0, 100, 0, 2).unwrap();
     ///
@@ -976,7 +1006,7 @@ impl TableCollection {
     /// # Example
     ///
     /// ```
-    /// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+    /// let mut tables = forrustts_tables::TableCollection::new(100).unwrap();
     /// tables.add_site(9, None);
     /// tables.add_site(4, None);
     ///
@@ -1006,7 +1036,7 @@ impl TableCollection {
     /// # Example
     ///
     /// ```
-    /// let mut tables = forrustts_tables_trees::TableCollection::new(100).unwrap();
+    /// let mut tables = forrustts_tables::TableCollection::new(100).unwrap();
     /// tables.add_mutation(0, Some(113), 10, 0, None, true);
     /// tables.add_mutation(58, Some(114), 55, 0, None, true);
     ///

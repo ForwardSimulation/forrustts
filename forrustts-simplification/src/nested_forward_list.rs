@@ -22,7 +22,7 @@ pub enum NestedForwardListError {
 }
 
 /// The type used to retrieve data from [`NestedForwardList`].
-pub type IndexType = i32;
+type IndexType = i32;
 
 /// Result type for [``NestedForwardList``] operations.
 pub type Result<T> = std::result::Result<T, NestedForwardListError>;
@@ -96,69 +96,6 @@ impl<'list, Value> Iterator for ListIndexIterator<'list, Value> {
 /// In other words, to access the i-th list, make a request
 /// for the i-th `head`.  Likewise for `tail`.
 ///
-/// # Usage
-///
-/// This section documents typical use.
-/// Other parts of the API exist, but are mostly used internally.
-/// They are `pub` in case anyone finds them useful.
-///
-/// ```
-/// // Our value type will be i32.
-/// type ListType = forrustts_tables_trees::nested_forward_list::NestedForwardList<i32>;
-/// let mut l = ListType::new();
-///
-/// // Create 4 empty lists
-/// l.reset(4);
-/// assert_eq!(l.len(), 4);
-///
-/// // add some data to list starting
-/// // at index 2
-/// l.extend(2, -1);
-///
-/// // There are two methods to traverse the list.
-/// // 1. Explicitly use head/next values:
-///
-/// let mut output = vec![];
-/// // Get the head of this list
-/// let mut n = l.head(2).unwrap();
-/// while n != forrustts_tables_trees::nested_forward_list::NULL_INDEX {
-///    // fetch returns an immutable reference.
-///    output.push(*l.fetch(n).unwrap());
-///    // proceed to the next element
-///    n = l.next(n).unwrap();
-/// }
-/// assert_eq!(output, vec![-1]);
-///
-/// // 2. Use an iterator
-/// output.clear();
-/// for val in l.values_iter(2) {
-///     output.push(*val);
-/// }
-/// assert_eq!(output, vec![-1]);
-///
-/// // We can add data out of order:
-/// l.extend(0, 13).unwrap();
-///
-/// // Adding at a new index > that what we
-/// // asked for with "reset" will automatically
-/// // reallocate.  Create a list starting at index
-/// // 13
-/// l.extend(13, 13512).unwrap();
-/// assert_eq!(l.len(), 14);
-///
-/// // Our existing data are still fine after
-/// // this reallocation:
-/// output.clear();
-/// for val in l.values_iter(2) {
-///     output.push(*val);
-/// }
-/// assert_eq!(output, vec![-1]);
-/// ```
-///
-/// The following functions may be useful:
-///
-/// * [``NestedForwardList::clear``]
-/// * [``NestedForwardList::fetch_mut``]
 pub struct NestedForwardList<Value> {
     head_: Vec<IndexType>,
     tail_: Vec<IndexType>,
@@ -204,12 +141,6 @@ impl<Value> NestedForwardList<Value> {
     }
 
     /// Add an element to a list starting at index `k`.
-    ///
-    /// ```
-    /// type ListType = forrustts_tables_trees::nested_forward_list::NestedForwardList<i32>;
-    /// let mut l = ListType::new();
-    /// l.extend(0, 1).unwrap();
-    /// ```
     pub fn extend(&mut self, k: IndexType, v: Value) -> Result<()> {
         self.check_key(k)?;
 
@@ -339,34 +270,10 @@ impl<Value> NestedForwardList<Value> {
         Ok(self.next_[prev as usize])
     }
 
-    /// Return the null value,
-    /// which is -1.
-    #[inline]
-    #[deprecated(since = "0.3.0", note = "use nested_forward_list::NULL_INDEX instead")]
-    pub fn null() -> IndexType {
-        NULL_INDEX
-    }
-
     /// Get a mutable reference to a `Value`.
     ///
     /// See [``NestedForwardList::fetch``]
     /// to get an immutable reference.
-    ///
-    /// ```
-    /// type ListType = forrustts_tables_trees::nested_forward_list::NestedForwardList<i32>;
-    /// let mut l = ListType::new();
-    /// l.extend(0, 1).unwrap(); // 0
-    /// l.extend(1, 7).unwrap(); // 3
-    /// l.extend(0, 11).unwrap(); // 2
-    ///
-    /// // Go through elements of list starting at 0
-    /// let mut i = l.head(0).unwrap();
-    /// assert_eq!(*l.fetch(i).unwrap(), 1);
-    ///
-    /// // We can change the data contents:
-    /// *l.fetch_mut(i).unwrap() = -33;
-    /// assert_eq!(*l.fetch(i).unwrap(), -33);
-    /// ```    
     #[inline]
     pub fn fetch_mut(&mut self, at: IndexType) -> Result<&mut Value> {
         self.check_key(at)?;
@@ -374,45 +281,8 @@ impl<Value> NestedForwardList<Value> {
         Ok(&mut self.data_[at as usize])
     }
 
-    /// Get a reference to a `Value`.
-    ///
-    /// See [``NestedForwardList::fetch_mut``]
-    /// to get an immutable reference.
-    ///
-    /// ```
-    /// type ListType = forrustts_tables_trees::nested_forward_list::NestedForwardList<i32>;
-    /// let mut l = ListType::new();
-    /// l.extend(0, 1).unwrap(); // 0
-    /// l.extend(1, 7).unwrap(); // 3
-    /// l.extend(0, 11).unwrap(); // 2
-    ///
-    /// // Go through elements of list starting at
-    /// // 0
-    /// let mut i = l.head(0).unwrap();
-    /// assert_eq!(*l.fetch(i).unwrap(), 1);
-    /// i = l.next(i).unwrap();
-    /// assert_eq!(*l.fetch(i).unwrap(), 11);
-    /// ```    
-    #[inline]
-    pub fn fetch(&self, at: IndexType) -> Result<&Value> {
-        self.check_key(at)?;
-        self.check_key_range(at as usize, self.data_.len())?;
-        Ok(&self.data_[at as usize])
-    }
-
     /// Get the index of the head entry of a list
     /// beginning at index `at`.
-    ///
-    /// ```
-    /// type ListType = forrustts_tables_trees::nested_forward_list::NestedForwardList<i32>;
-    /// let mut l = ListType::new();
-    /// l.extend(0, 1).unwrap(); // 0
-    /// l.extend(1, 3).unwrap(); // 1
-    /// l.extend(0, 5).unwrap(); // 2
-    /// l.extend(1, 5).unwrap(); // 3
-    /// assert_eq!(l.head(0).unwrap(), 0);
-    /// assert_eq!(l.head(1).unwrap(), 1);
-    /// ```    
     #[inline]
     pub fn head(&self, at: IndexType) -> Result<IndexType> {
         self.check_key(at)?;
@@ -422,17 +292,6 @@ impl<Value> NestedForwardList<Value> {
 
     /// Get the index of the tail entry
     /// for the i-th list.
-    ///
-    /// ```
-    /// type ListType = forrustts_tables_trees::nested_forward_list::NestedForwardList<i32>;
-    /// let mut l = ListType::new();
-    /// l.extend(0, 1).unwrap(); // 0
-    /// l.extend(1, 3).unwrap(); // 1
-    /// l.extend(0, 5).unwrap(); // 2
-    /// l.extend(1, 5).unwrap(); // 3
-    /// assert_eq!(l.tail(0).unwrap(), 2);
-    /// assert_eq!(l.tail(1).unwrap(), 3);
-    /// ```    
     #[inline]
     pub fn tail(&self, i: IndexType) -> Result<IndexType> {
         self.check_key(i)?;
@@ -441,19 +300,6 @@ impl<Value> NestedForwardList<Value> {
     }
 
     /// Get the index of the next data element in a list
-    ///
-    /// ```
-    /// type ListType = forrustts_tables_trees::nested_forward_list::NestedForwardList<i32>;
-    /// let mut l = ListType::new();
-    /// l.extend(0, 1).unwrap();
-    /// l.extend(1, 3).unwrap();
-    /// l.extend(0, 5).unwrap();
-    /// l.extend(1, 5).unwrap();
-    /// let mut i = l.head(1).unwrap();
-    /// assert_eq!(i, 1);
-    /// let i = l.next(i).unwrap();
-    /// assert_eq!(i, 3);
-    /// ```
     #[inline]
     pub fn next(&self, at: IndexType) -> Result<IndexType> {
         self.check_key(at)?;
@@ -468,42 +314,6 @@ impl<Value> NestedForwardList<Value> {
         self.head_.clear();
         self.tail_.clear();
         self.next_.clear();
-    }
-
-    /// Traverse all data elements for the list
-    /// beginning at index `at`.
-    ///
-    /// The callback returns a [``bool``].
-    /// If the callback returns [``false``], then traversal
-    /// ends, allowing linear searches through the data.
-    ///
-    /// ```
-    /// type ListType = forrustts_tables_trees::nested_forward_list::NestedForwardList<i32>;
-    /// let mut list = ListType::new();
-    /// for i in 0..3 {
-    ///     list.extend(0, 2 * i).unwrap();
-    /// }
-    /// for i in 0..5 {
-    ///     list.extend(1, 3 * i).unwrap();
-    /// }
-    /// let mut output = vec![];
-    /// for val in list.values_iter(0) {
-    ///     output.push(*val);
-    /// }
-    /// assert_eq!(output, vec![0, 2, 4]);
-    /// ```
-    #[deprecated(since = "0.3.0", note = "Use .values_iter instead")]
-    pub fn for_each(&self, at: IndexType, mut f: impl FnMut(&Value) -> bool) -> Result<()> {
-        let mut itr = self.head(at)?;
-        while itr != NULL_INDEX {
-            let val = self.fetch(itr)?;
-            let check = f(val);
-            if !check {
-                break;
-            }
-            itr = self.next(itr)?;
-        }
-        Ok(())
     }
 
     /// Set the head/tail elements of the list
@@ -533,22 +343,6 @@ impl<Value> NestedForwardList<Value> {
     /// 2. Sets the size of the number of lists to `newize`.
     /// 3. The lists are all empty, and this have head/tail
     ///    values of [``NestedForwardList::null``].
-    ///
-    /// ```
-    /// type ListType = forrustts_tables_trees::nested_forward_list::NestedForwardList<i32>;
-    /// let mut l = ListType::new();
-    /// l.extend(0, 1).unwrap();
-    /// l.extend(0, 3).unwrap();
-    /// l.extend(0, 5).unwrap();
-    /// l.extend(1, 4).unwrap();
-    /// assert_eq!(l.len(), 2);
-    /// assert_eq!(l.head(0).unwrap(), 0);
-    /// assert_eq!(l.tail(0).unwrap(), 2);
-    /// l.reset(1);
-    /// assert_eq!(l.len(), 1);
-    /// // The head of this list is now null
-    /// assert_eq!(l.head(0).unwrap(), forrustts_tables_trees::nested_forward_list::NULL_INDEX);
-    /// ```
     pub fn reset(&mut self, newsize: usize) {
         self.clear();
         self.head_.resize(newsize, NULL_INDEX);
@@ -559,41 +353,6 @@ impl<Value> NestedForwardList<Value> {
         // ... so we do this lambda mapping instead
         self.head_.iter_mut().for_each(|x| *x = NULL_INDEX);
         self.tail_.iter_mut().for_each(|x| *x = NULL_INDEX);
-    }
-
-    /// Deprecated
-    #[deprecated(since = "0.3.0", note = "Use .head_iter instead")]
-    pub fn head_itr(&self) -> impl DoubleEndedIterator<Item = &IndexType> + '_ {
-        self.head_iter()
-    }
-
-    /// Obtain an iterator over the vector of list
-    /// heads.
-    ///
-    /// ```
-    /// type ListType = forrustts_tables_trees::nested_forward_list::NestedForwardList<i32>;
-    /// let mut l = ListType::new();
-    /// l.extend(0, 1).unwrap();
-    /// l.extend(0, 3).unwrap();
-    /// l.extend(0, 5).unwrap();
-    /// l.extend(1, -11).unwrap();
-    /// // List 0 starts at index 0
-    /// // and lines 1 starts at index 3
-    /// let heads = vec![0, 3];
-    /// for (i, j) in l.head_iter().enumerate() {
-    ///     assert_eq!(*j, heads[i]);
-    /// }
-    ///
-    /// let mut output = vec![];
-    /// for i in 0..l.len() {
-    ///     for val in l.values_iter(i as forrustts_tables_trees::nested_forward_list::IndexType) {
-    ///         output.push(*val);
-    ///     }
-    /// }
-    /// assert_eq!(output, vec![1,3,5,-11]);
-    /// ```
-    pub fn head_iter(&self) -> impl DoubleEndedIterator<Item = &IndexType> + '_ {
-        self.head_.iter()
     }
 
     /// Return an [`Iterator`] over the values in a given list.
@@ -624,11 +383,6 @@ impl<Value> NestedForwardList<Value> {
         }
     }
 
-    /// Return an iterator over the head indexes
-    pub fn index(&self) -> std::ops::Range<IndexType> {
-        0..self.len() as IndexType
-    }
-
     /// Return an iterator over the reversed head indexes
     pub fn index_rev(&self) -> std::iter::Rev<std::ops::Range<IndexType>> {
         (0..self.len() as IndexType).rev()
@@ -636,30 +390,8 @@ impl<Value> NestedForwardList<Value> {
 
     /// Return length of the vector
     /// of list heads.
-    ///
-    /// ```
-    /// type ListType = forrustts_tables_trees::nested_forward_list::NestedForwardList<i32>;
-    /// let mut l = ListType::new();
-    /// assert_eq!(l.len(), 0);
-    /// l.extend(10, 1);
-    /// assert_eq!(l.len(), 11);
-    /// ```
     pub fn len(&self) -> usize {
         self.head_.len()
-    }
-
-    /// Return [``true``] if the
-    /// vector of list heads is empty.
-    ///
-    /// ```
-    /// type ListType = forrustts_tables_trees::nested_forward_list::NestedForwardList<i32>;
-    /// let mut l = ListType::new();
-    /// assert_eq!(l.is_empty(), true);
-    /// l.extend(10, 1);
-    /// assert_eq!(l.is_empty(), false);
-    /// ```
-    pub fn is_empty(&self) -> bool {
-        self.head_.is_empty()
     }
 }
 
@@ -693,11 +425,11 @@ mod tests {
 
     #[test]
     fn test_head_tail() {
-        let list = make_data_for_testing();
-        assert_eq!(*list.fetch(list.head(0).unwrap()).unwrap(), 0);
-        assert_eq!(*list.fetch(list.tail(0).unwrap()).unwrap(), 4);
-        assert_eq!(*list.fetch(list.head(1).unwrap()).unwrap(), 0);
-        assert_eq!(*list.fetch(list.tail(1).unwrap()).unwrap(), 12);
+        let mut list = make_data_for_testing();
+        assert_eq!(*list.fetch_mut(list.head(0).unwrap()).unwrap(), 0);
+        assert_eq!(*list.fetch_mut(list.tail(0).unwrap()).unwrap(), 4);
+        assert_eq!(*list.fetch_mut(list.head(1).unwrap()).unwrap(), 0);
+        assert_eq!(*list.fetch_mut(list.tail(1).unwrap()).unwrap(), 12);
     }
 
     #[test]
@@ -706,7 +438,7 @@ mod tests {
         let x = list.tail(1).unwrap();
         let y = list.fetch_mut(x).unwrap();
         *y += 1;
-        assert_eq!(*list.fetch(list.tail(1).unwrap()).unwrap(), 13);
+        assert_eq!(*list.fetch_mut(list.tail(1).unwrap()).unwrap(), 13);
     }
 
     #[test]
@@ -717,17 +449,17 @@ mod tests {
         let x = list.tail(0).unwrap();
         let y = list.fetch_mut(x).unwrap();
         y.datum = 111;
-        assert_eq!(list.fetch(list.tail(0).unwrap()).unwrap().datum, 111);
+        assert_eq!(list.fetch_mut(list.tail(0).unwrap()).unwrap().datum, 111);
     }
 
     #[test]
     fn test_explicit_data_round_trip() {
-        let list = make_data_for_testing();
+        let mut list = make_data_for_testing();
 
         let mut output = Vec::<i32>::new();
         let mut itr = list.head(0).unwrap();
         while itr != NULL_INDEX {
-            let val = list.fetch(itr).unwrap();
+            let val = list.fetch_mut(itr).unwrap();
             output.push(*val);
             itr = list.next(itr).unwrap();
         }
@@ -741,7 +473,7 @@ mod tests {
 
         itr = list.head(1).unwrap();
         while itr != NULL_INDEX {
-            let val = list.fetch(itr).unwrap();
+            let val = list.fetch_mut(itr).unwrap();
             output.push(*val);
             itr = list.next(itr).unwrap();
         }
@@ -776,37 +508,6 @@ mod tests {
     }
 
     #[test]
-    fn test_head_forward_iteration() {
-        let list = make_data_for_testing();
-        let mut output = Vec::<i32>::new();
-        for (i, _) in list.head_iter().enumerate() {
-            for j in list.values_iter(i as IndexType) {
-                output.push(*j);
-            }
-        }
-        assert_eq!(output.len(), 8);
-        for (idx, val) in output.iter().enumerate().take(3) {
-            assert_eq!(2 * idx, *val as usize);
-        }
-        for (idx, val) in output.iter().enumerate().skip(3) {
-            assert_eq!(3 * (idx - 3), *val as usize);
-        }
-
-        output.clear();
-        for i in list.index() {
-            for j in list.values_iter(i as IndexType) {
-                output.push(*j);
-            }
-        }
-        for (idx, val) in output.iter().enumerate().take(3) {
-            assert_eq!(2 * idx, *val as usize);
-        }
-        for (idx, val) in output.iter().enumerate().skip(3) {
-            assert_eq!(3 * (idx - 3), *val as usize);
-        }
-    }
-
-    #[test]
     fn test_head_reverse_iteration() {
         let list = make_data_for_testing();
         let mut output = Vec::<i32>::new();
@@ -825,46 +526,6 @@ mod tests {
     }
 
     #[test]
-    fn test_drop_value_from_list_at() {
-        let mut list = make_data_for_testing();
-        let mut h = list.head(1).unwrap();
-
-        let mut at = h;
-        at = list.next(at).unwrap();
-        let v = *list.fetch(at).unwrap();
-
-        let x = list.drop_value_from_list_at(1, h, at).unwrap();
-        assert_eq!(list.next(h).unwrap(), x);
-        for val in list.values_iter(1) {
-            assert_ne!(*val, v);
-        }
-
-        // Test removing a tail element
-        list = make_data_for_testing();
-        h = list.head(1).unwrap();
-        at = h;
-        let mut prev: IndexType = NULL_INDEX;
-        let mut results = vec![];
-        while at != NULL_INDEX {
-            results.push(*list.fetch(at).unwrap());
-            if at != list.tail(1).unwrap() {
-                prev = at;
-            }
-            at = list.next(at).unwrap();
-        }
-        let mut results_after_remove = vec![];
-        let x = list
-            .drop_value_from_list_at(1, prev, list.tail(1).unwrap())
-            .unwrap();
-        assert_eq!(x, NULL_INDEX);
-        for v in list.values_iter(1) {
-            results_after_remove.push(*v);
-        }
-        assert_eq!(results.len() - 1, results_after_remove.len());
-        assert_eq!(prev, list.tail(1).unwrap());
-    }
-
-    #[test]
     fn test_insert_after() {
         let mut list = make_data_for_testing();
         let h = list.head(1).unwrap();
@@ -880,6 +541,6 @@ mod tests {
         }
         assert_eq!(v, -77);
         let t = list.tail(1).unwrap();
-        assert_eq!(*list.fetch(t).unwrap(), -77);
+        assert_eq!(*list.fetch_mut(t).unwrap(), -77);
     }
 }

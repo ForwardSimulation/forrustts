@@ -12,5 +12,4 @@ keywords = ["simulation", "tree_sequences", "tskit", "population_genetics"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-num-traits = "0.2.14"
 thiserror = "1.0"

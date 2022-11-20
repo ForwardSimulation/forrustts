@@ -14,11 +14,15 @@
 //!
 //! In the `examples/` directory of the project repository.
 
-// FIXME: we are confusing necessary exports with
-// what should be in a prelude?
 pub use forrustts_core::newtypes::*;
-pub use forrustts_tables_trees::prelude::*;
-pub use forrustts_tskit::export_tables;
-pub use forrustts_tskit::TableCollectionExportFlags;
+pub use forrustts_simplification::*;
+pub use forrustts_tables::*;
+pub use forrustts_trees::*;
 
 pub mod genetic_maps;
+pub mod tskit_export;
+
+/// Get the forrustts version number.
+pub fn version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}

@@ -29,7 +29,7 @@ impl tskit::metadata::PopulationMetadata for Metadata {}
 impl tskit::metadata::NodeMetadata for Metadata {}
 
 struct TablesWithMetadata {
-    tables: forrustts_tables_trees::TableCollection,
+    tables: forrustts_tables::TableCollection,
     metadata: Vec<Metadata>,
 }
 
@@ -39,7 +39,7 @@ fn make_reverser() -> impl Fn(forrustts_core::newtypes::Time) -> f64 {
 
 impl Default for TablesWithMetadata {
     fn default() -> Self {
-        let mut tables = forrustts_tables_trees::TableCollection::new(10000).unwrap();
+        let mut tables = forrustts_tables::TableCollection::new(10000).unwrap();
 
         let node_id = tables.add_node(1, 0).unwrap();
         let site_id = tables.add_site(500, None).unwrap();
