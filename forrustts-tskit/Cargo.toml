@@ -14,11 +14,11 @@ keywords = ["simulation", "tree_sequences", "tskit", "population_genetics"]
 [dev-dependencies]
 serde = {version = "1.0.118", features = ["derive"]}
 serde_json = "1.0.67"
-tskit = {version = "0.11.1", features = ["derive"]}
+tskit = {version = "0.12.0", features = ["derive"]}
 
 [dependencies]
 bitflags = "1.2.1"
 forrustts-core = { version = "0.1.0", path = "../forrustts-core" }
 forrustts-tables = { version = "0.1.0", path = "../forrustts-tables" }
 thiserror = "1.0"
-tskit = "0.11.1"
+tskit = "0.12.0"
