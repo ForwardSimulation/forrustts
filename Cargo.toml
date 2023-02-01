@@ -27,7 +27,7 @@ codegen-units = 1
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dev-dependencies]
 bitflags = "1.2.1"
-clap = "~3.1.8"
+clap = "~4.1.4"
 streaming-iterator = "0.1.5"
 rand = "0.8.5"
 rand_distr = "0.4.3"
