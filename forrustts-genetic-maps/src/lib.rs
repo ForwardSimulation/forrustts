@@ -67,7 +67,7 @@ impl PositionVec {
 #[derive(Debug)]
 pub struct BoxedGeneticMap<T>
 where
-    T: Rng + Send + Sync,
+    T: Send + Sync,
 {
     map: Vec<Box<dyn GeneticMapElement<T>>>,
     breakpoints: PositionVec,
@@ -75,7 +75,7 @@ where
 
 impl<T> BoxedGeneticMap<T>
 where
-    T: Rng + Send + Sync,
+    T: Send + Sync,
 {
     pub fn new() -> Self {
         Self::default()
@@ -95,7 +95,7 @@ where
 
 impl<T> Default for BoxedGeneticMap<T>
 where
-    T: Rng + Send + Sync,
+    T: Send + Sync,
 {
     fn default() -> Self {
         Self {
@@ -107,7 +107,7 @@ where
 
 impl<T> GeneticMap<T> for BoxedGeneticMap<T>
 where
-    T: Rng + Send + Sync,
+    T: Send + Sync,
 {
     fn generate_breakpoints(&mut self, rng: &mut T) {
         self.breakpoints.0.clear();

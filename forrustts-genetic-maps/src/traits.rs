@@ -1,11 +1,7 @@
 use core::fmt::Debug;
 use forrustts_core::newtypes::Position;
-use rand::Rng;
 
-pub trait GeneticMapElementCore<T>
-where
-    T: Rng,
-{
+pub trait GeneticMapElementCore<T> {
     fn begin(&self) -> Position;
     fn end(&self) -> Position;
     fn generate_breakpoints(&self, rng: &mut T, breakpoints: &mut crate::PositionVec);
@@ -24,21 +20,18 @@ where
 
 pub trait GeneticMapElement<T>: GeneticMapElementCore<T> + Send + Sync + Debug
 where
-    T: Rng + Send + Sync,
+    T: Send + Sync + Debug,
 {
 }
 
 impl<G, T> GeneticMapElement<T> for G
 where
     G: GeneticMapElementCore<T> + Send + Sync + Debug,
-    T: Rng + Send + Sync + Debug,
+    T: Send + Sync + Debug,
 {
 }
 
-pub trait GeneticMap<T>
-where
-    T: Rng,
-{
+pub trait GeneticMap<T> {
     fn generate_breakpoints(&mut self, rng: &mut T);
     fn breakpoints(&self) -> &[Position];
 }
