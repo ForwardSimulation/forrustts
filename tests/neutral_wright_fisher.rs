@@ -497,7 +497,7 @@ fn mutate_tables<R: rand::Rng>(mutrate: f64, tables: &mut TableCollection, rng: 
         let ptime = tables.node(e.parent).time.raw();
         let ctime = tables.node(e.child).time.raw();
         let blen = ctime - ptime;
-        assert!((blen as i64) > 0, "{} {} {}", blen, ptime, ctime,);
+        assert!(blen > 0, "{} {} {}", blen, ptime, ctime,);
 
         let pedge = ((i64::from(e.right) - i64::from(e.left)) as f64)
             / (i64::from(tables.genome_length()) as f64);

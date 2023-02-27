@@ -1190,7 +1190,7 @@ pub fn simplify_from_edge_buffer(
             )?;
         }
         if ex.start != usize::MAX {
-            while (edge_i as usize) < ex.start
+            while edge_i < ex.start
                 && input_tables.nodes[input_tables.edges[edge_i].parent.raw() as usize].time
                     >= input_tables.nodes[ex.parent.raw() as usize].time
             {
