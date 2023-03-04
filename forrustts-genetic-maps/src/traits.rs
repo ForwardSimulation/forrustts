@@ -1,12 +1,17 @@
 use core::fmt::Debug;
 use forrustts_core::newtypes::Position;
 
+pub trait PoissonCrossoverRegion {}
+pub trait BinomialCrossoverRegion {}
+pub trait FixedNumberOfCrossoverRegion {}
+
 pub trait GeneticMapElementCore<T> {
     fn begin(&self) -> Position;
     fn end(&self) -> Position;
     fn generate_breakpoints(&self, rng: &mut T, breakpoints: &mut crate::PositionVec);
 
     fn valid(&self, genome_length: Position) -> bool {
+        todo!("this is wrong -- the traits above are where the action must be");
         self.begin() >= 0
             && self.begin() < genome_length
             && self.begin() < self.end()
