@@ -131,22 +131,24 @@ pub struct PoissonInterval {
     beg: Position,
     end: Position,
     mean: f64,
-    dist: rand_distr::Poisson<f64>,
     uniform: rand::distributions::Uniform<i64>,
 }
 
 impl PoissonInterval {
     pub fn new<P: Into<Position> + Copy>(beg: P, end: P, mean: f64) -> Option<Self> {
-        Some(Self {
-            beg: beg.into(),
-            end: end.into(),
-            mean,
-            dist: rand_distr::Poisson::new(mean).ok()?,
-            uniform: rand::distributions::Uniform::new(
-                i64::from(beg.into()),
-                i64::from(end.into()),
-            ),
-        })
+        if mean < 0.0 || !mean.is_finite() {
+            None
+        } else {
+            Some(Self {
+                beg: beg.into(),
+                end: end.into(),
+                mean,
+                uniform: rand::distributions::Uniform::new(
+                    i64::from(beg.into()),
+                    i64::from(end.into()),
+                ),
+            })
+        }
     }
 }
 
@@ -175,10 +177,7 @@ where
     }
 
     fn generate_breakpoints(&self, rng: &mut T, breakpoints: &mut PositionVec) {
-        let n = rng.sample(self.dist) as u32;
-        for _ in 0..n {
-            breakpoints.push(rng.sample(self.uniform).into());
-        }
+        breakpoints.push(rng.sample(self.uniform).into());
     }
 }
 
@@ -224,10 +223,8 @@ where
         self.position
     }
 
-    fn generate_breakpoints(&self, rng: &mut T, breakpoints: &mut PositionVec) {
-        if rng.sample(self.dist) {
-            breakpoints.push(self.position);
-        }
+    fn generate_breakpoints(&self, _rng: &mut T, breakpoints: &mut PositionVec) {
+        breakpoints.push(self.position);
     }
 }
 
@@ -280,9 +277,7 @@ where
     }
 
     fn generate_breakpoints(&self, rng: &mut T, breakpoints: &mut PositionVec) {
-        if rng.sample(self.dist) {
-            breakpoints.push(rng.sample(self.uniform).into());
-        }
+        breakpoints.push(rng.sample(self.uniform).into());
     }
 }
 
