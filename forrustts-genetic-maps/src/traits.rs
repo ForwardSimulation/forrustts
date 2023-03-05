@@ -13,6 +13,7 @@ pub trait FixedNumberOfCrossoverRegion {
     fn num_breakpoints(&self) -> u32;
 }
 
+// NOTE: Should be "single breakpoint"?
 pub trait GeneticMapElementCore<T> {
     fn begin(&self) -> Position;
     fn end(&self) -> Position;
