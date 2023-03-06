@@ -7,7 +7,7 @@ pub trait PoissonCrossoverRegion<T>: CrossoverPosition<T> {
 
 // NOTE: this is conceptually messy later, when
 // we want to think about GC
-pub trait BinomialCrossoverRegion<T>: CrossoverPosition<T> {
+pub trait BernoulliCrossoverRegion<T>: CrossoverPosition<T> {
     fn prob(&self) -> f64;
 }
 
