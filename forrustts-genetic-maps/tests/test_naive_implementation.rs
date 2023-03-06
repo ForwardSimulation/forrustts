@@ -133,8 +133,7 @@ where
     T: Rng,
 {
     regions: Vec<Box<dyn forrustts_genetic_maps::PoissonCrossoverRegion<T>>>,
-    lookup: WeightedAliasIndex<f64>, // O(n) construction, O(1) lookup
-    dist: rand_distr::Poisson<f64>,
+    poissons: Vec<rand_distr::Poisson<f64>>,
     breakpoints: Vec<Position>,
 }
 
@@ -143,15 +142,16 @@ where
     T: Rng,
 {
     fn new(regions: Vec<Box<dyn forrustts_genetic_maps::PoissonCrossoverRegion<T>>>) -> Self {
-        let mut weights = vec![];
-        regions.iter().for_each(|i| weights.push(i.mean()));
-        let total_rate = weights.iter().sum();
-        let lookup = WeightedAliasIndex::new(weights).unwrap();
-        let dist = rand_distr::Poisson::new(total_rate).unwrap();
+        let mut poissons = vec![];
+        for r in regions.iter() {
+            if r.mean() > 0.0 {
+                let p = rand_distr::Poisson::new(r.mean()).unwrap();
+                poissons.push(p);
+            }
+        }
         Self {
             regions,
-            lookup,
-            dist,
+            poissons,
             breakpoints: vec![],
         }
     }
@@ -167,12 +167,12 @@ where
 
     fn generate_breakpoints(&mut self, rng: &mut T) {
         self.breakpoints.clear();
-        let nbreakpoints = rng.sample(self.dist) as u32;
-        for _ in 0..nbreakpoints {
-            let region = rng.sample(&self.lookup);
-            assert!(region < self.regions.len());
-            let pos = self.regions[region].generate_breakpoint(rng);
-            self.breakpoints.push(pos);
+        for (i, p) in self.poissons.iter().enumerate() {
+            let n = rng.sample(p) as u32;
+            for _ in 0..n {
+                self.breakpoints
+                    .push(self.regions[i].generate_breakpoint(rng));
+            }
         }
         self.breakpoints.sort();
     }
@@ -218,6 +218,35 @@ fn test_two_regions() {
     let mut rng = StdRng::seed_from_u64(42);
 
     let mut builder = PoissonMapBuilder::<StdRng>::default();
+    builder.add_region(PoissonInterval::new(10.0, 0.into(), 100.into()));
+    builder.add_region(PoissonInterval::new(0.0, 0.into(), 100.into()));
+    let mut map = builder.build();
+
+    let mut some = false;
+    for _ in 0..100 {
+        map.generate_breakpoints(&mut rng);
+        if !map.breakpoints.is_empty() {
+            some = true;
+        }
+        assert!(map.breakpoints.iter().all(|x| x < &100));
+
+        // assert sorted
+        assert!(map.breakpoints.windows(2).all(|w| w[0] <= w[1]));
+    }
+
+    // Here, we're just asserting that we did indeed
+    // generate ANY breakpoints...
+    assert!(some);
+}
+
+#[test]
+fn test_two_regions_naive() {
+    // put the trait in scope
+    use forrustts_genetic_maps::GeneticMap;
+    use rand::rngs::StdRng;
+    let mut rng = StdRng::seed_from_u64(42);
+
+    let mut builder = NaivePoissonMapBuilder::<StdRng>::default();
     builder.add_region(PoissonInterval::new(10.0, 0.into(), 100.into()));
     builder.add_region(PoissonInterval::new(0.0, 0.into(), 100.into()));
     let mut map = builder.build();
