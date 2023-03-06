@@ -1,15 +1,17 @@
 use core::fmt::Debug;
 use forrustts_core::newtypes::Position;
 
-pub trait PoissonCrossoverRegion {
+pub trait PoissonCrossoverRegion<T>: CrossoverPosition<T> {
     fn mean(&self) -> f64;
 }
 
-pub trait BinomialCrossoverRegion {
+// NOTE: this is conceptually messy later, when
+// we want to think about GC
+pub trait BinomialCrossoverRegion<T>: CrossoverPosition<T> {
     fn prob(&self) -> f64;
 }
 
-pub trait FixedNumberOfCrossoverRegion {
+pub trait FixedNumberOfCrossoverRegion<T>: CrossoverPosition<T> {
     fn num_breakpoints(&self) -> u32;
 }
 
