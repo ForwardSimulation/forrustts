@@ -92,6 +92,7 @@ where
             let pos = self.regions[region].generate_breakpoint(rng);
             self.breakpoints.push(pos);
         }
+        self.breakpoints.sort();
     }
 }
 
@@ -114,6 +115,12 @@ fn test_two_regions() {
             some = true;
         }
         assert!(map.breakpoints.iter().all(|x| x < &100));
+
+        // assert sorted
+        assert!(map.breakpoints.windows(2).all(|w| w[0] <= w[1]));
     }
+
+    // Here, we're just asserting that we did indeed
+    // generate ANY breakpoints...
     assert!(some);
 }
