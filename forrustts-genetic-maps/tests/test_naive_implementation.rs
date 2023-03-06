@@ -46,17 +46,23 @@ where
     }
 }
 
-struct PoissonGeneticMap {
-    regions: Vec<PoissonInterval>,
+struct PoissonGeneticMap<T>
+where
+    T: Rng,
+{
+    regions: Vec<Box<dyn forrustts_genetic_maps::PoissonCrossoverRegion<T>>>,
     lookup: WeightedAliasIndex<f64>, // O(n) construction, O(1) lookup
     dist: rand_distr::Poisson<f64>,
     breakpoints: Vec<Position>,
 }
 
-impl PoissonGeneticMap {
-    fn new(regions: Vec<PoissonInterval>) -> Self {
+impl<T> PoissonGeneticMap<T>
+where
+    T: Rng,
+{
+    fn new(regions: Vec<Box<dyn forrustts_genetic_maps::PoissonCrossoverRegion<T>>>) -> Self {
         let mut weights = vec![];
-        regions.iter().for_each(|i| weights.push(i.mean));
+        regions.iter().for_each(|i| weights.push(i.mean()));
         let total_rate = weights.iter().sum();
         let lookup = WeightedAliasIndex::new(weights).unwrap();
         let dist = rand_distr::Poisson::new(total_rate).unwrap();
@@ -69,7 +75,7 @@ impl PoissonGeneticMap {
     }
 }
 
-impl<T> forrustts_genetic_maps::GeneticMap<T> for PoissonGeneticMap
+impl<T> forrustts_genetic_maps::GeneticMap<T> for PoissonGeneticMap<T>
 where
     T: Rng,
 {
@@ -83,8 +89,8 @@ where
         for _ in 0..nbreakpoints {
             let region = rng.sample(&self.lookup);
             assert!(region < self.regions.len());
-            let pos = rng.sample(self.regions[region].uniform);
-            self.breakpoints.push(pos.into());
+            let pos = self.regions[region].generate_breakpoint(rng);
+            self.breakpoints.push(pos);
         }
     }
 }
@@ -95,9 +101,9 @@ fn test_two_regions() {
     use forrustts_genetic_maps::GeneticMap;
     use rand::rngs::StdRng;
     let mut rng = StdRng::seed_from_u64(42);
-    let regions = vec![
-        PoissonInterval::new(10.0, 0.into(), 100.into()),
-        PoissonInterval::new(0.0, 100.into(), 200.into()),
+    let regions: Vec<Box<dyn forrustts_genetic_maps::PoissonCrossoverRegion<StdRng>>> = vec![
+        Box::new(PoissonInterval::new(10.0, 0.into(), 100.into())),
+        Box::new(PoissonInterval::new(0.0, 100.into(), 200.into())),
     ];
     let mut map = PoissonGeneticMap::new(regions);
 
