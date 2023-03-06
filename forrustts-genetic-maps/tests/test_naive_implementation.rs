@@ -96,17 +96,49 @@ where
     }
 }
 
+struct PoissonMapBuilder<T>
+where
+    T: Rng,
+{
+    regions: Vec<Box<dyn forrustts_genetic_maps::PoissonCrossoverRegion<T>>>,
+}
+
+impl<T> Default for PoissonMapBuilder<T>
+where
+    T: Rng,
+{
+    fn default() -> Self {
+        Self { regions: vec![] }
+    }
+}
+
+impl<T> PoissonMapBuilder<T>
+where
+    T: Rng,
+{
+    fn add_region<P>(&mut self, region: P)
+    where
+        P: forrustts_genetic_maps::PoissonCrossoverRegion<T> + 'static,
+    {
+        self.regions.push(Box::new(region));
+    }
+
+    fn build(self) -> PoissonGeneticMap<T> {
+        PoissonGeneticMap::new(self.regions)
+    }
+}
+
 #[test]
 fn test_two_regions() {
     // put the trait in scope
     use forrustts_genetic_maps::GeneticMap;
     use rand::rngs::StdRng;
     let mut rng = StdRng::seed_from_u64(42);
-    let regions: Vec<Box<dyn forrustts_genetic_maps::PoissonCrossoverRegion<StdRng>>> = vec![
-        Box::new(PoissonInterval::new(10.0, 0.into(), 100.into())),
-        Box::new(PoissonInterval::new(0.0, 100.into(), 200.into())),
-    ];
-    let mut map = PoissonGeneticMap::new(regions);
+
+    let mut builder = PoissonMapBuilder::<StdRng>::default();
+    builder.add_region(PoissonInterval::new(10.0, 0.into(), 100.into()));
+    builder.add_region(PoissonInterval::new(0.0, 0.into(), 100.into()));
+    let mut map = builder.build();
 
     let mut some = false;
     for _ in 0..100 {
