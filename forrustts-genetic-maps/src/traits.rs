@@ -14,10 +14,10 @@ pub trait FixedNumberOfCrossoverRegion {
 }
 
 // NOTE: Should be "single breakpoint"?
-pub trait GeneticMapElementCore<T> {
+pub trait CrossoverPosition<T> {
     fn begin(&self) -> Position;
     fn end(&self) -> Position;
-    fn generate_breakpoints(&self, rng: &mut T, breakpoints: &mut crate::PositionVec);
+    fn generate_breakpoint(&self, rng: &mut T) -> Position;
 
     fn valid(&self, genome_length: Position) -> bool {
         self.begin() >= 0
@@ -31,7 +31,7 @@ pub trait GeneticMapElementCore<T> {
     }
 }
 
-pub trait GeneticMapElement<T>: GeneticMapElementCore<T> + Send + Sync + Debug
+pub trait GeneticMapElement<T>: CrossoverPosition<T> + Send + Sync + Debug
 where
     T: Send + Sync + Debug,
 {
@@ -39,7 +39,7 @@ where
 
 impl<G, T> GeneticMapElement<T> for G
 where
-    G: GeneticMapElementCore<T> + Send + Sync + Debug,
+    G: CrossoverPosition<T> + Send + Sync + Debug,
     T: Send + Sync + Debug,
 {
 }

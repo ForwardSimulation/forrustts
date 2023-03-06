@@ -164,7 +164,7 @@ impl std::fmt::Display for PoissonInterval {
     }
 }
 
-impl<T> GeneticMapElementCore<T> for PoissonInterval
+impl<T> CrossoverPosition<T> for PoissonInterval
 where
     T: Rng,
 {
@@ -176,8 +176,8 @@ where
         self.end
     }
 
-    fn generate_breakpoints(&self, rng: &mut T, breakpoints: &mut PositionVec) {
-        breakpoints.push(rng.sample(self.uniform).into());
+    fn generate_breakpoint(&self, rng: &mut T) -> Position {
+        rng.sample(self.uniform).into()
     }
 }
 
@@ -210,7 +210,7 @@ impl std::fmt::Display for BinomialPoint {
     }
 }
 
-impl<T> GeneticMapElementCore<T> for BinomialPoint
+impl<T> CrossoverPosition<T> for BinomialPoint
 where
     T: Rng,
 {
@@ -223,8 +223,8 @@ where
         self.position
     }
 
-    fn generate_breakpoints(&self, _rng: &mut T, breakpoints: &mut PositionVec) {
-        breakpoints.push(self.position);
+    fn generate_breakpoint(&self, _rng: &mut T) -> Position {
+        self.position
     }
 }
 
@@ -264,7 +264,7 @@ impl std::fmt::Display for BinomialInterval {
     }
 }
 
-impl<T> GeneticMapElementCore<T> for BinomialInterval
+impl<T> CrossoverPosition<T> for BinomialInterval
 where
     T: Rng,
 {
@@ -276,8 +276,8 @@ where
         self.end
     }
 
-    fn generate_breakpoints(&self, rng: &mut T, breakpoints: &mut PositionVec) {
-        breakpoints.push(rng.sample(self.uniform).into());
+    fn generate_breakpoint(&self, rng: &mut T) -> Position {
+        rng.sample(self.uniform).into()
     }
 }
 
