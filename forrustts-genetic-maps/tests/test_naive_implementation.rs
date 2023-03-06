@@ -128,6 +128,35 @@ where
     }
 }
 
+struct NaivePoissonGeneticMap<T>
+where
+    T: Rng,
+{
+    regions: Vec<Box<dyn forrustts_genetic_maps::PoissonCrossoverRegion<T>>>,
+    lookup: WeightedAliasIndex<f64>, // O(n) construction, O(1) lookup
+    dist: rand_distr::Poisson<f64>,
+    breakpoints: Vec<Position>,
+}
+
+impl<T> NaivePoissonGeneticMap<T>
+where
+    T: Rng,
+{
+    fn new(regions: Vec<Box<dyn forrustts_genetic_maps::PoissonCrossoverRegion<T>>>) -> Self {
+        let mut weights = vec![];
+        regions.iter().for_each(|i| weights.push(i.mean()));
+        let total_rate = weights.iter().sum();
+        let lookup = WeightedAliasIndex::new(weights).unwrap();
+        let dist = rand_distr::Poisson::new(total_rate).unwrap();
+        Self {
+            regions,
+            lookup,
+            dist,
+            breakpoints: vec![],
+        }
+    }
+}
+
 #[test]
 fn test_two_regions() {
     // put the trait in scope
