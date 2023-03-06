@@ -157,6 +157,59 @@ where
     }
 }
 
+impl<T> forrustts_genetic_maps::GeneticMap<T> for NaivePoissonGeneticMap<T>
+where
+    T: Rng,
+{
+    fn breakpoints(&self) -> &[Position] {
+        &self.breakpoints
+    }
+
+    fn generate_breakpoints(&mut self, rng: &mut T) {
+        self.breakpoints.clear();
+        let nbreakpoints = rng.sample(self.dist) as u32;
+        for _ in 0..nbreakpoints {
+            let region = rng.sample(&self.lookup);
+            assert!(region < self.regions.len());
+            let pos = self.regions[region].generate_breakpoint(rng);
+            self.breakpoints.push(pos);
+        }
+        self.breakpoints.sort();
+    }
+}
+
+struct NaivePoissonMapBuilder<T>
+where
+    T: Rng,
+{
+    regions: Vec<Box<dyn forrustts_genetic_maps::PoissonCrossoverRegion<T>>>,
+}
+
+impl<T> Default for NaivePoissonMapBuilder<T>
+where
+    T: Rng,
+{
+    fn default() -> Self {
+        Self { regions: vec![] }
+    }
+}
+
+impl<T> NaivePoissonMapBuilder<T>
+where
+    T: Rng,
+{
+    fn add_region<P>(&mut self, region: P)
+    where
+        P: forrustts_genetic_maps::PoissonCrossoverRegion<T> + 'static,
+    {
+        self.regions.push(Box::new(region));
+    }
+
+    fn build(self) -> NaivePoissonGeneticMap<T> {
+        NaivePoissonGeneticMap::new(self.regions)
+    }
+}
+
 #[test]
 fn test_two_regions() {
     // put the trait in scope
