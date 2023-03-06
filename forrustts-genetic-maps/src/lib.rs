@@ -1,49 +1,4 @@
 //! Building genetic maps
-//!
-//! # Example
-//!
-//! ```
-//! # use forrustts_core::newtypes::Position;
-//! use forrustts_genetic_maps::GeneticMapElementCore;
-//! use forrustts_genetic_maps::GeneticMapElement;
-//! use forrustts_genetic_maps::PositionVec;
-//!
-//! #[derive(Copy, Clone, Debug)]
-//! struct ExactlyOneCrossover {
-//!     beg: Position,
-//!     end: Position,
-//!     uniform: rand::distributions::Uniform<i64>,
-//! }
-//!
-//! impl ExactlyOneCrossover {
-//!     fn new<P: Into<Position> + Copy>(beg: P, end: P) -> Self {
-//!         let beg = beg.into();
-//!         let end = end.into();
-//!         let uniform = rand::distributions::Uniform::new(i64::from(beg), i64::from(end));
-//!         Self{beg,
-//!              end,
-//!              uniform
-//!         }
-//!     }
-//! }
-//!
-//! impl<T> forrustts_genetic_maps::GeneticMapElementCore<T> for ExactlyOneCrossover
-//! where T: rand::Rng {
-//!     fn begin(&self) -> Position {
-//!         self.beg
-//!     }
-//!     fn end(&self) -> Position {
-//!         self.end
-//!     }
-//!     fn generate_breakpoints(&self, rng: &mut T, breakpoints: &mut PositionVec) {
-//!         breakpoints.push(rng.sample(self.uniform).into())
-//!     }
-//! }
-//!
-//! let e = ExactlyOneCrossover::new(0, 100);
-//! let v: Vec<Box<dyn GeneticMapElement<rand::rngs::StdRng>>> = vec![Box::new(e)];
-//! let genetic_map = forrustts_genetic_maps::BoxedGeneticMap::new_from_vec(v);
-//! ```
 
 use forrustts_core::newtypes::Position;
 use rand::Rng;
