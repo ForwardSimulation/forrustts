@@ -11,6 +11,8 @@ forrustts-core = { version = "0.1.0", path = "../forrustts-core" }
 [dev-dependencies]
 rand = "0.8.5"
 rand_distr = "0.4.3"
+bencher = "0.1.5"
 
-[features]
-bench = [] # requires nightly
+[[bench]]
+name = "naive_vs_efficient"
+harness = false
