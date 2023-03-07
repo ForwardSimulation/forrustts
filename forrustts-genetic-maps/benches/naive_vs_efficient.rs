@@ -235,7 +235,7 @@ fn build_naive(total_rate: f64, num_regions: u32) -> NaivePoissonGeneticMap<rand
     for _ in 0..num_regions {
         builder.add_region(PoissonInterval::new(rate_per_region, 0.into(), 100.into()));
     }
-     builder.build()
+    builder.build()
 }
 
 fn run_efficient_100(bench: &mut Bencher) {
