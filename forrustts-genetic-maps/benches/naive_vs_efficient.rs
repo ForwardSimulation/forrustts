@@ -222,7 +222,7 @@ fn efficient(total_rate: f64, num_regions: u32) {
     let mut rng = StdRng::seed_from_u64(42);
 
     let mut builder = PoissonMapBuilder::<StdRng>::default();
-    let rate_per_region = total_rate/(num_regions as f64);
+    let rate_per_region = total_rate / (num_regions as f64);
     for _ in 0..num_regions {
         builder.add_region(PoissonInterval::new(rate_per_region, 0.into(), 100.into()));
     }
@@ -240,7 +240,7 @@ fn naive(total_rate: f64, num_regions: u32) {
     let mut rng = StdRng::seed_from_u64(42);
 
     let mut builder = NaivePoissonMapBuilder::<StdRng>::default();
-    let rate_per_region = total_rate/(num_regions as f64);
+    let rate_per_region = total_rate / (num_regions as f64);
     for _ in 0..num_regions {
         builder.add_region(PoissonInterval::new(rate_per_region, 0.into(), 100.into()));
     }
@@ -248,22 +248,31 @@ fn naive(total_rate: f64, num_regions: u32) {
 
     for _ in 0..100 {
         map.generate_breakpoints(&mut rng);
-        if !map.breakpoints.is_empty() {
-        }
+        if !map.breakpoints.is_empty() {}
     }
 }
 
-fn run_efficient(bench: &mut Bencher) {
-    bench.iter(|| {
-        efficient(10., 100)
-    });
-}
-fn run_naive(bench: &mut Bencher) {
-    bench.iter(|| {
-        naive(10., 100)
-    });
+fn run_efficient_100(bench: &mut Bencher) {
+    bench.iter(|| efficient(10., 100));
 }
 
-benchmark_group!(benches, run_efficient, run_naive);
+fn run_naive_100(bench: &mut Bencher) {
+    bench.iter(|| naive(10., 100));
+}
+
+fn run_efficient_1000(bench: &mut Bencher) {
+    bench.iter(|| efficient(10., 1000));
+}
+
+fn run_naive_1000(bench: &mut Bencher) {
+    bench.iter(|| naive(10., 1000));
+}
+
+benchmark_group!(
+    benches,
+    run_efficient_100,
+    run_naive_100,
+    run_naive_1000,
+    run_efficient_1000
+);
 benchmark_main!(benches);
-
