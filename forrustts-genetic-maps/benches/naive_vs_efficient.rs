@@ -4,6 +4,7 @@ extern crate bencher;
 use bencher::Bencher;
 
 use forrustts_core::newtypes::Position;
+use forrustts_genetic_maps::GeneticMap;
 use rand::Rng;
 use rand::SeedableRng;
 use rand_distr::WeightedAliasIndex;
@@ -215,57 +216,50 @@ where
     }
 }
 
-fn efficient(total_rate: f64, num_regions: u32) {
-    // put the trait in scope
-    use forrustts_genetic_maps::GeneticMap;
+fn build_efficient(total_rate: f64, num_regions: u32) -> PoissonGeneticMap<rand::rngs::StdRng> {
     use rand::rngs::StdRng;
-    let mut rng = StdRng::seed_from_u64(42);
 
     let mut builder = PoissonMapBuilder::<StdRng>::default();
     let rate_per_region = total_rate / (num_regions as f64);
     for _ in 0..num_regions {
         builder.add_region(PoissonInterval::new(rate_per_region, 0.into(), 100.into()));
     }
-    let mut map = builder.build();
-
-    for _ in 0..100 {
-        map.generate_breakpoints(&mut rng);
-    }
+    builder.build()
 }
 
-fn naive(total_rate: f64, num_regions: u32) {
-    // put the trait in scope
-    use forrustts_genetic_maps::GeneticMap;
+fn build_naive(total_rate: f64, num_regions: u32) -> NaivePoissonGeneticMap<rand::rngs::StdRng> {
     use rand::rngs::StdRng;
-    let mut rng = StdRng::seed_from_u64(42);
 
     let mut builder = NaivePoissonMapBuilder::<StdRng>::default();
     let rate_per_region = total_rate / (num_regions as f64);
     for _ in 0..num_regions {
         builder.add_region(PoissonInterval::new(rate_per_region, 0.into(), 100.into()));
     }
-    let mut map = builder.build();
-
-    for _ in 0..100 {
-        map.generate_breakpoints(&mut rng);
-        if !map.breakpoints.is_empty() {}
-    }
+     builder.build()
 }
 
 fn run_efficient_100(bench: &mut Bencher) {
-    bench.iter(|| efficient(10., 100));
+    let mut map = build_efficient(10., 100);
+    let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+    bench.iter(|| map.generate_breakpoints(&mut rng));
 }
 
 fn run_naive_100(bench: &mut Bencher) {
-    bench.iter(|| naive(10., 100));
+    let mut map = build_naive(10., 100);
+    let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+    bench.iter(|| map.generate_breakpoints(&mut rng));
 }
 
 fn run_efficient_1000(bench: &mut Bencher) {
-    bench.iter(|| efficient(10., 1000));
+    let mut map = build_efficient(10., 1000);
+    let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+    bench.iter(|| map.generate_breakpoints(&mut rng));
 }
 
 fn run_naive_1000(bench: &mut Bencher) {
-    bench.iter(|| naive(10., 1000));
+    let mut map = build_naive(10., 1000);
+    let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+    bench.iter(|| map.generate_breakpoints(&mut rng));
 }
 
 benchmark_group!(
