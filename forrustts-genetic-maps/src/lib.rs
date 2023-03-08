@@ -44,8 +44,8 @@ pub trait GeneticMap<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand::Rng;
 
-    // Should be in core?
     struct Segment {
         left: Position,
         right: Position,
@@ -60,7 +60,6 @@ mod tests {
         }
     }
 
-    // Should be in core?
     struct Point {
         p: Position,
     }
@@ -72,6 +71,25 @@ mod tests {
         fn right(&self) -> Position {
             // See GitHub issue 240
             (i64::from(self.p) + 1).into()
+        }
+    }
+
+    impl<T> CrossoverPosition<T> for Segment
+    where
+        T: Rng,
+    {
+        fn generate_breakpoint(&self, rng: &mut T) -> Position {
+            let u = rand::distributions::Uniform::<i64>::new(
+                i64::from(self.left),
+                i64::from(self.right),
+            );
+            rng.sample(u).into()
+        }
+    }
+
+    impl<T> CrossoverPosition<T> for Point {
+        fn generate_breakpoint(&self, _rng: &mut T) -> Position {
+            self.p
         }
     }
 }
