@@ -37,7 +37,7 @@ where
     }
 }
 
-impl<T> forrustts_genetic_maps::PoissonCrossoverRegion<T> for PoissonInterval
+impl<T> forrustts_genetic_maps::PoissonCrossoverProcess<T> for PoissonInterval
 where
     T: Rng,
 {
@@ -50,7 +50,7 @@ struct PoissonGeneticMap<T>
 where
     T: Rng,
 {
-    regions: Vec<Box<dyn forrustts_genetic_maps::PoissonCrossoverRegion<T>>>,
+    regions: Vec<Box<dyn forrustts_genetic_maps::PoissonCrossoverProcess<T>>>,
     lookup: WeightedAliasIndex<f64>, // O(n) construction, O(1) lookup
     dist: rand_distr::Poisson<f64>,
     breakpoints: Vec<Position>,
@@ -60,7 +60,7 @@ impl<T> PoissonGeneticMap<T>
 where
     T: Rng,
 {
-    fn new(regions: Vec<Box<dyn forrustts_genetic_maps::PoissonCrossoverRegion<T>>>) -> Self {
+    fn new(regions: Vec<Box<dyn forrustts_genetic_maps::PoissonCrossoverProcess<T>>>) -> Self {
         let mut weights = vec![];
         regions.iter().for_each(|i| weights.push(i.mean()));
         let total_rate = weights.iter().sum();
@@ -100,7 +100,7 @@ struct PoissonMapBuilder<T>
 where
     T: Rng,
 {
-    regions: Vec<Box<dyn forrustts_genetic_maps::PoissonCrossoverRegion<T>>>,
+    regions: Vec<Box<dyn forrustts_genetic_maps::PoissonCrossoverProcess<T>>>,
 }
 
 impl<T> Default for PoissonMapBuilder<T>
@@ -118,7 +118,7 @@ where
 {
     fn add_region<P>(&mut self, region: P)
     where
-        P: forrustts_genetic_maps::PoissonCrossoverRegion<T> + 'static,
+        P: forrustts_genetic_maps::PoissonCrossoverProcess<T> + 'static,
     {
         self.regions.push(Box::new(region));
     }
@@ -132,7 +132,7 @@ struct NaivePoissonGeneticMap<T>
 where
     T: Rng,
 {
-    regions: Vec<Box<dyn forrustts_genetic_maps::PoissonCrossoverRegion<T>>>,
+    regions: Vec<Box<dyn forrustts_genetic_maps::PoissonCrossoverProcess<T>>>,
     poissons: Vec<rand_distr::Poisson<f64>>,
     breakpoints: Vec<Position>,
 }
@@ -141,7 +141,7 @@ impl<T> NaivePoissonGeneticMap<T>
 where
     T: Rng,
 {
-    fn new(regions: Vec<Box<dyn forrustts_genetic_maps::PoissonCrossoverRegion<T>>>) -> Self {
+    fn new(regions: Vec<Box<dyn forrustts_genetic_maps::PoissonCrossoverProcess<T>>>) -> Self {
         let mut poissons = vec![];
         for r in regions.iter() {
             if r.mean() > 0.0 {
@@ -182,7 +182,7 @@ struct NaivePoissonMapBuilder<T>
 where
     T: Rng,
 {
-    regions: Vec<Box<dyn forrustts_genetic_maps::PoissonCrossoverRegion<T>>>,
+    regions: Vec<Box<dyn forrustts_genetic_maps::PoissonCrossoverProcess<T>>>,
 }
 
 impl<T> Default for NaivePoissonMapBuilder<T>
@@ -200,7 +200,7 @@ where
 {
     fn add_region<P>(&mut self, region: P)
     where
-        P: forrustts_genetic_maps::PoissonCrossoverRegion<T> + 'static,
+        P: forrustts_genetic_maps::PoissonCrossoverProcess<T> + 'static,
     {
         self.regions.push(Box::new(region));
     }

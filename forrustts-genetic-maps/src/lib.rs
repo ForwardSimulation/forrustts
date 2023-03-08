@@ -2,7 +2,7 @@
 
 use forrustts_core::newtypes::Position;
 
-pub trait PoissonCrossoverRegion<T>: CrossoverPosition<T> {
+pub trait PoissonCrossoverProcess<T>: CrossoverPosition<T> {
     fn mean(&self) -> f64;
 }
 
