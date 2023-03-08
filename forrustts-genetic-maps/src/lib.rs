@@ -16,24 +16,40 @@ pub trait FixedNumberOfCrossoverRegion<T>: CrossoverPosition<T> {
     fn num_breakpoints(&self) -> u32;
 }
 
-pub trait CrossoverPosition<T> {
-    fn begin(&self) -> Position;
-    fn end(&self) -> Position;
-    fn generate_breakpoint(&self, rng: &mut T) -> Position;
-
-    fn valid(&self, genome_length: Position) -> bool {
-        self.begin() >= 0
-            && self.begin() < genome_length
-            && self.begin() < self.end()
-            && self.end() <= genome_length
-    }
-
+// This trait belongs in core
+pub trait GenomicInterval {
+    fn left(&self) -> Position;
+    fn right(&self) -> Position;
     fn contains(&self, position: Position) -> bool {
-        position >= self.begin() && position < self.end()
+        position >= self.left() && position < self.right()
     }
+    fn valid(&self, genome_length: Position) -> bool {
+        self.left() >= 0
+            && self.left() < genome_length
+            && self.right() < self.right()
+            && self.right() <= genome_length
+    }
+}
+
+pub trait CrossoverPosition<T> : GenomicInterval {
+    fn generate_breakpoint(&self, rng: &mut T) -> Position;
 }
 
 pub trait GeneticMap<T> {
     fn generate_breakpoints(&mut self, rng: &mut T);
     fn breakpoints(&self) -> &[Position];
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct Segment {
+        left: Position,
+        right: Position,
+    }
+
+    struct Point {
+        p: Position,
+    }
 }
