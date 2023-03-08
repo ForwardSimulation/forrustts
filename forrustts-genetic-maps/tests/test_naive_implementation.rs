@@ -21,17 +21,19 @@ impl PoissonInterval {
     }
 }
 
+impl forrustts_genetic_maps::GenomicInterval for PoissonInterval {
+    fn left(&self) -> Position {
+        self.left
+    }
+    fn right(&self) -> Position {
+        self.right
+    }
+}
+
 impl<T> forrustts_genetic_maps::CrossoverPosition<T> for PoissonInterval
 where
     T: Rng,
 {
-    fn begin(&self) -> Position {
-        self.left
-    }
-    fn end(&self) -> Position {
-        self.right
-    }
-
     fn generate_breakpoint(&self, rng: &mut T) -> Position {
         rng.sample(self.uniform).into()
     }
