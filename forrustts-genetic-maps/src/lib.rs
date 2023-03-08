@@ -16,7 +16,8 @@ pub trait FixedNumberOfCrossoverRegion<T>: CrossoverPosition<T> {
     fn num_breakpoints(&self) -> u32;
 }
 
-// This trait belongs in core
+// This trait belongs in core?
+// And we can give a proc macro for deriving?
 pub trait GenomicInterval {
     fn left(&self) -> Position;
     fn right(&self) -> Position;
@@ -31,7 +32,7 @@ pub trait GenomicInterval {
     }
 }
 
-pub trait CrossoverPosition<T> : GenomicInterval {
+pub trait CrossoverPosition<T>: GenomicInterval {
     fn generate_breakpoint(&self, rng: &mut T) -> Position;
 }
 
@@ -44,12 +45,33 @@ pub trait GeneticMap<T> {
 mod tests {
     use super::*;
 
+    // Should be in core?
     struct Segment {
         left: Position,
         right: Position,
     }
 
+    impl GenomicInterval for Segment {
+        fn left(&self) -> Position {
+            self.left
+        }
+        fn right(&self) -> Position {
+            self.right
+        }
+    }
+
+    // Should be in core?
     struct Point {
         p: Position,
+    }
+
+    impl GenomicInterval for Point {
+        fn left(&self) -> Position {
+            self.p
+        }
+        fn right(&self) -> Position {
+            // See GitHub issue 240
+            (i64::from(self.p) + 1).into()
+        }
     }
 }
