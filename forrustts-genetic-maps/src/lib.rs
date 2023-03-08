@@ -32,6 +32,9 @@ pub trait GenomicInterval {
     }
 }
 
+// This trait isn't quite right.
+// As we saw in fwdpy11, it is easy to
+// allow incorrect behavior through.
 pub trait CrossoverPosition<T>: GenomicInterval {
     fn generate_breakpoint(&self, rng: &mut T) -> Position;
 }
@@ -79,6 +82,7 @@ mod tests {
         T: Rng,
     {
         fn generate_breakpoint(&self, rng: &mut T) -> Position {
+            todo!("figure out a better trait bound");
             let u = rand::distributions::Uniform::<i64>::new(
                 i64::from(self.left),
                 i64::from(self.right),
