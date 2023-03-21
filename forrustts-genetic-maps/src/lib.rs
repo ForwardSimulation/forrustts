@@ -21,7 +21,13 @@ pub struct PoissonCrossover {
 }
 
 impl PoissonCrossover {
-    pub fn new(left: Position, right: Position, mean: f64) -> Option<Self> {
+    pub fn new<L, R>(left: L, right: R, mean: f64) -> Option<Self>
+    where
+        L: Into<Position>,
+        R: Into<Position>,
+    {
+        let left = left.into();
+        let right = right.into();
         if left < 0 || right < 0 || right <= left || !mean.is_finite() || mean < 0.0 {
             None
         } else {
@@ -38,7 +44,13 @@ pub struct BinomialCrossover {
 }
 
 impl BinomialCrossover {
-    pub fn new(left: Position, right: Position, probability: f64) -> Option<Self> {
+    pub fn new<L, R>(left: L, right: R, probability: f64) -> Option<Self>
+    where
+        L: Into<Position>,
+        R: Into<Position>,
+    {
+        let left = left.into();
+        let right = right.into();
         if left < 0
             || right < 0
             || right <= left
@@ -62,7 +74,8 @@ pub struct IndependentAssortment {
 }
 
 impl IndependentAssortment {
-    pub fn new(at: Position) -> Option<Self> {
+    pub fn new<P: Into<Position>>(at: P) -> Option<Self> {
+        let at = at.into();
         if at >= 0 {
             Some(Self { at })
         } else {
@@ -105,4 +118,31 @@ mod tests {
             &[]
         }
     }
+}
+
+#[test]
+fn test_poisson_crossover() {
+    assert!(PoissonCrossover::new(0, 1, 1e-3).is_some());
+    assert!(PoissonCrossover::new(0, 1, -1e-3).is_none());
+    assert!(PoissonCrossover::new(0, 1, f64::NEG_INFINITY).is_none());
+    assert!(PoissonCrossover::new(0, 1, f64::NAN).is_none());
+    assert!(PoissonCrossover::new(1, 0, 1e-3).is_none());
+}
+
+#[test]
+fn test_binomial_crossover() {
+    assert!(BinomialCrossover::new(0, 1, 1e-3).is_some());
+    assert!(BinomialCrossover::new(0, 1, 1.0).is_some());
+    assert!(BinomialCrossover::new(0, 1, 1.0 + f64::EPSILON).is_none());
+    assert!(BinomialCrossover::new(0, 1, -1e-3).is_none());
+    assert!(BinomialCrossover::new(0, 1, f64::NEG_INFINITY).is_none());
+    assert!(BinomialCrossover::new(0, 1, f64::NAN).is_none());
+    assert!(BinomialCrossover::new(1, 0, 1e-3).is_none());
+}
+
+#[test]
+fn test_independent_assortment() {
+    assert!(IndependentAssortment::new(1).is_some());
+    assert!(IndependentAssortment::new(0).is_some());
+    assert!(IndependentAssortment::new(-1).is_none());
 }
