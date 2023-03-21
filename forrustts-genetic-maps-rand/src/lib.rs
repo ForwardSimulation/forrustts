@@ -78,7 +78,9 @@ where
                 self.breakpoints.push(Breakpoint::Crossover(pos.into()));
             }
         }
+        self.breakpoints.sort();
     }
+
     fn breakpoints(&self) -> &[forrustts_genetic_maps::Breakpoint] {
         &self.breakpoints
     }

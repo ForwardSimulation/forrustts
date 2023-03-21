@@ -2,7 +2,7 @@
 
 use forrustts_core::newtypes::Position;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[non_exhaustive]
 pub enum Breakpoint {
     Crossover(Position),
