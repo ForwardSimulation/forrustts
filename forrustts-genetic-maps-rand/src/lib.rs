@@ -1,4 +1,5 @@
 use forrustts_core::newtypes::Position;
+use forrustts_genetic_maps::Breakpoint;
 use forrustts_genetic_maps::GenerateBreakpoints;
 use forrustts_genetic_maps::GeneticMapBuilder;
 use forrustts_genetic_maps::PoissonCrossover;
@@ -44,12 +45,16 @@ impl PoissonRegions {
 #[derive(Debug)]
 pub struct GeneticMap {
     poisson_regions: Option<PoissonRegions>,
+    breakpoints: Vec<Breakpoint>,
 }
 
 impl GeneticMap {
     pub fn new_from_builder(builder: GeneticMapBuilder) -> Option<Self> {
         let poisson_regions = PoissonRegions::new(builder.poisson());
-        Some(Self { poisson_regions })
+        Some(Self {
+            poisson_regions,
+            breakpoints: vec![],
+        })
     }
 }
 
@@ -58,9 +63,23 @@ where
     T: Rng,
 {
     fn generate_breakpoints(&mut self, rng: &mut T) {
-        unimplemented!("not yet!");
+        self.breakpoints.clear();
+        if let Some(poisson) = self.poisson_regions.as_ref() {
+            // NOTE: all of this object construction should be in PoissonRegions...
+            let p = rand_distr::Poisson::new(poisson.sum_poisson_means).unwrap();
+            let num: u32 = rng.sample(p) as u32;
+            for _ in 0..num {
+                let idx = rng.sample(&poisson.lookup);
+                let u = rand_distr::Uniform::new(
+                    i64::from(poisson.regions.left[idx]),
+                    i64::from(poisson.regions.right[idx]),
+                );
+                let pos = rng.sample(u);
+                self.breakpoints.push(Breakpoint::Crossover(pos.into()));
+            }
+        }
     }
     fn breakpoints(&self) -> &[forrustts_genetic_maps::Breakpoint] {
-        unimplemented!("not yet");
+        &self.breakpoints
     }
 }
