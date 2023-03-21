@@ -34,6 +34,16 @@ impl PoissonCrossover {
             Some(Self { left, right, mean })
         }
     }
+
+    pub fn left(&self) -> Position {
+        self.left
+    }
+    pub fn right(&self) -> Position {
+        self.right
+    }
+    pub fn mean(&self) -> f64 {
+        self.mean
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
