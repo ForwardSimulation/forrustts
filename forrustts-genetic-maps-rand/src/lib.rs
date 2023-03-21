@@ -1,5 +1,7 @@
+use std::collections::binary_heap;
+
 use forrustts_core::newtypes::Position;
-use forrustts_genetic_maps::BinomialCrossover;
+use forrustts_genetic_maps::BernoulliCrossover;
 use forrustts_genetic_maps::Breakpoint;
 use forrustts_genetic_maps::GenerateBreakpoints;
 use forrustts_genetic_maps::GeneticMapBuilder;
@@ -39,17 +41,25 @@ impl PoissonRegions {
 }
 
 #[derive(Debug)]
-struct BinomialRegions {
+struct BernoulliRegions {
     regions: Vec<rand_distr::Uniform<i64>>,
-    probabilities: Vec<rand_distr::Binomial>,
+    probabilities: Vec<rand_distr::Bernoulli>,
 }
 
-impl BinomialRegions {
-    fn new(poisson: &[BinomialCrossover]) -> Option<Self> {
+impl BernoulliRegions {
+    fn new(binomial: &[BernoulliCrossover]) -> Option<Self> {
         let mut regions = vec![];
         let mut probabilities = vec![];
 
-        unimplemented!("not done yet");
+        for b in binomial {
+            let prob = b.probability();
+            if prob > 0.0 {
+                let u = rand_distr::Uniform::new(i64::from(b.left()), i64::from(b.right()));
+                regions.push(u);
+                let dist = rand_distr::Bernoulli::new(prob).ok()?;
+                probabilities.push(dist);
+            }
+        }
 
         Some(Self {
             regions,
@@ -61,17 +71,17 @@ impl BinomialRegions {
 #[derive(Debug)]
 pub struct GeneticMap {
     poisson_regions: Option<PoissonRegions>,
-    binomial_regions: Option<BinomialRegions>,
+    bernoulli_regions: Option<BernoulliRegions>,
     breakpoints: Vec<Breakpoint>,
 }
 
 impl GeneticMap {
     pub fn new_from_builder(builder: GeneticMapBuilder) -> Option<Self> {
         let poisson_regions = PoissonRegions::new(builder.poisson());
-        let binomial_regions = BinomialRegions::new(builder.binomial());
+        let bernoulli_regions = BernoulliRegions::new(builder.binomial());
         Some(Self {
             poisson_regions,
-            binomial_regions,
+            bernoulli_regions,
             breakpoints: vec![],
         })
     }
@@ -91,7 +101,7 @@ where
                 self.breakpoints.push(Breakpoint::Crossover(pos.into()));
             }
         }
-        if let Some(binomial) = self.binomial_regions.as_ref() {
+        if let Some(bernoulli) = self.bernoulli_regions.as_ref() {
             unimplemented!("not done yet");
         }
         self.breakpoints.sort();

@@ -48,13 +48,13 @@ impl PoissonCrossover {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct BinomialCrossover {
+pub struct BernoulliCrossover {
     left: Position,
     right: Position,
     probability: f64,
 }
 
-impl BinomialCrossover {
+impl BernoulliCrossover {
     pub fn new<L, R>(left: L, right: R, probability: f64) -> Option<Self>
     where
         L: Into<Position>,
@@ -77,6 +77,15 @@ impl BinomialCrossover {
             })
         }
     }
+    pub fn left(&self) -> Position {
+        self.left
+    }
+    pub fn right(&self) -> Position {
+        self.right
+    }
+    pub fn probability(&self) -> f64 {
+        self.probability
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -98,7 +107,7 @@ impl IndependentAssortment {
 #[derive(Default, Debug, Clone)]
 pub struct GeneticMapBuilder {
     poisson: Vec<PoissonCrossover>,
-    binomial: Vec<BinomialCrossover>,
+    binomial: Vec<BernoulliCrossover>,
     independent_assortment: Vec<IndependentAssortment>,
 }
 
@@ -107,7 +116,7 @@ impl GeneticMapBuilder {
         self.poisson.extend_from_slice(intervals);
         self
     }
-    pub fn extend_binomial(mut self, intervals: &[BinomialCrossover]) -> Self {
+    pub fn extend_binomial(mut self, intervals: &[BernoulliCrossover]) -> Self {
         self.binomial.extend_from_slice(intervals);
         self
     }
@@ -120,7 +129,7 @@ impl GeneticMapBuilder {
         &self.poisson
     }
 
-    pub fn binomial(&self) -> &[BinomialCrossover] {
+    pub fn binomial(&self) -> &[BernoulliCrossover] {
         &self.binomial
     }
 
@@ -154,13 +163,13 @@ fn test_poisson_crossover() {
 
 #[test]
 fn test_binomial_crossover() {
-    assert!(BinomialCrossover::new(0, 1, 1e-3).is_some());
-    assert!(BinomialCrossover::new(0, 1, 1.0).is_some());
-    assert!(BinomialCrossover::new(0, 1, 1.0 + f64::EPSILON).is_none());
-    assert!(BinomialCrossover::new(0, 1, -1e-3).is_none());
-    assert!(BinomialCrossover::new(0, 1, f64::NEG_INFINITY).is_none());
-    assert!(BinomialCrossover::new(0, 1, f64::NAN).is_none());
-    assert!(BinomialCrossover::new(1, 0, 1e-3).is_none());
+    assert!(BernoulliCrossover::new(0, 1, 1e-3).is_some());
+    assert!(BernoulliCrossover::new(0, 1, 1.0).is_some());
+    assert!(BernoulliCrossover::new(0, 1, 1.0 + f64::EPSILON).is_none());
+    assert!(BernoulliCrossover::new(0, 1, -1e-3).is_none());
+    assert!(BernoulliCrossover::new(0, 1, f64::NEG_INFINITY).is_none());
+    assert!(BernoulliCrossover::new(0, 1, f64::NAN).is_none());
+    assert!(BernoulliCrossover::new(1, 0, 1e-3).is_none());
 }
 
 #[test]
@@ -174,7 +183,7 @@ fn test_independent_assortment() {
 fn test_builder() {
     let builder = GeneticMapBuilder::default()
         .extend_poisson(&[PoissonCrossover::new(0, 1, 1e-3).unwrap()])
-        .extend_binomial(&[BinomialCrossover::new(0, 1, 0.25).unwrap()])
+        .extend_binomial(&[BernoulliCrossover::new(0, 1, 0.25).unwrap()])
         .extend_poisson(&[PoissonCrossover::new(1, 2, 2e-3).unwrap()])
         .extend_independent_assortment(&[IndependentAssortment::new(1).unwrap()]);
     assert_eq!(builder.poisson().len(), 2);
