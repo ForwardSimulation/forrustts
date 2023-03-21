@@ -74,12 +74,17 @@ impl IndependentAssortment {
 #[derive(Default, Debug, Clone)]
 pub struct GeneticMapBuilder {
     poisson: Vec<PoissonCrossover>,
+    binomial: Vec<BinomialCrossover>,
     independent_assortment: Vec<IndependentAssortment>,
 }
 
 impl GeneticMapBuilder {
     pub fn extend_poisson(mut self, intervals: &[PoissonCrossover]) -> Self {
         self.poisson.extend_from_slice(intervals);
+        self
+    }
+    pub fn extend_binomial(mut self, intervals: &[BinomialCrossover]) -> Self {
+        self.binomial.extend_from_slice(intervals);
         self
     }
     pub fn extend_independent_assortment(mut self, at: &[IndependentAssortment]) -> Self {
