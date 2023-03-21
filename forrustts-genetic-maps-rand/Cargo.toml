@@ -9,3 +9,4 @@ edition = "2021"
 rand = "0.8.5"
 rand_distr = "0.4.3"
 forrustts-genetic-maps = {version = "0.1.0", path="../forrustts-genetic-maps"}
+forrustts-core = {version="0.1.0", path="../forrustts-core"}
