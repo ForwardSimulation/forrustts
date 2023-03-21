@@ -1,4 +1,5 @@
 use forrustts_core::newtypes::Position;
+use forrustts_genetic_maps::BinomialCrossover;
 use forrustts_genetic_maps::Breakpoint;
 use forrustts_genetic_maps::GenerateBreakpoints;
 use forrustts_genetic_maps::GeneticMapBuilder;
@@ -38,16 +39,39 @@ impl PoissonRegions {
 }
 
 #[derive(Debug)]
+struct BinomialRegions {
+    regions: Vec<rand_distr::Uniform<i64>>,
+    probabilities: Vec<rand_distr::Binomial>,
+}
+
+impl BinomialRegions {
+    fn new(poisson: &[BinomialCrossover]) -> Option<Self> {
+        let mut regions = vec![];
+        let mut probabilities = vec![];
+
+        unimplemented!("not done yet");
+
+        Some(Self {
+            regions,
+            probabilities,
+        })
+    }
+}
+
+#[derive(Debug)]
 pub struct GeneticMap {
     poisson_regions: Option<PoissonRegions>,
+    binomial_regions: Option<BinomialRegions>,
     breakpoints: Vec<Breakpoint>,
 }
 
 impl GeneticMap {
     pub fn new_from_builder(builder: GeneticMapBuilder) -> Option<Self> {
         let poisson_regions = PoissonRegions::new(builder.poisson());
+        let binomial_regions = BinomialRegions::new(builder.binomial());
         Some(Self {
             poisson_regions,
+            binomial_regions,
             breakpoints: vec![],
         })
     }
@@ -66,6 +90,9 @@ where
                 let pos = rng.sample(poisson.regions[idx]);
                 self.breakpoints.push(Breakpoint::Crossover(pos.into()));
             }
+        }
+        if let Some(binomial) = self.binomial_regions.as_ref() {
+            unimplemented!("not done yet");
         }
         self.breakpoints.sort();
     }
