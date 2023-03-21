@@ -11,7 +11,6 @@ struct PoissonRegions {
     regions: Vec<rand_distr::Uniform<i64>>,
     lookup: rand_distr::WeightedAliasIndex<f64>,
     poisson: rand_distr::Poisson<f64>,
-    sum_poisson_means: f64,
 }
 
 impl PoissonRegions {
@@ -34,7 +33,6 @@ impl PoissonRegions {
             regions,
             lookup,
             poisson,
-            sum_poisson_means,
         })
     }
 }
