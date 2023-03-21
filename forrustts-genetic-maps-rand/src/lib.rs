@@ -6,37 +6,34 @@ use forrustts_genetic_maps::PoissonCrossover;
 
 use rand::Rng;
 
-#[derive(Default, Debug)]
-struct Regions {
-    left: Vec<Position>,
-    right: Vec<Position>,
-}
-
 #[derive(Debug)]
 struct PoissonRegions {
-    regions: Regions,
+    regions: Vec<rand_distr::Uniform<i64>>,
     lookup: rand_distr::WeightedAliasIndex<f64>,
+    poisson: rand_distr::Poisson<f64>,
     sum_poisson_means: f64,
 }
 
 impl PoissonRegions {
     fn new(poisson: &[PoissonCrossover]) -> Option<Self> {
-        let mut regions = Regions::default();
+        let mut regions = vec![];
         let mut weights = vec![];
         let mut sum_poisson_means = 0.0;
         for p in poisson {
             let mean = p.mean();
             if mean > 0.0 {
-                regions.left.push(p.left());
-                regions.right.push(p.right());
+                let u = rand_distr::Uniform::new(i64::from(p.left()), i64::from(p.right()));
+                regions.push(u);
                 weights.push(mean);
                 sum_poisson_means += mean;
             }
         }
         let lookup = rand_distr::WeightedAliasIndex::new(weights).ok()?;
+        let poisson = rand_distr::Poisson::new(sum_poisson_means).ok()?;
         Some(Self {
             regions,
             lookup,
+            poisson,
             sum_poisson_means,
         })
     }
@@ -65,16 +62,10 @@ where
     fn generate_breakpoints(&mut self, rng: &mut T) {
         self.breakpoints.clear();
         if let Some(poisson) = self.poisson_regions.as_ref() {
-            // NOTE: all of this object construction should be in PoissonRegions...
-            let p = rand_distr::Poisson::new(poisson.sum_poisson_means).unwrap();
-            let num: u32 = rng.sample(p) as u32;
+            let num: u32 = rng.sample(poisson.poisson) as u32;
             for _ in 0..num {
                 let idx = rng.sample(&poisson.lookup);
-                let u = rand_distr::Uniform::new(
-                    i64::from(poisson.regions.left[idx]),
-                    i64::from(poisson.regions.right[idx]),
-                );
-                let pos = rng.sample(u);
+                let pos = rng.sample(poisson.regions[idx]);
                 self.breakpoints.push(Breakpoint::Crossover(pos.into()));
             }
         }
