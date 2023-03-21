@@ -43,12 +43,12 @@ impl PoissonRegions {
 
 #[derive(Debug)]
 pub struct GeneticMap {
-    poisson_regions: PoissonRegions,
+    poisson_regions: Option<PoissonRegions>,
 }
 
 impl GeneticMap {
     pub fn new_from_builder(builder: GeneticMapBuilder) -> Option<Self> {
-        let poisson_regions = PoissonRegions::new(builder.poisson())?;
+        let poisson_regions = PoissonRegions::new(builder.poisson());
         Some(Self { poisson_regions })
     }
 }
