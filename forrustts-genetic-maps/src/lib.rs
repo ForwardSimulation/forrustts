@@ -104,6 +104,18 @@ impl GeneticMapBuilder {
         self.independent_assortment.extend_from_slice(at);
         self
     }
+
+    pub fn poisson(&self) -> &[PoissonCrossover] {
+        &self.poisson
+    }
+
+    pub fn binomial(&self) -> &[BinomialCrossover] {
+        &self.binomial
+    }
+
+    pub fn independent_assortment(&self) -> &[IndependentAssortment] {
+        &self.independent_assortment
+    }
 }
 
 #[cfg(test)]
@@ -145,4 +157,16 @@ fn test_independent_assortment() {
     assert!(IndependentAssortment::new(1).is_some());
     assert!(IndependentAssortment::new(0).is_some());
     assert!(IndependentAssortment::new(-1).is_none());
+}
+
+#[test]
+fn test_builder() {
+    let builder = GeneticMapBuilder::default()
+        .extend_poisson(&[PoissonCrossover::new(0, 1, 1e-3).unwrap()])
+        .extend_binomial(&[BinomialCrossover::new(0, 1, 0.25).unwrap()])
+        .extend_poisson(&[PoissonCrossover::new(1, 2, 2e-3).unwrap()])
+        .extend_independent_assortment(&[IndependentAssortment::new(1).unwrap()]);
+    assert_eq!(builder.poisson().len(), 2);
+    assert_eq!(builder.binomial().len(), 1);
+    assert_eq!(builder.independent_assortment().len(), 1);
 }
