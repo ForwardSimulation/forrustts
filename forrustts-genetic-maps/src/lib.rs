@@ -8,7 +8,7 @@ pub enum Breakpoint {
     IndependentAssortment(Position),
 }
 
-pub trait GeneticMap<T> {
+pub trait GenerateBreakpoints<T> {
     fn generate_breakpoints(&mut self, rng: &mut T);
     fn breakpoints(&self) -> &[Breakpoint];
 }
@@ -124,7 +124,7 @@ mod tests {
 
     struct MyGeneticMap {}
 
-    impl GeneticMap<()> for MyGeneticMap {
+    impl GenerateBreakpoints<()> for MyGeneticMap {
         fn generate_breakpoints(&mut self, _rng: &mut ()) {}
         fn breakpoints(&self) -> &[Breakpoint] {
             &[]
