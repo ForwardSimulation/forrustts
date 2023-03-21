@@ -10,15 +10,14 @@ use rand::SeedableRng;
 use stochastic_testing_tools::*;
 use streaming_iterator::StreamingIterator;
 use tskit::bindings::tsk_id_t;
-use tskit::TskitTypeAccess;
 
-struct VecTskId(Vec<tsk_id_t>);
+struct VecTskId(Vec<tskit::NodeId>);
 
 impl From<Vec<NodeId>> for VecTskId {
     fn from(value: Vec<NodeId>) -> Self {
-        let mut rv: Vec<tsk_id_t> = vec![];
+        let mut rv: Vec<tskit::NodeId> = vec![];
         for v in &value {
-            rv.push(v.raw());
+            rv.push(v.raw().into());
         }
         Self(rv)
     }
@@ -298,7 +297,7 @@ fn simplify_to_samples() {
                 for u in tree.parents(*s) {
                     p.push(u);
                 }
-                for u in tsk_tree.parents(s.raw().into()).unwrap() {
+                for u in tsk_tree.parents(tskit::NodeId::from(s.raw())) {
                     tsk_p.push(u);
                 }
                 for (i, j) in p.iter().zip(tsk_p.iter()) {
@@ -310,7 +309,7 @@ fn simplify_to_samples() {
                     for child in tree.children(*pi) {
                         ci.push(child);
                     }
-                    for child in tsk_tree.children(pi.raw().into()).unwrap() {
+                    for child in tsk_tree.children(tskit::NodeId::from(pi.raw())) {
                         tsk_ci.push(child);
                     }
                     ci.sort_unstable();
@@ -326,7 +325,7 @@ fn simplify_to_samples() {
                 for s in tree.samples(node).unwrap() {
                     samples.push(s);
                 }
-                if let Some(Ok(s)) = tsk_tree.samples(node.raw().into()) {
+                if let Ok(s) = tsk_tree.samples(tskit::NodeId::from(node.raw())) {
                     for i in s {
                         tsk_samples.push(i);
                     }
