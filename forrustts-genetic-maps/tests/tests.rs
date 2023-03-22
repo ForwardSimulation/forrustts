@@ -54,6 +54,9 @@ fn test_generate_poisson_breakpoints_multiple_chromosomes() {
     for _ in 0..100 {
         map.generate_breakpoints(&mut rng);
         println!("{:?}", map.breakpoints());
-        assert!(map.breakpoints().windows(2).all(|w| { Position::from(w[0]) <= Position::from(w[1]) }));
+        assert!(map
+            .breakpoints()
+            .windows(2)
+            .all(|w| { Position::from(w[0]) <= Position::from(w[1]) }));
     }
 }
