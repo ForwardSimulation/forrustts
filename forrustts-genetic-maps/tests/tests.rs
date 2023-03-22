@@ -72,6 +72,7 @@ fn test_independent_assortment_within_region() {
             builder.validate(),
             GeneticMapStatus::IndependentAssortmentWithinRegions
         );
+        assert!(GeneticMap::new_from_builder(builder).is_none());
     }
     {
         let builder = GeneticMapBuilder::default()
@@ -81,5 +82,6 @@ fn test_independent_assortment_within_region() {
             builder.validate(),
             GeneticMapStatus::IndependentAssortmentWithinRegions
         );
+        assert!(GeneticMap::new_from_builder(builder).is_none());
     }
 }

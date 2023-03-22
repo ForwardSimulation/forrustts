@@ -311,6 +311,9 @@ pub struct GeneticMap {
 
 impl GeneticMap {
     pub fn new_from_builder(builder: GeneticMapBuilder) -> Option<Self> {
+        if builder.validate() != GeneticMapStatus::Valid {
+            return None;
+        }
         let (poisson, bernoulli, independent_assortment) = (
             builder.poisson,
             builder.bernoulli,
