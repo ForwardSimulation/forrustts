@@ -39,6 +39,10 @@ impl PoissonRegions {
             poisson,
         })
     }
+
+    fn generate<T: Rng>(&self, i: usize, rng: &mut T) -> Breakpoint {
+        Breakpoint::Crossover(rng.sample(self.regions[i]).into())
+    }
 }
 
 #[derive(Debug)]
@@ -66,6 +70,20 @@ impl BernoulliRegions {
             regions,
             probabilities,
         })
+    }
+
+    fn len(&self) -> usize {
+        self.regions.len()
+    }
+
+    fn generate<T: Rng>(&self, index: usize, rng: &mut T) -> Option<Breakpoint> {
+        if rng.sample(self.probabilities[index]) {
+            Some(Breakpoint::Crossover(
+                rng.sample(self.regions[index]).into(),
+            ))
+        } else {
+            None
+        }
     }
 }
 
@@ -101,16 +119,14 @@ where
             let num: u32 = rng.sample(poisson.poisson) as u32;
             for _ in 0..num {
                 let idx = rng.sample(&poisson.lookup);
-                let pos = rng.sample(poisson.regions[idx]);
-                self.breakpoints.push(Breakpoint::Crossover(pos.into()));
+                let pos = poisson.generate(idx, rng);
+                self.breakpoints.push(pos);
             }
         }
         if let Some(bernoulli) = self.bernoulli_regions.as_ref() {
-            for (b, r) in bernoulli.probabilities.iter().zip(bernoulli.regions.iter()) {
-                let x = rng.sample(b);
-                if x {
-                    let pos = rng.sample(r);
-                    self.breakpoints.push(Breakpoint::Crossover(pos.into()));
+            for i in 0..bernoulli.len() {
+                if let Some(breakpoint) = bernoulli.generate(i, rng) {
+                    self.breakpoints.push(breakpoint);
                 }
             }
         }
