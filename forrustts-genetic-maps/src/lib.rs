@@ -3,11 +3,41 @@
 use forrustts_core::newtypes::Position;
 use rand::Rng;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+/// Breakpoint positions from crossover events
+///
+/// # Notes
+///
+/// * Comparision operations are based
+///   on the stored
+///   [`Position`](forrustts_core::newtypes::Position).
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Breakpoint {
     Crossover(Position),
     IndependentAssortment(Position),
+}
+
+impl From<Breakpoint> for Position {
+    fn from(value: Breakpoint) -> Self {
+        match value {
+            Breakpoint::IndependentAssortment(p) => p,
+            Breakpoint::Crossover(p) => p,
+        }
+    }
+}
+
+impl PartialOrd for Breakpoint {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        let left = Position::from(*self);
+        let right = Position::from(*other);
+        left.partial_cmp(&right)
+    }
+}
+
+impl Ord for Breakpoint {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap()
+    }
 }
 
 pub trait GetBreakpoints {
@@ -342,4 +372,14 @@ fn test_builder() {
     assert_eq!(builder.poisson().len(), 2);
     assert_eq!(builder.bernoulli().len(), 1);
     assert_eq!(builder.independent_assortment().len(), 1);
+}
+
+#[test]
+fn test_breakpoint() {
+    assert!(Breakpoint::Crossover(10.into()) < Breakpoint::IndependentAssortment(11.into()));
+    assert!(Breakpoint::Crossover(10.into()) < Breakpoint::Crossover(11.into()));
+    assert!(
+        Breakpoint::IndependentAssortment(10.into()) < Breakpoint::IndependentAssortment(11.into())
+    );
+    assert!(Breakpoint::IndependentAssortment(10.into()) < Breakpoint::Crossover(11.into()));
 }

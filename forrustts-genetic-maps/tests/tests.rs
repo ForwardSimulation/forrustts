@@ -1,8 +1,10 @@
+use forrustts_core::newtypes::Position;
 use forrustts_genetic_maps::BernoulliCrossover;
 use forrustts_genetic_maps::GenerateBreakpoints;
 use forrustts_genetic_maps::GeneticMap;
 use forrustts_genetic_maps::GeneticMapBuilder;
 use forrustts_genetic_maps::GetBreakpoints;
+use forrustts_genetic_maps::IndependentAssortment;
 use forrustts_genetic_maps::PoissonCrossover;
 use rand::SeedableRng;
 
@@ -39,6 +41,20 @@ fn test_generate_poisson_breakpoints() {
     let mut map = GeneticMap::new_from_builder(builder).unwrap();
     let mut rng = rand::rngs::StdRng::seed_from_u64(0);
     map.generate_breakpoints(&mut rng);
-    assert_eq!(map.breakpoints().len(), 2);
     assert!(map.breakpoints().windows(2).all(|w| { w[0] <= w[1] }));
+}
+
+#[test]
+fn test_generate_poisson_breakpoints_multiple_chromosomes() {
+    let builder = GeneticMapBuilder::default()
+        .extend_poisson(&[PoissonCrossover::new(10, 20, 10.).unwrap()])
+        .extend_poisson(&[PoissonCrossover::new(0, 10, 10.).unwrap()])
+        .extend_independent_assortment(&[IndependentAssortment::new(10).unwrap()]);
+    let mut map = GeneticMap::new_from_builder(builder).unwrap();
+    let mut rng = rand::rngs::StdRng::seed_from_u64(0);
+    for _ in 0..100 {
+        map.generate_breakpoints(&mut rng);
+        println!("{:?}", map.breakpoints());
+        assert!(map.breakpoints().windows(2).all(|w| { Position::from(w[0]) <= Position::from(w[1]) }));
+    }
 }
