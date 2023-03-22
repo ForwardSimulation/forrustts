@@ -46,8 +46,10 @@ fn test_generate_poisson_breakpoints() {
 #[test]
 fn test_generate_poisson_breakpoints_multiple_chromosomes() {
     let builder = GeneticMapBuilder::default()
-        .extend_poisson(&[PoissonCrossover::new(10, 20, 10.).unwrap()])
-        .extend_poisson(&[PoissonCrossover::new(0, 10, 10.).unwrap()])
+        .extend_poisson(&[
+            PoissonCrossover::new(10, 20, 10.).unwrap(),
+            PoissonCrossover::new(0, 10, 10.).unwrap(),
+        ])
         .extend_independent_assortment(&[IndependentAssortment::new(10).unwrap()]);
     let mut map = GeneticMap::new_from_builder(builder).unwrap();
     let mut rng = rand::rngs::StdRng::seed_from_u64(0);
