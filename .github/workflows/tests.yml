@@ -52,9 +52,6 @@ jobs:
       - name: test forrustts-genetic-maps
         run: |
           cargo hack test --manifest-path forrustts-genetic-maps/Cargo.toml --feature-powerset
-      - name: test forrustts-genetic-maps-rand
-        run: |
-          cargo hack test --manifest-path forrustts-genetic-maps-rand/Cargo.toml --feature-powerset
 
   fmt:
     name: rust fmt

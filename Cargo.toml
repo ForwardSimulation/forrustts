@@ -14,7 +14,6 @@ keywords = ["simulation", "tree_sequences", "tskit", "population_genetics"]
 members = [
     "forrustts-core",
     "forrustts-genetic-maps",
-    "forrustts-genetic-maps-rand",
     "forrustts-tables",
     "forrustts-trees",
     "forrustts-simplification",
