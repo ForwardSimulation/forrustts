@@ -170,7 +170,8 @@ impl PoissonRegions {
         })
     }
 
-    fn generate<T: Rng>(&self, i: usize, rng: &mut T) -> Breakpoint {
+    fn generate<T: Rng>(&self, rng: &mut T) -> Breakpoint {
+        let i = rng.sample(&self.lookup);
         Breakpoint::Crossover(rng.sample(self.regions[i]).into())
     }
 }
@@ -252,8 +253,7 @@ where
         if let Some(poisson) = self.poisson_regions.as_ref() {
             let num: u32 = rng.sample(poisson.poisson) as u32;
             for _ in 0..num {
-                let idx = rng.sample(&poisson.lookup);
-                let pos = poisson.generate(idx, rng);
+                let pos = poisson.generate(rng);
                 self.breakpoints.push(pos);
             }
         }
