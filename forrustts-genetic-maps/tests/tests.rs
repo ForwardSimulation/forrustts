@@ -12,7 +12,8 @@ fn test_build_empty() {
 #[test]
 fn test_build_non_empty() {
     let builder = GeneticMapBuilder::default()
-        .extend_bernoulli(&[forrustts_genetic_maps::BernoulliCrossover::new(0, 1, 1.).unwrap()]);
+        .extend_bernoulli(&[BernoulliCrossover::new_point(0, 1.).unwrap()])
+        .extend_poisson(&[PoissonCrossover::new_point(0, 1.).unwrap()]);
     assert!(GeneticMap::new_from_builder(builder).is_some());
 }
 
@@ -63,8 +64,22 @@ fn test_generate_poisson_breakpoints_multiple_chromosomes() {
 
 #[test]
 fn test_independent_assortment_within_region() {
-    let builder = GeneticMapBuilder::default()
-        .extend_poisson(&[PoissonCrossover::new(0, 10, 1e-3).unwrap()])
-        .extend_independent_assortment(&[IndependentAssortment::new(5).unwrap()]);
-    assert_eq!(builder.validate(), GeneticMapStatus::IndependentAssortmentWithinRegions);
+    {
+        let builder = GeneticMapBuilder::default()
+            .extend_poisson(&[PoissonCrossover::new(0, 10, 1e-3).unwrap()])
+            .extend_independent_assortment(&[IndependentAssortment::new(5).unwrap()]);
+        assert_eq!(
+            builder.validate(),
+            GeneticMapStatus::IndependentAssortmentWithinRegions
+        );
+    }
+    {
+        let builder = GeneticMapBuilder::default()
+            .extend_bernoulli(&[BernoulliCrossover::new(0, 10, 1e-3).unwrap()])
+            .extend_independent_assortment(&[IndependentAssortment::new(5).unwrap()]);
+        assert_eq!(
+            builder.validate(),
+            GeneticMapStatus::IndependentAssortmentWithinRegions
+        );
+    }
 }

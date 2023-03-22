@@ -67,6 +67,15 @@ impl PoissonCrossover {
         }
     }
 
+    pub fn new_point<P>(at: P, mean: f64) -> Option<Self>
+    where
+        P: Into<Position>,
+    {
+        let left = at.into();
+        let right = i64::from(left) + 1;
+        Self::new(left, right, mean)
+    }
+
     pub fn left(&self) -> Position {
         self.left
     }
@@ -107,6 +116,14 @@ impl BernoulliCrossover {
                 probability,
             })
         }
+    }
+    pub fn new_point<P>(at: P, probability: f64) -> Option<Self>
+    where
+        P: Into<Position>,
+    {
+        let left = at.into();
+        let right = i64::from(left) + 1;
+        Self::new(left, right, probability)
     }
     pub fn left(&self) -> Position {
         self.left
