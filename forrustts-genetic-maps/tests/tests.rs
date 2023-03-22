@@ -1,6 +1,7 @@
 use forrustts_genetic_maps::GenerateBreakpoints;
 use forrustts_genetic_maps::GeneticMap;
 use forrustts_genetic_maps::GeneticMapBuilder;
+use forrustts_genetic_maps::GetBreakpoints;
 use rand::SeedableRng;
 
 #[test]
