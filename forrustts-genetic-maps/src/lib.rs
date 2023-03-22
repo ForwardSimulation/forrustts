@@ -278,7 +278,7 @@ where
     }
 }
 
-pub trait GenerateBreakpoints<T> {
+pub trait GenerateBreakpoints<T: Rng> {
     fn generate_breakpoints(&mut self, rng: &mut T);
     fn breakpoints(&self) -> &[Breakpoint];
 }
@@ -289,8 +289,8 @@ mod tests {
 
     struct MyGeneticMap {}
 
-    impl GenerateBreakpoints<()> for MyGeneticMap {
-        fn generate_breakpoints(&mut self, _rng: &mut ()) {}
+    impl GenerateBreakpoints<rand::rngs::StdRng> for MyGeneticMap {
+        fn generate_breakpoints(&mut self, _rng: &mut rand::rngs::StdRng) {}
         fn breakpoints(&self) -> &[Breakpoint] {
             &[]
         }
