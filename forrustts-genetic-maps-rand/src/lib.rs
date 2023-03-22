@@ -100,9 +100,9 @@ impl IndependentAssortment {
 
 #[derive(Default, Debug, Clone)]
 pub struct GeneticMapBuilder {
-    pub poisson: Vec<PoissonCrossover>,
-    pub binomial: Vec<BernoulliCrossover>,
-    pub independent_assortment: Vec<IndependentAssortment>,
+    poisson: Vec<PoissonCrossover>,
+    bernoulli: Vec<BernoulliCrossover>,
+    independent_assortment: Vec<IndependentAssortment>,
 }
 
 impl GeneticMapBuilder {
@@ -110,8 +110,8 @@ impl GeneticMapBuilder {
         self.poisson.extend_from_slice(intervals);
         self
     }
-    pub fn extend_binomial(mut self, intervals: &[BernoulliCrossover]) -> Self {
-        self.binomial.extend_from_slice(intervals);
+    pub fn extend_bernoullil(mut self, intervals: &[BernoulliCrossover]) -> Self {
+        self.bernoulli.extend_from_slice(intervals);
         self
     }
     pub fn extend_independent_assortment(mut self, at: &[IndependentAssortment]) -> Self {
@@ -123,8 +123,8 @@ impl GeneticMapBuilder {
         &self.poisson
     }
 
-    pub fn binomial(&self) -> &[BernoulliCrossover] {
-        &self.binomial
+    pub fn bernoulli(&self) -> &[BernoulliCrossover] {
+        &self.bernoulli
     }
 
     pub fn independent_assortment(&self) -> &[IndependentAssortment] {
@@ -219,9 +219,13 @@ pub struct GeneticMap {
 
 impl GeneticMap {
     pub fn new_from_builder(builder: GeneticMapBuilder) -> Option<Self> {
-        let poisson_regions = PoissonRegions::new(builder.poisson());
-        let bernoulli_regions = BernoulliRegions::new(builder.binomial());
-        let independent_assortment = builder.independent_assortment;
+        let (poisson, bernoulli, independent_assortment) = (
+            builder.poisson,
+            builder.bernoulli,
+            builder.independent_assortment,
+        );
+        let poisson_regions = PoissonRegions::new(&poisson);
+        let bernoulli_regions = BernoulliRegions::new(&bernoulli);
         Some(Self {
             poisson_regions,
             bernoulli_regions,
@@ -297,10 +301,10 @@ fn test_independent_assortment() {
 fn test_builder() {
     let builder = GeneticMapBuilder::default()
         .extend_poisson(&[PoissonCrossover::new(0, 1, 1e-3).unwrap()])
-        .extend_binomial(&[BernoulliCrossover::new(0, 1, 0.25).unwrap()])
+        .extend_bernoullil(&[BernoulliCrossover::new(0, 1, 0.25).unwrap()])
         .extend_poisson(&[PoissonCrossover::new(1, 2, 2e-3).unwrap()])
         .extend_independent_assortment(&[IndependentAssortment::new(1).unwrap()]);
     assert_eq!(builder.poisson().len(), 2);
-    assert_eq!(builder.binomial().len(), 1);
+    assert_eq!(builder.bernoulli().len(), 1);
     assert_eq!(builder.independent_assortment().len(), 1);
 }
