@@ -110,10 +110,12 @@ impl GeneticMapBuilder {
         self.poisson.extend_from_slice(intervals);
         self
     }
+
     pub fn extend_bernoullil(mut self, intervals: &[BernoulliCrossover]) -> Self {
         self.bernoulli.extend_from_slice(intervals);
         self
     }
+
     pub fn extend_independent_assortment(mut self, at: &[IndependentAssortment]) -> Self {
         self.independent_assortment.extend_from_slice(at);
         self
@@ -140,7 +142,7 @@ struct PoissonRegions {
 }
 
 impl PoissonRegions {
-    fn new(poisson: &[PoissonCrossover]) -> Option<Self> {
+    fn new(poisson: Vec<PoissonCrossover>) -> Option<Self> {
         let mut regions = vec![];
         let mut weights = vec![];
         let mut sum_poisson_means = 0.0;
@@ -174,7 +176,7 @@ struct BernoulliRegions {
 }
 
 impl BernoulliRegions {
-    fn new(binomial: &[BernoulliCrossover]) -> Option<Self> {
+    fn new(binomial: Vec<BernoulliCrossover>) -> Option<Self> {
         let mut regions = vec![];
         let mut probabilities = vec![];
 
@@ -224,8 +226,8 @@ impl GeneticMap {
             builder.bernoulli,
             builder.independent_assortment,
         );
-        let poisson_regions = PoissonRegions::new(&poisson);
-        let bernoulli_regions = BernoulliRegions::new(&bernoulli);
+        let poisson_regions = PoissonRegions::new(poisson);
+        let bernoulli_regions = BernoulliRegions::new(bernoulli);
         Some(Self {
             poisson_regions,
             bernoulli_regions,
