@@ -53,7 +53,6 @@ fn test_generate_poisson_breakpoints_multiple_chromosomes() {
     let mut rng = rand::rngs::StdRng::seed_from_u64(0);
     for _ in 0..100 {
         map.generate_breakpoints(&mut rng);
-        println!("{:?}", map.breakpoints());
         assert!(map
             .breakpoints()
             .windows(2)
