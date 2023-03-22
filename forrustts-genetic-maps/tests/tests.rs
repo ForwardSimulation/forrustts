@@ -1,5 +1,5 @@
-use forrustts_genetic_maps::GeneticMapBuilder;
 use forrustts_genetic_maps::GeneticMap;
+use forrustts_genetic_maps::GeneticMapBuilder;
 
 #[test]
 fn test_build_empty() {
