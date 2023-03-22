@@ -10,6 +10,11 @@ pub enum Breakpoint {
     IndependentAssortment(Position),
 }
 
+pub trait GenerateBreakpoints<T: Rng> {
+    fn generate_breakpoints(&mut self, rng: &mut T);
+    fn breakpoints(&self) -> &[Breakpoint];
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct PoissonCrossover {
     left: Position,
@@ -278,10 +283,6 @@ where
     }
 }
 
-pub trait GenerateBreakpoints<T: Rng> {
-    fn generate_breakpoints(&mut self, rng: &mut T);
-    fn breakpoints(&self) -> &[Breakpoint];
-}
 
 #[cfg(test)]
 mod tests {
