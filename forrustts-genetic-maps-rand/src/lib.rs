@@ -102,7 +102,13 @@ where
             }
         }
         if let Some(bernoulli) = self.bernoulli_regions.as_ref() {
-            unimplemented!("not done yet");
+            for (b, r) in bernoulli.probabilities.iter().zip(bernoulli.regions.iter()) {
+                let x = rng.sample(b);
+                if x {
+                    let pos = rng.sample(r);
+                    self.breakpoints.push(Breakpoint::Crossover(pos.into()));
+                }
+            }
         }
         self.breakpoints.sort();
     }
