@@ -146,6 +146,13 @@ pub struct GeneticMapBuilder {
     independent_assortment: Vec<IndependentAssortment>,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum GeneticMapStatus {
+    Valid,
+    IndependentAssortmentWithinRegions,
+}
+
 impl GeneticMapBuilder {
     pub fn extend_poisson(mut self, intervals: &[PoissonCrossover]) -> Self {
         self.poisson.extend_from_slice(intervals);
@@ -172,6 +179,30 @@ impl GeneticMapBuilder {
 
     pub fn independent_assortment(&self) -> &[IndependentAssortment] {
         &self.independent_assortment
+    }
+
+    fn validate_independent_assortment(&self) -> bool {
+        for i in &self.independent_assortment {
+            for p in &self.poisson {
+                if i.at > p.left && i.at < p.right {
+                    return false;
+                }
+            }
+            for b in &self.bernoulli {
+                if i.at > b.left && i.at < b.right {
+                    return false;
+                }
+            }
+        }
+
+        true
+    }
+
+    pub fn validate(&self) -> GeneticMapStatus {
+        if !self.validate_independent_assortment() {
+            return GeneticMapStatus::IndependentAssortmentWithinRegions;
+        }
+        GeneticMapStatus::Valid
     }
 }
 
@@ -360,6 +391,7 @@ fn test_builder() {
     assert_eq!(builder.poisson().len(), 2);
     assert_eq!(builder.bernoulli().len(), 1);
     assert_eq!(builder.independent_assortment().len(), 1);
+    assert_eq!(builder.validate(), GeneticMapStatus::Valid);
 }
 
 #[test]
