@@ -298,9 +298,9 @@ impl GenerateBreakpoints for GeneticMap {
         }
         let uint = rand_distr::Uniform::new(0., 1.);
         for i in self.independent_assortment.iter() {
-            if rng.sample(uint) <= 0.5 {
+            if rng.sample(uint) < 0.5 {
                 self.breakpoints.push(i.at());
-            }
+            } 
         }
         self.breakpoints.sort();
     }
