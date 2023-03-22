@@ -5,6 +5,7 @@ use forrustts_genetic_maps::BernoulliCrossover;
 use forrustts_genetic_maps::Breakpoint;
 use forrustts_genetic_maps::GenerateBreakpoints;
 use forrustts_genetic_maps::GeneticMapBuilder;
+use forrustts_genetic_maps::IndependentAssortment;
 use forrustts_genetic_maps::PoissonCrossover;
 
 use rand::Rng;
@@ -72,6 +73,7 @@ impl BernoulliRegions {
 pub struct GeneticMap {
     poisson_regions: Option<PoissonRegions>,
     bernoulli_regions: Option<BernoulliRegions>,
+    independent_assortment: Vec<IndependentAssortment>,
     breakpoints: Vec<Breakpoint>,
 }
 
@@ -79,9 +81,11 @@ impl GeneticMap {
     pub fn new_from_builder(builder: GeneticMapBuilder) -> Option<Self> {
         let poisson_regions = PoissonRegions::new(builder.poisson());
         let bernoulli_regions = BernoulliRegions::new(builder.binomial());
+        let independent_assortment = builder.independent_assortment;
         Some(Self {
             poisson_regions,
             bernoulli_regions,
+            independent_assortment,
             breakpoints: vec![],
         })
     }
@@ -108,6 +112,12 @@ where
                     let pos = rng.sample(r);
                     self.breakpoints.push(Breakpoint::Crossover(pos.into()));
                 }
+            }
+        }
+        let uint = rand_distr::Uniform::new(0., 1.);
+        for i in self.independent_assortment.iter() {
+            if rng.sample(uint) <= 0.5 {
+                self.breakpoints.push(i.at());
             }
         }
         self.breakpoints.sort();

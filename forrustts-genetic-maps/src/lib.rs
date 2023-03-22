@@ -102,13 +102,17 @@ impl IndependentAssortment {
             None
         }
     }
+
+    pub fn at(&self) -> Breakpoint {
+        Breakpoint::IndependentAssortment(self.at)
+    }
 }
 
 #[derive(Default, Debug, Clone)]
 pub struct GeneticMapBuilder {
-    poisson: Vec<PoissonCrossover>,
-    binomial: Vec<BernoulliCrossover>,
-    independent_assortment: Vec<IndependentAssortment>,
+    pub poisson: Vec<PoissonCrossover>,
+    pub binomial: Vec<BernoulliCrossover>,
+    pub independent_assortment: Vec<IndependentAssortment>,
 }
 
 impl GeneticMapBuilder {
