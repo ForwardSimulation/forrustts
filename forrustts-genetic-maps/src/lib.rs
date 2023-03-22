@@ -40,12 +40,9 @@ impl Ord for Breakpoint {
     }
 }
 
-pub trait GetBreakpoints {
+pub trait GenerateBreakpoints {
+    fn generate_breakpoints<T: Rng>(&mut self, rng: &mut T);
     fn breakpoints(&self) -> &[Breakpoint];
-}
-
-pub trait GenerateBreakpoints<T: Rng>: GetBreakpoints {
-    fn generate_breakpoints(&mut self, rng: &mut T);
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -282,17 +279,8 @@ impl GeneticMap {
     }
 }
 
-impl GetBreakpoints for GeneticMap {
-    fn breakpoints(&self) -> &[Breakpoint] {
-        &self.breakpoints
-    }
-}
-
-impl<T> GenerateBreakpoints<T> for GeneticMap
-where
-    T: Rng,
-{
-    fn generate_breakpoints(&mut self, rng: &mut T) {
+impl GenerateBreakpoints for GeneticMap {
+    fn generate_breakpoints<T: Rng>(&mut self, rng: &mut T) {
         self.breakpoints.clear();
         if let Some(poisson) = self.poisson_regions.as_ref() {
             let num: u32 = rng.sample(poisson.poisson) as u32;
@@ -316,6 +304,9 @@ where
         }
         self.breakpoints.sort();
     }
+    fn breakpoints(&self) -> &[Breakpoint] {
+        &self.breakpoints
+    }
 }
 
 #[cfg(test)]
@@ -324,14 +315,11 @@ mod tests {
 
     struct MyGeneticMap {}
 
-    impl GetBreakpoints for MyGeneticMap {
+    impl GenerateBreakpoints for MyGeneticMap {
+        fn generate_breakpoints<T: Rng>(&mut self, _rng: &mut T) {}
         fn breakpoints(&self) -> &[Breakpoint] {
             &[]
         }
-    }
-
-    impl GenerateBreakpoints<rand::rngs::StdRng> for MyGeneticMap {
-        fn generate_breakpoints(&mut self, _rng: &mut rand::rngs::StdRng) {}
     }
 }
 

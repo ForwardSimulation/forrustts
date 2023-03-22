@@ -3,7 +3,6 @@ use forrustts_genetic_maps::BernoulliCrossover;
 use forrustts_genetic_maps::GenerateBreakpoints;
 use forrustts_genetic_maps::GeneticMap;
 use forrustts_genetic_maps::GeneticMapBuilder;
-use forrustts_genetic_maps::GetBreakpoints;
 use forrustts_genetic_maps::IndependentAssortment;
 use forrustts_genetic_maps::PoissonCrossover;
 use rand::SeedableRng;
