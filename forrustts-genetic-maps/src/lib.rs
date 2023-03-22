@@ -300,7 +300,7 @@ impl GenerateBreakpoints for GeneticMap {
         for i in self.independent_assortment.iter() {
             if rng.sample(uint) < 0.5 {
                 self.breakpoints.push(i.at());
-            } 
+            }
         }
         self.breakpoints.sort();
     }
