@@ -125,7 +125,7 @@ impl GeneticMapBuilder {
         self
     }
 
-    pub fn extend_bernoullil(mut self, intervals: &[BernoulliCrossover]) -> Self {
+    pub fn extend_bernoulli(mut self, intervals: &[BernoulliCrossover]) -> Self {
         self.bernoulli.extend_from_slice(intervals);
         self
     }
@@ -336,7 +336,7 @@ fn test_independent_assortment() {
 fn test_builder() {
     let builder = GeneticMapBuilder::default()
         .extend_poisson(&[PoissonCrossover::new(0, 1, 1e-3).unwrap()])
-        .extend_bernoullil(&[BernoulliCrossover::new(0, 1, 0.25).unwrap()])
+        .extend_bernoulli(&[BernoulliCrossover::new(0, 1, 0.25).unwrap()])
         .extend_poisson(&[PoissonCrossover::new(1, 2, 2e-3).unwrap()])
         .extend_independent_assortment(&[IndependentAssortment::new(1).unwrap()]);
     assert_eq!(builder.poisson().len(), 2);
