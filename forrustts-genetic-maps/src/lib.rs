@@ -371,3 +371,23 @@ fn test_breakpoint() {
     );
     assert!(Breakpoint::IndependentAssortment(10.into()) < Breakpoint::Crossover(11.into()));
 }
+
+#[test]
+fn test_breakpoint_sorting() {
+    let mut v = vec![
+        Breakpoint::Crossover(20.into()),
+        Breakpoint::IndependentAssortment(30.into()),
+        Breakpoint::IndependentAssortment(11.into()),
+        Breakpoint::Crossover(10.into()),
+    ];
+    v.sort();
+    assert_eq!(
+        &v,
+        &[
+            Breakpoint::Crossover(10.into()),
+            Breakpoint::IndependentAssortment(11.into()),
+            Breakpoint::Crossover(20.into()),
+            Breakpoint::IndependentAssortment(30.into()),
+        ]
+    );
+}
