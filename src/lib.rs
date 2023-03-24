@@ -19,7 +19,6 @@ pub use forrustts_simplification::*;
 pub use forrustts_tables::*;
 pub use forrustts_trees::*;
 
-pub mod genetic_maps;
 pub mod tskit_export;
 
 /// Get the forrustts version number.
