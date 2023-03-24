@@ -1,7 +1,7 @@
 use rand::SeedableRng;
 
 use forrustts_core::newtypes::Position;
-use forrustts_genetic_maps::*;
+use forrustts_genetics::*;
 
 #[test]
 fn test_build_empty() {
