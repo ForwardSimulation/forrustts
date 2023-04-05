@@ -15,6 +15,7 @@
 //! In the `examples/` directory of the project repository.
 
 pub use forrustts_core::newtypes::*;
+pub mod genetics;
 
 /// Get the forrustts version number.
 pub fn version() -> &'static str {
