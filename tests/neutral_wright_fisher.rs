@@ -433,7 +433,7 @@ fn validate_simplification_interval(x: i64) -> i64 {
 }
 
 bitflags! {
-    #[derive(Default)]
+    #[derive(Default, Copy, Clone, Debug)]
     pub struct SimulationFlags: u32
     {
         /// If set, and BUFFER_EDGES is not set,

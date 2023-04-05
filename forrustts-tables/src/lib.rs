@@ -346,7 +346,7 @@ bitflags! {
     /// We define some flags starting at the 16th bit.
     /// We consider bits 16-24 (inclusive) reserved for
     /// this crate.
-    #[derive(Default)]
+    #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct NodeFlags: u32 {
         /// The node is a sample node.
         const IS_SAMPLE = 1 << 0;
@@ -367,6 +367,7 @@ bitflags! {
     /// let f = forrustts_tables::TableValidationFlags::default();
     /// assert_eq!(f.contains(forrustts_tables::TableValidationFlags::VALIDATE_ALL), true);
     /// ```
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct TableValidationFlags: u32 {
         /// Validate the edge table
         const VALIDATE_EDGES = 1<<0;
@@ -378,7 +379,7 @@ bitflags! {
         const VALIDATE_NODES = 1<<3;
         /// Validate all tables.
         /// This is also the "default" value.
-        const VALIDATE_ALL = Self::VALIDATE_EDGES.bits|Self::VALIDATE_MUTATIONS.bits|Self::VALIDATE_SITES.bits|Self::VALIDATE_NODES.bits;
+        const VALIDATE_ALL = Self::VALIDATE_EDGES.bits()|Self::VALIDATE_MUTATIONS.bits()|Self::VALIDATE_SITES.bits()|Self::VALIDATE_NODES.bits();
     }
 }
 
@@ -398,7 +399,7 @@ bitflags! {
     /// let f = forrustts_tables::TableSortingFlags::empty();
     /// assert_eq!(f, forrustts_tables::TableSortingFlags::default());
     /// ```
-    #[derive(Default)]
+    #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct TableSortingFlags: u32 {
         /// Do not sort the edge table.
         const SKIP_EDGE_TABLE = 1 << 0;
@@ -410,7 +411,7 @@ bitflags! {
     /// [``TableCollection::build_indexes``]
     ///
     /// The default means "validate no tables".
-    #[derive(Default)]
+    #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct IndexTablesFlags: u32 {
         /// Do not validate edge table
         const NO_VALIDATION = 1<<0;
