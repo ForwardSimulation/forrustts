@@ -2,6 +2,12 @@
 name = "forrustts-genetics"
 version = "0.1.0"
 edition = "2021"
+authors = ["molpopgen <krthornt@uci.edu>"]
+description = "Forward-time simulation with tree sequence recording in rust."
+license = "MIT"
+homepage = "https://github.com/ForwardSimulation/forrustts"
+repository = "https://github.com/ForwardSimulation/forrustts"
+keywords = ["simulation", "tree_sequences", "tskit", "population_genetics"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -4,7 +4,7 @@ This package is currently "experimental"!
 
 `forrustts` (pronounced "forests") is a port of many ideas from the [fwdpp](https://github.com/ForwardSimulation/fwdpp) library from C++ to rust.
 
-It is licensed under the GNU General Public License, version 3 or later ("GPL3+").
+It is licensed under the MIT license.
 
 ## Packaging
 
