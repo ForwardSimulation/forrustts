@@ -15,27 +15,8 @@ It is licensed under the GNU General Public License, version 3 or later ("GPL3+"
 
 ```
 cargo build
-cargo test
+cargo test --workspace
 ```
-
-Example programs are in the subdirectory `examples/`:
-
-```
-cargo build --examples
-```
-
-The binaries will then be found in `target/debug/examples`.
-
-To build optimized examples:
-
-```
-cargo build --release --examples
-```
-
-The binaries will then be found in `target/release/examples`.
-
-These programs use [clap](https://crates.io/crates/clap) for command-line options.
-Pass ``--help`` to any of them for usage information.
 
 ## Development information
 

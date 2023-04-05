@@ -37,18 +37,6 @@ jobs:
       - name: test forrustts-core
         run: |
           cargo hack test --manifest-path forrustts-core/Cargo.toml --feature-powerset
-      - name: test forrustts-tables
-        run: |
-          cargo hack test --manifest-path forrustts-tables/Cargo.toml --feature-powerset
-      - name: test forrustts-trees
-        run: |
-          cargo hack test --manifest-path forrustts-trees/Cargo.toml --feature-powerset
-      - name: test forrustts-simplification
-        run: |
-          cargo hack test --manifest-path forrustts-simplification/Cargo.toml --feature-powerset
-      - name: test forrustts-tskit
-        run: |
-          cargo hack test --manifest-path forrustts-tskit/Cargo.toml --feature-powerset
       - name: test forrustts-genetics
         run: |
           cargo hack test --manifest-path forrustts-genetics/Cargo.toml --feature-powerset
