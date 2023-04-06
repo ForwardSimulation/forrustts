@@ -16,6 +16,7 @@
 
 pub use forrustts_core::prelude::*;
 pub mod genetics;
+pub mod prelude;
 
 /// Get the forrustts version number.
 pub fn version() -> &'static str {
