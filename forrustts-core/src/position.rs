@@ -4,6 +4,28 @@
 pub struct Position(i64);
 
 impl Position {
+    /// Create a new Position
+    ///
+    /// # Returns
+    ///
+    /// * `Some` if `position` is non-negative
+    /// * `None` otherwise
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let p = forrustts_core::Position::new(10).unwrap();
+    /// assert_eq!(p, 10); // can be compared to i64
+    /// # assert_eq!(10, p);
+    /// # assert!(p > 0);
+    /// # assert!(p != 0);
+    /// # assert!(p >= 10);
+    /// # assert!(p <= 10);
+    /// # assert!(0 < p);
+    /// let p2 = forrustts_core::Position::new(11).unwrap();
+    /// assert!(p < p2);
+    /// assert!(p != p2);
+    /// ```
     pub fn new(position: i64) -> Option<Self> {
         if position >= 0 {
             Some(Self(position))
@@ -12,6 +34,21 @@ impl Position {
         }
     }
 
+    /// Create a new position with a non-negative integer
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let p = forrustts_core::Position::new_valid(10);
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Will panic if `position` < 0.
+    ///
+    /// ```should_panic
+    /// let p = forrustts_core::Position::new(-1).unwrap();
+    /// ```
     pub fn new_valid(position: i64) -> Self {
         Self::new(position).unwrap()
     }
