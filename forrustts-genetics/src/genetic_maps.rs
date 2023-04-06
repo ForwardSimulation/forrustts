@@ -223,7 +223,7 @@ impl GeneticMapBuilder {
 
 #[derive(Debug)]
 struct PoissonRegions {
-    regions: Vec<rand_distr::Uniform<i64>>,
+    regions: Vec<rand_distr::Uniform<Position>>,
     lookup: rand_distr::WeightedAliasIndex<f64>,
     poisson: rand_distr::Poisson<f64>,
 }
@@ -236,7 +236,7 @@ impl PoissonRegions {
         for p in poisson {
             let mean = p.mean();
             if mean > 0.0 {
-                let u = rand_distr::Uniform::new(i64::from(p.left()), i64::from(p.right()));
+                let u = rand_distr::Uniform::new(p.left(), p.right());
                 regions.push(u);
                 weights.push(mean);
                 sum_poisson_means += mean;
@@ -253,13 +253,13 @@ impl PoissonRegions {
 
     fn generate<T: Rng>(&self, rng: &mut T) -> Breakpoint {
         let i = rng.sample(&self.lookup);
-        Breakpoint::Crossover(Position::new_valid(rng.sample(self.regions[i])))
+        Breakpoint::Crossover(rng.sample(self.regions[i]))
     }
 }
 
 #[derive(Debug)]
 struct BernoulliRegions {
-    regions: Vec<rand_distr::Uniform<i64>>,
+    regions: Vec<rand_distr::Uniform<Position>>,
     probabilities: Vec<rand_distr::Bernoulli>,
 }
 
@@ -271,7 +271,7 @@ impl BernoulliRegions {
         for b in binomial {
             let prob = b.probability();
             if prob > 0.0 {
-                let u = rand_distr::Uniform::new(i64::from(b.left()), i64::from(b.right()));
+                let u = rand_distr::Uniform::new(b.left(), b.right());
                 regions.push(u);
                 let dist = rand_distr::Bernoulli::new(prob).ok()?;
                 probabilities.push(dist);
@@ -290,9 +290,7 @@ impl BernoulliRegions {
 
     fn generate<T: Rng>(&self, index: usize, rng: &mut T) -> Option<Breakpoint> {
         if rng.sample(self.probabilities[index]) {
-            Some(Breakpoint::Crossover(
-                rng.sample(self.regions[index]).try_into().ok()?,
-            ))
+            Some(Breakpoint::Crossover(rng.sample(self.regions[index])))
         } else {
             None
         }
