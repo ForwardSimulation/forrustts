@@ -2,6 +2,8 @@ use thiserror::Error;
 
 mod position;
 pub mod prelude;
+#[cfg(feature = "rand")]
+mod rand_position;
 mod time;
 
 pub use position::Position;

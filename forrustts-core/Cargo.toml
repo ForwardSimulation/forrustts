@@ -13,3 +13,12 @@ keywords = ["simulation", "tree_sequences", "tskit", "population_genetics"]
 
 [dependencies]
 thiserror = "1.0"
+# NOTE: automagically adds rand as a cargo feature
+rand = { version = "0.8.5", optional = true }
+
+[dev-dependencies]
+proptest = "1.1.0"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "doc_cfg"]
