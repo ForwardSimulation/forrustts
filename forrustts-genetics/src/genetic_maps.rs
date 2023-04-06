@@ -1,4 +1,4 @@
-use forrustts_core::newtypes::Position;
+use forrustts_core::Position;
 use rand::Rng;
 
 /// Breakpoint positions from crossover events
@@ -53,11 +53,11 @@ pub struct PoissonCrossover {
 impl PoissonCrossover {
     pub fn new<L, R>(left: L, right: R, mean: f64) -> Option<Self>
     where
-        L: Into<Position>,
-        R: Into<Position>,
+        L: TryInto<Position>,
+        R: TryInto<Position>,
     {
-        let left = left.into();
-        let right = right.into();
+        let left = left.try_into().ok()?;
+        let right = right.try_into().ok()?;
         if left < 0 || right < 0 || right <= left || !mean.is_finite() || mean < 0.0 {
             None
         } else {
@@ -67,9 +67,9 @@ impl PoissonCrossover {
 
     pub fn new_point<P>(at: P, mean: f64) -> Option<Self>
     where
-        P: Into<Position>,
+        P: TryInto<Position>,
     {
-        let left = at.into();
+        let left = at.try_into().ok()?;
         let right = i64::from(left) + 1;
         Self::new(left, right, mean)
     }
@@ -95,11 +95,11 @@ pub struct BernoulliCrossover {
 impl BernoulliCrossover {
     pub fn new<L, R>(left: L, right: R, probability: f64) -> Option<Self>
     where
-        L: Into<Position>,
-        R: Into<Position>,
+        L: TryInto<Position>,
+        R: TryInto<Position>,
     {
-        let left = left.into();
-        let right = right.into();
+        let left = left.try_into().ok()?;
+        let right = right.try_into().ok()?;
         if left < 0
             || right < 0
             || right <= left
@@ -117,9 +117,9 @@ impl BernoulliCrossover {
     }
     pub fn new_point<P>(at: P, probability: f64) -> Option<Self>
     where
-        P: Into<Position>,
+        P: TryInto<Position>,
     {
-        let left = at.into();
+        let left = at.try_into().ok()?;
         let right = i64::from(left) + 1;
         Self::new(left, right, probability)
     }
@@ -140,8 +140,8 @@ pub struct IndependentAssortment {
 }
 
 impl IndependentAssortment {
-    pub fn new<P: Into<Position>>(at: P) -> Option<Self> {
-        let at = at.into();
+    pub fn new<P: TryInto<Position>>(at: P) -> Option<Self> {
+        let at = at.try_into().ok()?;
         if at >= 0 {
             Some(Self { at })
         } else {
@@ -253,7 +253,7 @@ impl PoissonRegions {
 
     fn generate<T: Rng>(&self, rng: &mut T) -> Breakpoint {
         let i = rng.sample(&self.lookup);
-        Breakpoint::Crossover(rng.sample(self.regions[i]).into())
+        Breakpoint::Crossover(Position::new_valid(rng.sample(self.regions[i])))
     }
 }
 
@@ -291,7 +291,7 @@ impl BernoulliRegions {
     fn generate<T: Rng>(&self, index: usize, rng: &mut T) -> Option<Breakpoint> {
         if rng.sample(self.probabilities[index]) {
             Some(Breakpoint::Crossover(
-                rng.sample(self.regions[index]).into(),
+                rng.sample(self.regions[index]).try_into().ok()?,
             ))
         } else {
             None

@@ -68,30 +68,40 @@ fn test_builder() {
 
 #[test]
 fn test_breakpoint() {
-    assert!(Breakpoint::Crossover(10.into()) < Breakpoint::IndependentAssortment(11.into()));
-    assert!(Breakpoint::Crossover(10.into()) < Breakpoint::Crossover(11.into()));
     assert!(
-        Breakpoint::IndependentAssortment(10.into()) < Breakpoint::IndependentAssortment(11.into())
+        Breakpoint::Crossover(10.try_into().unwrap())
+            < Breakpoint::IndependentAssortment(11.try_into().unwrap())
     );
-    assert!(Breakpoint::IndependentAssortment(10.into()) < Breakpoint::Crossover(11.into()));
+    assert!(
+        Breakpoint::Crossover(10.try_into().unwrap())
+            < Breakpoint::Crossover(11.try_into().unwrap())
+    );
+    assert!(
+        Breakpoint::IndependentAssortment(10.try_into().unwrap())
+            < Breakpoint::IndependentAssortment(11.try_into().unwrap())
+    );
+    assert!(
+        Breakpoint::IndependentAssortment(10.try_into().unwrap())
+            < Breakpoint::Crossover(11.try_into().unwrap())
+    );
 }
 
 #[test]
 fn test_breakpoint_sorting() {
     let mut v = vec![
-        Breakpoint::Crossover(20.into()),
-        Breakpoint::IndependentAssortment(30.into()),
-        Breakpoint::IndependentAssortment(11.into()),
-        Breakpoint::Crossover(10.into()),
+        Breakpoint::Crossover(20.try_into().unwrap()),
+        Breakpoint::IndependentAssortment(30.try_into().unwrap()),
+        Breakpoint::IndependentAssortment(11.try_into().unwrap()),
+        Breakpoint::Crossover(10.try_into().unwrap()),
     ];
     v.sort();
     assert_eq!(
         &v,
         &[
-            Breakpoint::Crossover(10.into()),
-            Breakpoint::IndependentAssortment(11.into()),
-            Breakpoint::Crossover(20.into()),
-            Breakpoint::IndependentAssortment(30.into()),
+            Breakpoint::Crossover(10.try_into().unwrap()),
+            Breakpoint::IndependentAssortment(11.try_into().unwrap()),
+            Breakpoint::Crossover(20.try_into().unwrap()),
+            Breakpoint::IndependentAssortment(30.try_into().unwrap()),
         ]
     );
 }
