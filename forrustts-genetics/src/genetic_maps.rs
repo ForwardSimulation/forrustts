@@ -7,7 +7,7 @@ use rand::Rng;
 ///
 /// * Comparision operations are based
 ///   on the stored
-///   [`Position`](forrustts_core::newtypes::Position).
+///   [`Position`](forrustts_core::Position).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Breakpoint {
