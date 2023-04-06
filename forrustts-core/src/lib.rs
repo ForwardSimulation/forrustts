@@ -1,11 +1,14 @@
-mod macros;
-
-pub mod newtypes;
-
 use thiserror::Error;
+
+mod position;
+pub mod prelude;
+mod time;
+
+pub use position::Position;
+pub use time::Time;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("range error: {}", *.0)]
-    ConversionError(String),
+    #[error("{0:?}")]
+    PositionError(i64),
 }

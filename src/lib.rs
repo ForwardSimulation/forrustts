@@ -14,7 +14,7 @@
 //!
 //! In the `examples/` directory of the project repository.
 
-pub use forrustts_core::newtypes::*;
+pub use forrustts_core::prelude::*;
 pub mod genetics;
 
 /// Get the forrustts version number.

@@ -1,6 +1,6 @@
 use rand::SeedableRng;
 
-use forrustts_core::newtypes::Position;
+use forrustts_core::Position;
 use forrustts_genetics::*;
 
 #[test]
