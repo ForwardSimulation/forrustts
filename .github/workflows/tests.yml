@@ -36,7 +36,7 @@ jobs:
           cargo hack test --feature-powerset
       - name: test forrustts-core
         run: |
-          cargo hack test --manifest-path forrustts-core/Cargo.toml --feature-powerset
+          cargo hack test --manifest-path forrustts-core/Cargo.toml --feature-powerset --optional-deps
       - name: test forrustts-genetics
         run: |
           cargo hack test --manifest-path forrustts-genetics/Cargo.toml --feature-powerset
