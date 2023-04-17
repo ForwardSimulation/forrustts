@@ -28,6 +28,8 @@ fn test_generate_bernoulli_breakpoints() {
     map.generate_breakpoints(&mut rng);
     assert_eq!(map.breakpoints().len(), 2);
     assert!(map.breakpoints().windows(2).all(|w| { w[0] <= w[1] }));
+    assert_eq!(map.len(), map.breakpoints().iter().count());
+    assert_eq!(map.is_empty(), map.len() == 0);
 }
 
 #[test]
@@ -40,6 +42,8 @@ fn test_generate_poisson_breakpoints() {
     let mut rng = rand::rngs::StdRng::seed_from_u64(0);
     map.generate_breakpoints(&mut rng);
     assert!(map.breakpoints().windows(2).all(|w| { w[0] <= w[1] }));
+    assert_eq!(map.len(), map.breakpoints().iter().count());
+    assert_eq!(map.is_empty(), map.len() == 0);
 }
 
 #[test]

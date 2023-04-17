@@ -41,6 +41,16 @@ impl Ord for Breakpoint {
 pub trait GenerateBreakpoints {
     fn generate_breakpoints<T: Rng>(&mut self, rng: &mut T);
     fn breakpoints(&self) -> &[Breakpoint];
+
+    /// Number of generated breakpoints.
+    fn len(&self) -> usize {
+        self.breakpoints().len()
+    }
+
+    /// Checks if generated breakpoints are empty.
+    fn is_empty(&self) -> bool {
+        self.breakpoints().is_empty()
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
