@@ -1,3 +1,4 @@
+use forrustts_genetics::rand;
 use rand::SeedableRng;
 
 use forrustts_core::Position;

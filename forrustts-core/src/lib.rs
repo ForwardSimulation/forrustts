@@ -4,11 +4,13 @@
 #![warn(rustdoc::broken_intra_doc_links)]
 #![cfg_attr(doc_cfg, feature(doc_cfg))]
 
+pub use rand;
+pub use rand_distr;
+
 use thiserror::Error;
 
 mod position;
 pub mod prelude;
-#[cfg(feature = "rand")]
 mod rand_position;
 mod time;
 

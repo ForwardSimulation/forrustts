@@ -1,5 +1,7 @@
+use crate::rand::Rng;
+use crate::rand_distr;
+
 use forrustts_core::Position;
-use rand::Rng;
 
 /// Breakpoint positions from crossover events
 ///

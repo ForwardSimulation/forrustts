@@ -1,5 +1,8 @@
 //! Core types for genetics
 
+pub use forrustts_core::rand;
+pub use forrustts_core::rand_distr;
+
 mod genetic_maps;
 
 pub use genetic_maps::BernoulliCrossover;
