@@ -12,7 +12,7 @@ keywords = ["simulation", "tree_sequences", "tskit", "population_genetics"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-thiserror = "1.0"
+thiserror = "2.0"
 # NOTE: automagically adds rand as a cargo feature
 rand = { version = "0.8.5", optional = true }
 
