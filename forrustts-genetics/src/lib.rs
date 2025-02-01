@@ -11,20 +11,20 @@ pub use genetic_maps::GeneticMapStatus;
 pub use genetic_maps::IndependentAssortment;
 pub use genetic_maps::PoissonCrossover;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rand::Rng;
-
-    struct MyGeneticMap {}
-
-    impl GenerateBreakpoints for MyGeneticMap {
-        fn generate_breakpoints<T: Rng>(&mut self, _rng: &mut T) {}
-        fn breakpoints(&self) -> &[Breakpoint] {
-            &[]
-        }
-    }
-}
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use rand::Rng;
+//
+//     struct MyGeneticMap {}
+//
+//     impl GenerateBreakpoints for MyGeneticMap {
+//         fn generate_breakpoints<T: Rng>(&mut self, _rng: &mut T) {}
+//         fn breakpoints(&self) -> &[Breakpoint] {
+//             &[]
+//         }
+//     }
+// }
 
 #[test]
 fn test_poisson_crossover() {

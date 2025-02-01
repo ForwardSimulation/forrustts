@@ -2,7 +2,6 @@
 
 #![warn(missing_docs)]
 #![warn(rustdoc::broken_intra_doc_links)]
-#![cfg_attr(doc_cfg, feature(doc_cfg))]
 
 use thiserror::Error;
 

@@ -9,6 +9,13 @@ homepage = "https://github.com/ForwardSimulation/forrustts"
 repository = "https://github.com/ForwardSimulation/forrustts"
 keywords = ["simulation", "tree_sequences", "tskit", "population_genetics"]
 
+# Added for rust >= 1.80.0
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(doc_cfg)'] }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "doc_cfg"]
 
 [workspace]
 members = [
