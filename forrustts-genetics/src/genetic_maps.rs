@@ -15,20 +15,24 @@ pub enum Breakpoint {
     IndependentAssortment(Position),
 }
 
+impl Breakpoint {
+    fn as_position(&self) -> Position {
+        match self {
+            Breakpoint::IndependentAssortment(p) => *p,
+            Breakpoint::Crossover(p) => *p,
+        }
+    }
+}
+
 impl From<Breakpoint> for Position {
     fn from(value: Breakpoint) -> Self {
-        match value {
-            Breakpoint::IndependentAssortment(p) => p,
-            Breakpoint::Crossover(p) => p,
-        }
+        value.as_position()
     }
 }
 
 impl PartialOrd for Breakpoint {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        let left = Position::from(*self);
-        let right = Position::from(*other);
-        left.partial_cmp(&right)
+        Some(self.as_position().cmp(&other.as_position()))
     }
 }
 
