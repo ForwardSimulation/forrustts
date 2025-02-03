@@ -2,6 +2,7 @@
 mod test_rand_traits {
     use forrustts_core::Position;
     use proptest::prelude::*;
+    use rand::Rng;
     use rand::SeedableRng;
 
     proptest! {
@@ -11,7 +12,7 @@ mod test_rand_traits {
             if a != b { // else rand will panic
                 let lo = Position::new_valid(std::cmp::min(a, b));
                 let hi = Position::new_valid(std::cmp::max(a, b));
-                let upos = rand::distributions::Uniform::<Position>::new(lo, hi);
+                let upos = rand::distr::Uniform::<Position>::new(lo, hi).unwrap();
                 let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
                 for _ in 0..100 {
                     let _ = rng.sample(upos);
@@ -27,7 +28,7 @@ mod test_rand_traits {
             if a != b { // else rand will panic
                 let lo = Position::new_valid(std::cmp::min(a, b));
                 let hi = Position::new_valid(std::cmp::max(a, b));
-                let upos = rand::distributions::Uniform::<Position>::new_inclusive(lo, hi);
+                let upos = rand::distr::Uniform::<Position>::new_inclusive(lo, hi).unwrap();
                 let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
                 for _ in 0..100 {
                     let _ = rng.sample(upos);
