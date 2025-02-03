@@ -238,7 +238,7 @@ impl GeneticMapBuilder {
 #[derive(Debug)]
 struct PoissonRegions {
     regions: Vec<rand_distr::Uniform<Position>>,
-    lookup: rand_distr::WeightedAliasIndex<f64>,
+    lookup: rand_distr::weighted::WeightedAliasIndex<f64>,
     poisson: rand_distr::Poisson<f64>,
 }
 
@@ -250,13 +250,13 @@ impl PoissonRegions {
         for p in poisson {
             let mean = p.mean();
             if mean > 0.0 {
-                let u = rand_distr::Uniform::new(p.left(), p.right());
+                let u = rand_distr::Uniform::new(p.left(), p.right()).ok()?;
                 regions.push(u);
                 weights.push(mean);
                 sum_poisson_means += mean;
             }
         }
-        let lookup = rand_distr::WeightedAliasIndex::new(weights).ok()?;
+        let lookup = rand_distr::weighted::WeightedAliasIndex::new(weights).ok()?;
         let poisson = rand_distr::Poisson::new(sum_poisson_means).ok()?;
         Some(Self {
             regions,
@@ -285,7 +285,7 @@ impl BernoulliRegions {
         for b in binomial {
             let prob = b.probability();
             if prob > 0.0 {
-                let u = rand_distr::Uniform::new(b.left(), b.right());
+                let u = rand_distr::Uniform::new(b.left(), b.right()).ok()?;
                 regions.push(u);
                 let dist = rand_distr::Bernoulli::new(prob).ok()?;
                 probabilities.push(dist);
@@ -357,7 +357,7 @@ impl GenerateBreakpoints for GeneticMap {
                 }
             }
         }
-        let uint = rand_distr::Uniform::new(0., 1.);
+        let uint = rand_distr::Uniform::new(0., 1.).unwrap();
         for i in self.independent_assortment.iter() {
             if rng.sample(uint) < 0.5 {
                 self.breakpoints.push(i.at());

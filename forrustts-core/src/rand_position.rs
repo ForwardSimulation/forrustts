@@ -1,4 +1,4 @@
-use rand::distributions::uniform::{SampleBorrow, SampleUniform, UniformInt, UniformSampler};
+use rand::distr::uniform::{SampleBorrow, SampleUniform, UniformInt, UniformSampler};
 use rand::prelude::Rng;
 
 use crate::Position;
@@ -9,25 +9,25 @@ pub struct UniformPos(UniformInt<i64>);
 
 impl UniformSampler for UniformPos {
     type X = Position;
-    fn new<B1, B2>(low: B1, high: B2) -> Self
+    fn new<B1, B2>(low: B1, high: B2) -> Result<Self, rand::distr::uniform::Error>
     where
         B1: SampleBorrow<Self::X> + Sized,
         B2: SampleBorrow<Self::X> + Sized,
     {
-        UniformPos(UniformInt::<i64>::new(
+        Ok(UniformPos(UniformInt::<i64>::new(
             i64::from(*low.borrow()),
             i64::from(*high.borrow()),
-        ))
+        )?))
     }
-    fn new_inclusive<B1, B2>(low: B1, high: B2) -> Self
+    fn new_inclusive<B1, B2>(low: B1, high: B2) -> Result<Self, rand::distr::uniform::Error>
     where
         B1: SampleBorrow<Self::X> + Sized,
         B2: SampleBorrow<Self::X> + Sized,
     {
-        UniformPos(UniformInt::<i64>::new_inclusive(
+        Ok(UniformPos(UniformInt::<i64>::new_inclusive(
             i64::from(*low.borrow()),
             i64::from(*high.borrow()),
-        ))
+        )?))
     }
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::X {
         Position::new_valid(self.0.sample(rng))
